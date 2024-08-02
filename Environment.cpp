@@ -5,6 +5,8 @@ using namespace std;
 Environment::Tile Environment::Map[50][100]; //this somehow resolved link error of People not accessing the Map, but might have unintended consequences?
 vector<Environment::sky_tile> Environment::Sky;
 
+ItemSys it;//used to access member functions and variables of ItemSys
+
 Environment::Environment(int hours_in_day) {
 	int range1_minx = 0;
 	int range1_miny = 0;
@@ -32,35 +34,50 @@ Environment::Environment(int hours_in_day) {
 			if((y >= range1_miny && y <= range1_maxy) && (x >= range1_minx && x <= range1_maxx)) {
 					int z = rand() % 100;
 					if (z < 20) {
-						Map[y][x].has_food = true;
+						ItemSys::Item food = it.food;
+						food.item_id = ItemSys::new_item_id();
+						ItemSys::item_list.push_back(food);
+						Map[y][x].item_id=food.item_id;
 					}
 			}
 
 			else if ((y >= range2_miny && y <= range2_maxy) && (x >= range2_minx && x <= range2_maxx)) {
 				int z = rand() % 100;
 				if (z < 20) {
-					Map[y][x].has_food = true;
+					ItemSys::Item food = it.food;
+					food.item_id = ItemSys::new_item_id();
+					ItemSys::item_list.push_back(food);
+					Map[y][x].item_id = food.item_id;
 				}
 			}
 
 			else if ((y >= range3_miny && y <= range3_maxy) && (x >= range3_minx && x <= range3_maxx)) {
 				int z = rand() % 100;
 				if (z < 20) {
-					Map[y][x].has_food = true;
+					ItemSys::Item food = it.food;
+					food.item_id = ItemSys::new_item_id();
+					ItemSys::item_list.push_back(food);
+					Map[y][x].item_id = food.item_id;
 				}
 			}
 
 			else if ((y >= range4_miny && y <= range4_maxy) && (x >= range4_minx && x <= range4_maxx)) {
 				int z = rand() % 100;
 				if (z < 20) {
-					Map[y][x].has_food = true;
+					ItemSys::Item food = it.food;
+					food.item_id = ItemSys::new_item_id();
+					ItemSys::item_list.push_back(food);
+					Map[y][x].item_id = food.item_id;
 				}
 			}
 
 			else {
 				int z = rand() % 100;
 				if (z < 1) {
-					Map[y][x].has_food = true;
+					ItemSys::Item food = it.food;
+					food.item_id = ItemSys::new_item_id();
+					ItemSys::item_list.push_back(food);
+					Map[y][x].item_id = food.item_id;
 				}
 			}
 			
@@ -92,3 +109,4 @@ void Environment::update(int hours_in_day, int hour_count) {
 	}
 
 }
+

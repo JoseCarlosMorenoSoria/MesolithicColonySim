@@ -9,7 +9,7 @@
 
 #include "People.hpp"
 #include "Environment.hpp"
-
+#include "ItemSys.hpp"
 using namespace std;
 
 class Game {

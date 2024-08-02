@@ -52,15 +52,16 @@ void Game::initGameState() {
 	destR.y = 0;
 	Environment::Environment(hours_in_day);
 	People::People();
+	ItemSys::ItemSys();
 
 	texture_map = {
 	{"pics/dirt.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/dirt.png"))},
-	{"pics/human.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human.png"))},
-	{"pics/human_idle.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human_idle.png"))},
-	{"pics/human_eating.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human_eating.png"))},
-	{"pics/human_gathering.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human_gathering.png"))},
-	{"pics/human_sleeping.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human_sleeping.png"))},
-	{"pics/human_dead.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human_dead.png"))},
+	{"pics/human.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human.png"))},
+	{"pics/human_idle.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_idle.png"))},
+	{"pics/human_eating.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_eating.png"))},
+	{"pics/human_gathering.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_gathering.png"))},
+	{"pics/human_sleeping.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_sleeping.png"))},
+	{"pics/human_dead.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_dead.png"))},
 	{"pics/berrybush.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/berrybush.png"))},
 	{"pics/house.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/house.png"))},
 	{"pics/sun.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/sun.png"))},
@@ -68,7 +69,9 @@ void Game::initGameState() {
 	{"pics/sky_day.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/sky_day.png"))},
 	{"pics/sky_night.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/sky_night.png"))},
 	{"pics/debug.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/debug.png"))},
-	{"pics/human_giving_food.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human_giving_food.png"))},
+	{"pics/human_giving_food.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_giving_food.png"))},
+	{"human_infant", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_infant.png"))},
+	{"human_infant_dead", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_infant_dead.png"))},
 	};
 }
 
@@ -146,18 +149,19 @@ void Game::render() {
 		for (int x = 0; x < Environment::map_x_max; x++) {
 			destR.x = x * sqdim;
 			destR.y = (y+1) * sqdim;
-			if (Environment::Map[y][x].has_food) {
-				textureManager("pics/berrybush.png", destR);
+			bool no_item = false;
+			int item_id = Environment::Map[y][x].item_id;
+			if (item_id == -1) {
+				no_item = true;
+			}
+			if (!no_item) {
+				textureManager(ItemSys::item_list[ItemSys::item_by_id(item_id)].image, destR);
 			}
 			else {
 				textureManager("pics/dirt.png", destR);
 			}
-			if (Environment::Map[y][x].has_tent) {
-				textureManager("pics/house.png", destR);
-			}
 		}
 	}
-
 	for (int i = 0; i < People::pl.size(); i++) {
 		destR.x = People::pl[i].pos.x * sqdim;
 		destR.y = (People::pl[i].pos.y + 1) * sqdim;

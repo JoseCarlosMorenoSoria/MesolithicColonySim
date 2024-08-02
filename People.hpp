@@ -8,12 +8,11 @@
 #include <vector>
 #include <map>
 #include "Environment.hpp"
-
-
+#include "ItemSys.hpp"
 using namespace std;
 
 class People {
-
+	//NEED TO DO: pull out all constants such as the hunger_level threshold for being hungry out and into the Person struct to better be able to balance these variables with each other
 
 	//structs for tracking function states
 	struct Position {
@@ -21,6 +20,9 @@ class People {
 		int y = -1;
 		bool operator==(Position const& pos2) {
 			return this->x == pos2.x && this->y == pos2.y;
+		}
+		bool operator!=(Position const& pos2) {
+			return this->x != pos2.x || this->y != pos2.y;
 		}
 		//should this include an overload of ! operator to check if pos == {-1,-1} which is the NULL equivalent?
 	};
@@ -38,10 +40,10 @@ class People {
 	};
 
 	struct Message {//need to tie Messages to tiles in map instead of current Message list
+		int message_id = -1;
 		int sender_id = -1;
 		int reciever_id = -1; //-1 is a message for everyone/anyone
 		string messsage = "";
-		Position pos;//might make more sense to have an origin position rather than a position for the whole range now that a map layer exists for messages
 		Position origin;
 	};
 
@@ -58,19 +60,24 @@ class People {
 		int hungry_time = 0;
 		bool awake = true;
 		int tired_level = 0;
-		vector<int> food_inventory; //holds id's of food in inventory
+		vector<int> item_inventory; //holds id's of items in inventory
 		vector<int> group_members; //holds id's of group members
 		bool is_alive = true;
 		Position campsite_pos = {-1,-1};
 		int campsite_age = -1; //used to track how long have lived at that campsite since it was placed to provide a bit of breathing room before removing to find another campsite
 		int reproduction_cooldown = 0; 
-
+		int spouse_id = -1;
+		vector<int> children_id;
+		int age = 0;
+		bool being_carried = false;
+		int carried_by_id = -1;
 		//objects for tracking function states
 		fo_search_for_new_campsite fo1; //unsure if these should be kept or if it makes more sense to have a single shared variable, cuurent_dest
 		fo_searching_for_food fo2;
 		fo_eating fo3;
 		Position fo4;
-
+		bool child_is_hungry = false;//currently a flag to communicate between feed_own_children and searching_for_food and gathering_food. I need to rethink how functions communicate with each other and facilitate direct calls by one to another. Fix this.
+		int hungry_child_index = -1;
 		//these bools need to preserve their state outside each execution of the utility_function
 		bool start_set_up_camp = false; //is set to true when search_for_new_campsite ends so that it only triggers on the next update after search_ ends.
 		bool start_gathering_food = false; //same as set up camp
@@ -82,7 +89,7 @@ class People {
 
 		int radiusmax = -1;//largest radius for searching map. Is set or reset in relevant function
 
-		vector<Message> found_messages;
+		vector<int> found_messages;//message id's
 		vector<vector<Position>> all_found;//for results of function find_all()
 		vector<string> potential_targets = { "food", "people", "mate", "no campsite", "messages" };//these should be class members not object members?
 		map<string, int> target_index = { {"food", 0}, {"people", 1}, {"mate", 2}, {"no campsite", 3}, {"messages", 4} };
@@ -100,10 +107,12 @@ class People {
 	//vectors use more memory than necessary? Need to check
 public:
 	int people_id_iterator = 0;
+	int message_id_iterator = 0;
 	static vector<Person> pl;//people_list
+	static vector<Message> message_list;
 	//DO NOW: give each message an id and store the id on the Message_Map to reduce the storage size of Message_Map
-	static vector<Message> Message_Map[Environment::map_y_max][Environment::map_x_max];//a map layer that holds messages according to their tile location. Makes clearing the map easier by being a separate layer. Each tile can have multiple messages.
-	static vector<int> Person_Map[Environment::map_y_max][Environment::map_x_max];//a map layer to hold people to access directly from a tile instead of searching the whole people list. Holds the id of each person
+	static vector<int> Message_Map[Environment::map_y_max][Environment::map_x_max];//a map layer that holds messages according to their tile location. Makes clearing the map easier by being a separate layer. Each tile can have multiple messages.
+	//static vector<int> Person_Map[Environment::map_y_max][Environment::map_x_max];//a map layer to hold people to access directly from a tile instead of searching the whole people list. Holds the id of each person
 	//Need to test without the messages to see if that is the cause of lag
 
 	int campsite_distance_search = 5;
@@ -121,6 +130,13 @@ public:
 	int new_person_id();
 	int p_by_id(int id);//returns index of person in people list (pl).
 	void add_func_record();
+	int new_message_id();
+	int message_by_id(int id);//returns index of message in message list.
+	vector<int> inventory_has(string target);
+	bool tile_has(string target, Position pos);
+	void create_item(ItemSys::Item item_type, Position pos);
+	void pick_up_item(int item_id, Position pos);
+	void delete_item(int item_id, Position pos);
 	
 	//find_all could be further reduced in terms of time by checking for all people at once, so the number of iterations is simply the largest search rather than searching for every person separately
 	vector<vector<Position>> find_all(vector<string> potential_targets); //instead of calling find for a single use and having to search the map multiple times, this function searches the map for all use cases and returns the results to be accessed instead.
@@ -139,7 +155,9 @@ public:
 	bool give_food();
 	bool reproduce();
 	bool moving_to_bed();
-
+	bool feed_own_infants();
+	//void carry_infant();
+	//void drop_infant();
 };
 
 #endif
