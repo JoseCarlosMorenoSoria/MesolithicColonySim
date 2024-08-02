@@ -6,7 +6,9 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
 #include "Environment.hpp"
+
 
 using namespace std;
 
@@ -38,10 +40,9 @@ class People {
 		int sender_id;
 		int reciever_id = -1; //-1 is a message for everyone/anyone
 		string messsage = "";
-		Position pos;
+		Position pos;//might make more sense to have an origin position rather than a position for the whole range now that a map layer exists for messages
+		Position origin;
 	};
-
-	
 
 	struct Person {
 		int id; //need to figure out a way to make new id automatic rather than a parameter, currently using an int but not automatic enough
@@ -76,30 +77,40 @@ class People {
 
 		vector<string> function_record;//useful for more than debugging, such as determining if did x within the last day (20 updates)
 
+		int radiusmax = -1;//largest radius for searching map. Is set or reset in relevant function
+
+		vector<Message> found_messages;
+		vector<vector<Position>> all_found;//for results of function find_all()
+		vector<string> potential_targets = { "food", "people", "mate", "no campsite", "messages" };//these should be class members not object members?
+		map<string, int> target_index = { {"food", 0}, {"people", 1}, {"mate", 2}, {"no campsite", 3}, {"messages", 4} };
 	};
 
 	static Person p; 
 	
-
+	//vectors use more memory than necessary? Need to check
 public:
 	int people_id_iterator = 0;
 	static vector<Person> people_list;
-	static vector<Message> map_message_list;//global list   vectors might cause a memory leak? Need to check
+	static vector<Message> Message_Map[Environment::map_y_max][Environment::map_x_max];//a map layer that holds messages according to their tile location. Makes clearing the map easier by being a separate layer. Each tile can have multiple messages.
+
+	int campsite_distance_search = 5;
+
 	People();
 	void update_all(int day_count, int hour_count, int hours_in_day);
 	void update(int day_count, int hour_count, int hours_in_day);
 	void utility_function();
 	bool move_to(Position pos);
 	bool has_food();
-	vector<Position> find(string target, int radius, int quantity);
 	bool valid_position(Position pos);
 	Position distance(Position pos1, Position pos2);
-	int campsite_distance_search = 5;
 	bool check_death();
-	vector<Message> check_messages();
 	Position walk_search_random_dest(); //returns a random destination for a random walk
 	int new_person_id();
 	void update_person(Person pers);//used to reinsert a person that was copied out and modified. A pointer might be better but I'm not fully certain to avoiding memory leaks, so using this for now.
+	
+	vector<vector<Position>> find_all(vector<string> potential_targets); //instead of calling find for a single use and having to search the map multiple times, this function searches the map for all use cases and returns the results to be accessed instead.
+	//Result categories: [0]: ? Unsure whether categories (food, people, mate, messages, etc) should have a fixed index or not, maybe not.
+	bool find_check(Position pos, string target);//evaluates a single tile to determine if it contains the target being sought
 
 	bool search_for_new_campsite();
 	bool set_up_camp();
@@ -113,8 +124,6 @@ public:
 	bool give_food(Message m);
 	bool reproduce();
 
-	void find_replacement(int radius);
-	void find_check(Position pos, string target);
 };
 
 #endif

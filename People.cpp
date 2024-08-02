@@ -3,15 +3,14 @@
 //currently works as expected, with the exception of a random unkown crash that crashes the whole computer. Maybe related to death but unsure, haven't tested death state.
 
 //To Do Now: 
-//For some unkown reason, one npc placed a campsite near where there was only 1 food rather than the required 4. In another case it didn't place a campsite despite passing enough food. Need to fix. 
+//For some unkown reason, one npc placed a campsite near where there was only 1 food rather than the required 4. In another case it didn't place a campsite despite passing enough food. Need to fix. Unsure if this is still an issue
 //Encapsulate more into each function in the utility function
-//FIX NOW: not sure if reproduce is working properly, npcs walk far away at times probably due to this function, also stand still sometimes, unsure why
 
 using namespace std;
 
-People::Person People::p; //used to store currently updating Person
+People::Person People::p; //used to store currently updating Person. Whether to pass by value or by reference is more efficient seems to be a case by case basis, some say pass by value allows the compiler to optimize the code better.
 vector<People::Person> People::people_list; //used to store all Person instances
-vector<People::Message> People::map_message_list;
+vector<People::Message> People::Message_Map[Environment::map_y_max][Environment::map_x_max];
 
 People::People() {
     Person p1 = { new_person_id(), {5,5}, true};
@@ -19,11 +18,7 @@ People::People() {
     Person p2 = { new_person_id(), {8,8}, false};
     people_list.push_back(p2);
 
-    for (int i = 0; i < people_list.size(); i++) {
-        p = people_list[i];
-        set_up_camp(); //for now, just set up a camp nearby at start
-        people_list[i] = p;
-    }
+    
 }
 
 int People::new_person_id() {//unsure if this function is redundant with how int++ works or if there's a better method
@@ -43,7 +38,11 @@ void People::update_all(int day_count, int hour_count, int hours_in_day) {
     //clear global message list every other update. One issue with npcs cooperating or communicating is sequence order, 
     //as in if npc1 updates before npc2, anything npc2 says or does won't be witnessed unless it is still there on the next update, NEED TO FIX
     if (message_clear_flag) {
-        map_message_list.clear();
+        for (int y = 0; y < Environment::map_y_max; y++) {//unsure if this is the most efficient way to clear Message_Map
+            for (int x = 0; x < Environment::map_x_max; x++) {
+                Message_Map[y][x].clear();
+            }
+        }
     }
     message_clear_flag = !message_clear_flag;
     
@@ -82,8 +81,10 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
 		else {
 			p.hungry_time = 0;
 		}
-        p.function_record.erase(p.function_record.begin(), p.function_record.end()-5);//once a day, erases all function records except the last 5
-	}
+        if (p.function_record.size() >= 5) {
+            p.function_record.erase(p.function_record.begin(), p.function_record.end() - 5);//once a day, erases all function records except the last 5
+        }
+    }
 
     p.hunger_level++; //hunger increases by 1 per hour, meaning it must decrease by 20 per day to stay at 0 daily average
     p.tired_level++; //same for tired level
@@ -91,6 +92,7 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
     p.reproduction_cooldown++; //for when to find mate and create new person
 
     utility_function();
+    p.found_messages.clear();
 }
 
 bool People::valid_position(Position pos) {
@@ -129,13 +131,13 @@ bool People::move_to(Position dest) {//need to add speed of moving from one tile
 }
 
 bool People::reproduce() {
-    vector<Position> pos_list = find("mate", p.sightline_radius, 1);
+    vector<Position> pos_list = p.all_found[p.target_index["mate"]];
     Person p2;
     bool mate_found = false;
     bool mate_willing = false;
     if (pos_list.size() > 0) {
         mate_found = true;
-        for (Person pers : people_list) {//get person at one's same position, won't work once collision is implemented
+        for (Person pers : people_list) {//get person at one's same position, won't work once collision is implemented. Until there are more people than tiles within search range, this is more efficient(?)
             if (pers.sex!=p.sex && pers.pos == p.pos && pers.reproduction_cooldown > 100) {//if potential mate is willing to mate
                 p2 = pers;
                 mate_willing = true;
@@ -179,92 +181,150 @@ void People::update_person(Person pers) {
     }
 }
 
-
-void People::find_replacement(int radiusmax) {
-    Position o = p.pos;//origin
-
-    for (int radius = 0; radius <= radiusmax; radius++) { //this function checks tilemap in outward rings by checking top/bottom then left/right ring boundaries
-        if (radius == 0) {//avoids double checking origin
-            std::cout << Map[o.y][o.x].x;
-            continue;
-        }
-
-        int xmin = o.x - radius;
-        int xmax = o.x + radius;
-        for (int x = xmin; x <= xmax; x++) {
-            std::cout << Map[o.y + radius][x].x;
-            std::cout << Map[o.y - radius][x].x;
-        }
-
-        int ymin = o.y - radius;
-        int ymax = o.y + radius;
-        for (int y = ymin + 1; y <= ymax - 1; y++) {//+1 and -1 to avoid double checking corners
-            std::cout << Map[y][o.x + radius].x;
-            std::cout << Map[y][o.y - radius].x;
+//if quantity parameter is < 0 (usually -1), then returns all results. Quantity limit not implemented
+vector<vector<People::Position>> People::find_all(vector<string> potential_targets) {//All potential targets are searched for
+    int radius_options[2] = {//all radius options
+        p.sightline_radius, p.audioline_radius
+    };
+    if(p.radiusmax == -1){//used to store result instead of calling every time, only resets if one of the radius options changes such as damaged eyesight, etc
+        for (int i = 0; i < 2; i++) {//selects largest radius
+            if (i == 0) {
+                p.radiusmax = radius_options[i];
+            }
+            else if (p.radiusmax < radius_options[i]) {
+                p.radiusmax = radius_options[i];
+            }
         }
     }
-
+    //int quantity; // still need to adjust find_check and handle quantity limits for some targets
+    Position o = p.pos;//origin
+    vector<vector<Position>> pos_list;
+    //int quantity_found = 0;       Need to implement a quantity limit for each potential target to cut down on iterations
+    for (int radius = 0; radius <= p.radiusmax; radius++) { //this function checks tilemap in outward rings by checking top/bottom and left/right ring boundaries
+        if (radius == 0) {//avoids double checking origin
+            for (int i = 0; i < potential_targets.size(); i++) {
+                vector<Position> emptylist;
+                pos_list.push_back(emptylist);//initialize all target lists as empty vectors
+                if (potential_targets[i] == "food" || potential_targets[i] == "people" || potential_targets[i] == "mate" || potential_targets[i] == "no campsite") {
+                    if (radius > p.sightline_radius) {
+                        continue;
+                    }
+                }
+                else if (potential_targets[i] == "messages") {
+                    if (radius > p.audioline_radius) {
+                        continue;
+                    }
+                }
+                if (find_check({ o.x,o.y }, potential_targets[i])) {
+                    pos_list[i].push_back({o.x,o.y});
+                    /*
+                    quantity_found++;
+                    if (quantity_found == quantity) {//returns list of positions found once desired quantity is found
+                        return pos_list;
+                    }
+                    */
+                }
+            }
+        }
+        int xmin = o.x - radius;
+        int xmax = o.x + radius;
+        int ymin = o.y - radius + 1;//+1 and -1 to avoid double checking corners
+        int ymax = o.y + radius - 1;
+        for (int x = xmin, y = ymin; x <= xmax; x++) {
+            for (int sign = -1; sign<=1; sign+=2) {//sign == -1, then sign == 1
+                for (int i = 0; i < potential_targets.size(); i++) {
+                    //Handle differing radius limits for different potential targets
+                    if (potential_targets[i]=="food" || potential_targets[i]=="people") {
+                        if (radius > p.sightline_radius) {
+                            continue;
+                        }
+                    }
+                    else if (potential_targets[i] == "messages") {
+                        if (radius > p.audioline_radius) {
+                            continue;
+                        }
+                    }
+                    if (find_check({ x, o.y + (sign * radius) }, potential_targets[i])) {
+                        pos_list[i].push_back({ x, o.y + (sign * radius) });
+                        /*
+                        quantity_found++;
+                        if (quantity_found == quantity) {//returns list of positions found once desired quantity is found
+                            return pos_list;
+                        }
+                        */
+                    }
+                    if (y <= ymax) {
+                            if (find_check({ o.x + (sign * radius), y }, potential_targets[i])) {
+                                pos_list[i].push_back({ o.x + (sign * radius), y });
+                                /*
+                                quantity_found++;
+                                if (quantity_found == quantity) {//returns list of positions found once desired quantity is found
+                                    return pos_list;
+                                }
+                                */
+                            }
+                    }
+                }
+            }
+            y++;
+        }
+    }
+    return pos_list;
 }
 
-void People::find_check(Position pos, string target) {
+bool People::find_check(Position pos, string target) {
+    bool found = false;
     if (valid_position({ pos.x,pos.y })) {
         if (target == "food") {
-            if (Environment::Map[y][x].has_food) {//check if tile contains food, currently is simply tied directly to tile rather than being an item
+            if (Environment::Map[pos.y][pos.x].has_food) {//check if tile contains food, currently is simply tied directly to tile rather than being an item
                 found = true;
             }
         }
         else if (target == "people" || target == "mate") {
             for (Person pers : people_list) {//checks the positions of all people in global people list and adds those that have a position matching the current tile being checked
-                Position tmppos = { x,y };
-                if (pers.pos == tmppos && p.id != pers.id) {
+                if (pers.pos == pos && p.id != pers.id) {
                     found = true;
                     if (target == "mate") {
                         if (pers.sex != p.sex) {
                             found = true;
+                            break;
                         }
                         else {
                             found = false;
                         }
                     }
-
                     break;//this assumes there's only 1 person per tile, but collision has not yet been implemented so a tile can have many people, NEED TO FIX
                 }
             }
         }
-
-        if (found) {
-            found = false;
-            pos_list.push_back({ x,y });
-            quantity_found++;
-            if (quantity_found == quantity) {//returns list of positions found once desired quantity is found
-                return pos_list;
+        else if (target == "no campsite") {//find nearest location without a campsite
+            if (Environment::Map[pos.y][pos.x].has_tent == false) {
+                found = true;
             }
         }
-    }
-}
-
-//if quantity parameter is < 0 (usually -1), then returns all results
-vector<People::Position> People::find(string target, int radius, int quantity) {//A radius of 1 is the tile the person is on, a radius of 2 is all adjacent tiles to person
-    vector<Position> pos_list;
-    int tmpradius = 0;
-    int quantity_found = 0;
-
-    bool found = false;
-    while (tmpradius != radius) { //this is just a way to return closest item found but uses far too many redundant loops, need to optimize by only checking each tile once in outward rings
-        for (int y = p.pos.y - tmpradius; y < p.pos.y + tmpradius; y++) { //searches in a x tile radius around the person
-            for (int x = p.pos.x - tmpradius; x < p.pos.x + tmpradius; x++) {
-
-
-
-                find_check({ x,y }, target);
-
-
-
+        else if (target == "messages") {//might also serve as a generic for reacting to sounds
+            for (Message m : Message_Map[pos.y][pos.x]) {//check all messages in this tile
+                if (p.found_messages.size() > 0) {//vector has a check empty function, should use that instead in all cases, need to fix
+                    bool repeated_message = false;
+                    for (Message m1 : p.found_messages) {
+                        if (m.messsage == m1.messsage && m.sender_id == m1.sender_id && m.reciever_id == m1.reciever_id) {//avoids copying messages that differ only in their location
+                            repeated_message = true;
+                            break;
+                        }
+                    }
+                    if (!repeated_message && m.sender_id != p.id) {
+                        p.found_messages.push_back(m);
+                    }
+                }
+                else if (m.sender_id != p.id) {
+                    p.found_messages.push_back(m);
+                }
             }
+            //messages currently don't need to return what tile they were found at, therefore return false even if found messages as the messages are stored in p.found_messages
+            return false;
         }
-        tmpradius++;
     }
-    return pos_list;
+    return found;
 }
 
 //need to make generic for general inventory
@@ -275,76 +335,51 @@ bool People::has_food() {
     return false;
 }
 
-//need to make generic for general messages
+//can this function also be folded into the find_all function somehow to further reduce for loops searching on the map?
 void People::speak(string message_text) {//currently all messages are to everyone
     //current valid messages include:
     //"food request"
     //"giving food"
+
+    //the outward ring method might make more sense in this function to allow certain objects such as walls to block sound, might implement later but not currently
     Message m = { p.id, -1, message_text };//creates message
+    m.origin = p.pos;
     for (int y = p.pos.y - p.audioline_radius; y < p.pos.y + p.audioline_radius; y++) {//creates copies of message for each map position it reaches then adds to global message list
         for (int x = p.pos.x - p.audioline_radius; x < p.pos.x + p.audioline_radius; x++) {
             if (valid_position({ x,y })) {
                 m.pos = { x,y };
-                map_message_list.push_back(m);
+                Message_Map[y][x].push_back(m);
             }
         }
     }
-}
-
-vector<People::Message> People::check_messages() {//might also serve as a generic for reacting to sounds
-    vector<Message> found_messages;
-    for (int y = p.pos.y - p.audioline_radius; y < p.pos.y + p.audioline_radius; y++) {
-        for (int x = p.pos.x - p.audioline_radius; x < p.pos.x + p.audioline_radius; x++) {
-            if (valid_position({ x,y })) {
-                for (Message m : map_message_list) {
-                    Position tmppos = { x,y };
-                    if (m.pos == tmppos) {
-                        if (found_messages.size() > 0) {//vector has a check empty function, should use that instead in all cases, need to fix
-                            bool repeated_message = false;
-                            for (Message m1 : found_messages) {
-                                if (m.messsage == m1.messsage && m.sender_id == m1.sender_id && m.reciever_id == m1.reciever_id) {//avoids copying messages that differ only in their location
-                                    repeated_message = true;
-                                    break;
-                                }
-                            }
-                            if (!repeated_message && m.sender_id != p.id) {
-                                found_messages.push_back(m);
-                            }
-                        }
-                        else if(m.sender_id!=p.id){
-                            found_messages.push_back(m);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return found_messages;
 }
 
 //this function is getting cluttered, encapsulate more in each function and add categorization to functions to keep them better organized
 void People::utility_function() {//is currently actually just a behavior tree not a utility function
+    p.all_found = find_all(p.potential_targets);
+    
+    
     //these bools determine which functions can be called
 
     bool someone_requested_food = false;
     bool someone_is_giving_food = false;
     Message food_request;
-    vector<Message> nearby_messages = check_messages();
-    for (Message m : nearby_messages) {
-        if (m.messsage == "food request") {
-            someone_requested_food = true;
-            food_request = m;
-        }
-        else if (m.messsage == "giving food") {
-            someone_is_giving_food = true;
+    if (p.found_messages.size() > 0) {
+        for (Message m : p.found_messages) {
+            if (m.messsage == "food request") {
+                someone_requested_food = true;
+                food_request = m;
+            }
+            else if (m.messsage == "giving food") {
+                someone_is_giving_food = true;
+            }
         }
     }
-    
 
 
     
     //check for nearby food
-    vector<Position> food_pos_list = find("food", p.sightline_radius, 1); //gets 1 result, assigns 1 result to food_pos
+    vector<Position> food_pos_list = p.all_found[p.target_index["food"]]; //gets results, assigns 1 result to food_pos
     Position food_pos;
     bool found_food = false;
     if (food_pos_list.size() > 0) {
@@ -356,12 +391,11 @@ void People::utility_function() {//is currently actually just a behavior tree no
     }
 
     //check for nearby people, later adjust so check nearby tiles not people_list
-    vector<Position> nearby_people = find("people", p.sightline_radius, -1);//-1 means return all results, quantity unlimited
+    vector<Position> nearby_people = p.all_found[p.target_index["people"]];
     bool people_found = false;
     if (nearby_people.size() > 0) {
         people_found = true;
     }
-
     bool start_search_for_new_campsite = (!found_food || (found_food && (distance(food_pos, p.campsite_pos).x > campsite_distance_search || distance(food_pos, p.campsite_pos).y > campsite_distance_search))) && (p.campsite_pos.x == -1 || p.hungry_time >= 3) && (p.campsite_age > 10 || p.campsite_age == -1); //currently only creates a campsite after having been hungry 3 days, need a trigger for creating a campsite when there is abundant food. Still need to figure out when and when not to create a campsite.
     if (start_search_for_new_campsite) {//remove campsite to be able to be unbound and get food while searching for new campsite, figure out a cleaner way to organize order between finding food to eat now and finding a new campsite
         if (p.campsite_pos.x != -1) { 
@@ -397,7 +431,7 @@ void People::utility_function() {//is currently actually just a behavior tree no
 
     bool start_give_food = !hungry && has_food() && someone_requested_food; 
 
-    bool start_mate_search = false && p.reproduction_cooldown > 100;//currently set to false to prevent execution while optimizing
+    bool start_mate_search = p.reproduction_cooldown > 100;//currently set to false to prevent execution while optimizing
 
     if (p.clean_image) {
         p.current_image = "pics/human.png";
@@ -459,6 +493,8 @@ void People::utility_function() {//is currently actually just a behavior tree no
         p.current_state = "idle";
         idle();
     }
+
+    p.all_found.clear();
 }
 
 bool People::give_food(Message m) {
@@ -511,7 +547,7 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
     }//the move_to function triggers in the conditional
 
     
-    vector<Position> food_pos_list = find("food", p.sightline_radius, 4);//get 4 results
+    vector<Position> food_pos_list = p.all_found[p.target_index["food"]];
     bool end = false;
     
     if (food_pos_list.size() >= 4) {//if there are 4 food items within sight, select area for campsite, else keep searching
@@ -538,34 +574,51 @@ bool People::set_up_camp(){
 
     //need to ensure that the tile being placed in both exists and is not occupied, might need a separate function for this
     //place tent
-    Environment::Map[p.pos.y+1][p.pos.x+1].has_tent = true; //for now simply have a tent be an attribute of the tile rather than a placed item
-    p.campsite_pos = { p.pos.x + 1 , p.pos.y + 1 }; //store campsite location
-    return true; //need to add an actual animation/progress to building the tent rather than immediate placement
+
+    vector<Position> pos_list = p.all_found[p.target_index["no campsite"]];
+    if (pos_list.size() > 0) {
+        Environment::Map[pos_list[0].y][pos_list[0].x].has_tent = true; //for now simply have a tent be an attribute of the tile rather than a placed item
+        p.campsite_pos = pos_list[0]; //store campsite location
+        return true; //need to add an actual animation/progress to building the tent rather than immediate placement
+    }
+    else {
+        move_to(walk_search_random_dest());//random movement without destination
+        return false;
+    }
+
+    
 }
 
 People::Position People::walk_search_random_dest() {
     Position dest;
     bool valid_dest = false;
-    while (!valid_dest) {
-        int max = Environment::map_x_max;
-        int min = 10;
-        int sign = (rand() % 2);
-        (sign == 0) ? sign = -1 : sign = 1;
-        dest.x = sign * ((rand() % (max - min)) + min); //select a destination
-        max = Environment::map_y_max;
-        min = 10;
-        sign = (rand() % 2);
-        (sign == 0) ? sign = -1 : sign = 1;
-        dest.y = sign * ((rand() % (max - min)) + min);
+    while (!valid_dest) {//set destination by setting a direction and duration
+        int max = Environment::map_x_max;//the x axis of a map is always greater than the y, that's why it's the max
+        int min = 1;
+        if (p.campsite_pos.x > -1) {
+            max = campsite_distance_search;
+        }
+        int sign = (rand() % 3)-1;//results in -1, 0, or 1
+        int direction_x = sign;
+        sign = (rand() % 3) - 1;
+        int direction_y = sign;
+        int duration = ((rand() % (max - min)) + min);
+        dest.x = p.pos.x + (direction_x * duration);
+        dest.y = p.pos.y + (direction_y * duration);
+        if (dest.x < 0) {
+            dest.x = 0;
+        }
+        else if (dest.x >= Environment::map_x_max) {
+            dest.x = Environment::map_x_max - 1;
+        }
+        if (dest.y < 0) {
+            dest.y = 0;
+        }
+        else if (dest.y >= Environment::map_y_max) {
+            dest.y = Environment::map_y_max - 1;
+        }
         valid_dest = valid_position(dest);
 
-        //limit search range to within x distance from campsite, if have campsite
-        if (p.campsite_pos.x > -1) {
-            Position dist_pos = distance(p.campsite_pos, dest);
-            if (dist_pos.x > campsite_distance_search || dist_pos.y > campsite_distance_search) {
-                valid_dest = false;
-            }
-        }
     }
     return dest;
 }
@@ -649,7 +702,7 @@ bool People::searching_for_food(){ //this function is far too similar to gatheri
     //look around self for food
     Position food_pos = {-1,-1};
     bool found_food = false;
-    vector<Position> food_pos_list = find("food", p.sightline_radius, 1);
+    vector<Position> food_pos_list = p.all_found[p.target_index["food"]];
     if (food_pos_list.size() > 0) {
         found_food = true;
         food_pos = food_pos_list[0];
@@ -688,7 +741,7 @@ bool People::gathering_food(){
     //look around self for food
     Position food_pos = { -1,-1 };
     bool found_food = false;
-    vector<Position> food_pos_list = find("food", p.sightline_radius, 1);
+    vector<Position> food_pos_list = p.all_found[p.target_index["food"]];
     if (food_pos_list.size() > 0) {
         found_food = true;
         food_pos = food_pos_list[0];
@@ -711,11 +764,14 @@ bool People::gathering_food(){
             //this section, the part about getting more than 1 food, seems to sometimes work and sometimes not, don't know why, need to fix
             //if there is more food very close by and inventory has less than 4 items, then gather that as well, without moving to those positions. Need to adjust so it's not instant pickup
             if (p.food_inventory.size() < 4) {
-                vector<Position> food_pos_list2 = find("food", 2, 4-p.food_inventory.size());//get as many additional results as needed to reach 4 items in inventory
+                vector<Position> food_pos_list2 = p.all_found[p.target_index["food"]];
                 if (food_pos_list2.size() > 0) {
-                    for (Position fpos : food_pos_list2) {
-                        Environment::Map[fpos.y][fpos.x].has_food = false; //remove food from map
-                        p.food_inventory.push_back(1); //add food to inventory
+                    for (int i = 0; i <= 4 && p.food_inventory.size() <= 4 && i< food_pos_list2.size(); i++) {//only gather enough to to fill inventory to 4 items
+                        Position one = { 1,1 };
+                        if (distance(food_pos_list2[i], p.pos) == one) {//limit gather distance to 1 tile away from player
+                            Environment::Map[food_pos_list2[i].y][food_pos_list2[i].x].has_food = false; //remove food from map
+                            p.food_inventory.push_back(1); //add food to inventory
+                        }
                     }
                 }
             }
@@ -728,7 +784,7 @@ bool People::gathering_food(){
     return false;
 }
 
-bool People::sharing_food(){
+bool People::sharing_food(){//Already handled with request and give food
     /*sharing food
     start:
     - if have food and someone else asks for food, give food, keep track of group/family members and who is hungriest, distribute food according to need such that 
