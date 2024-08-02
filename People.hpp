@@ -14,7 +14,6 @@ using namespace std;
 class People {
 	//NEED TO DO: pull out all constants such as the hunger_level threshold for being hungry out and into the Person struct to better be able to balance these variables with each other
 
-	//structs for tracking function states
 	struct Position {
 		int x = -1;
 		int y = -1;
@@ -26,14 +25,18 @@ class People {
 		}
 		//should this include an overload of ! operator to check if pos == {-1,-1} which is the NULL equivalent?
 	};
+
+	struct Message {//need to tie Messages to tiles in map instead of current Message list
+		int message_id = -1;
+		int sender_id = -1;
+		int reciever_id = -1; //-1 is a message for everyone/anyone
+		string messsage = "";
+		Position origin;
+	};
 	
-	//fo == function object
-	struct fo_search_for_new_campsite { //might make more sense to have a search movement function to be used for both finding a new campsite and for finding food
-		Position pos = {-1,-1}; //current destination for search
-	};
-	struct fo_searching_for_food {
-		Position pos = { -1,-1 }; //current destination for search
-	};
+	//structs for tracking function states	fo == function object
+
+
 	struct progress_state { 
 		int progress_done = -1;
 		int progress = 0;
@@ -45,14 +48,6 @@ class People {
 			progress++;
 			return false;
 		}
-	};
-
-	struct Message {//need to tie Messages to tiles in map instead of current Message list
-		int message_id = -1;
-		int sender_id = -1;
-		int reciever_id = -1; //-1 is a message for everyone/anyone
-		string messsage = "";
-		Position origin;
 	};
 
 	struct Person {
@@ -80,26 +75,21 @@ class People {
 		bool being_carried = false;
 		int carried_by_id = -1;
 		//objects for tracking function states
-		fo_search_for_new_campsite fo1; //unsure if these should be kept or if it makes more sense to have a single shared variable, cuurent_dest
-		fo_searching_for_food fo2;
 		progress_state eating_progress = {4};//4 is the number of ticks/frames until progress is done
 		int eating_food_index = -1;//this and eating_progress should be encapsulated in a function object
-		Position fo4;
-		progress_state processing_food_prog = { 4 };
-		map<string, progress_state> crafting;//key is product name
-		Position rock_search;
+
+		map<string, progress_state> crafting;//key is product name		fix this: need to avoid case of progress saved, all ingredients lost (instead of being used up by starting the crafting process), new ingredients obtained, then picking up progress where it was last left off instead of starting over again
 
 		bool child_is_hungry = false;//currently a flag to communicate between feed_own_children and searching_for_food and gathering_food. I need to rethink how functions communicate with each other and facilitate direct calls by one to another. Fix this.
 		int hungry_child_index = -1;
 		//these bools need to preserve their state outside each execution of the utility_function
 		bool start_set_up_camp = false; //is set to true when search_for_new_campsite ends so that it only triggers on the next update after search_ ends.
-		bool start_gathering_food = false; //same as set up camp
+
 		bool clean_image = false; //used by a function to return to default image on the next update
 
 		vector<string> function_record;//useful for more than debugging, such as determining if did x within the last day (20 updates)
 		vector<int> function_record_nums;//tracks how many times in a row each function was called to reduce size of function_record. Might make more sense combining as a struct of {record, times repeated}
-		bool function_done = false;//flag used by all functions to declare them as done if they can't be interrupted
-
+		
 		int radiusmax = -1;//largest radius for searching map. Is set or reset in relevant function
 
 		vector<int> found_messages;//message id's
@@ -112,7 +102,7 @@ class People {
 		bool adopt_spouse_campsite = false;
 
 		bool search_active = false;//a shared, generic search flag that reduces erratic movement by having a single search pattern serve all current targets
-		Position general_search_dest;
+		Position general_search_dest;//this and search_active should be together in a function object
 	};
 
 	
@@ -123,63 +113,64 @@ public:
 	int message_id_iterator = 0;
 	static vector<Person> pl;//people_list
 	static vector<Message> message_list;
-	//DO NOW: give each message an id and store the id on the Message_Map to reduce the storage size of Message_Map
-	static vector<int> Message_Map[Environment::map_y_max][Environment::map_x_max];//a map layer that holds messages according to their tile location. Makes clearing the map easier by being a separate layer. Each tile can have multiple messages.
-	//static vector<int> Person_Map[Environment::map_y_max][Environment::map_x_max];//a map layer to hold people to access directly from a tile instead of searching the whole people list. Holds the id of each person
-	//Need to test without the messages to see if that is the cause of lag
-
+	static vector<int> Message_Map[Environment::map_y_max][Environment::map_x_max];//a map layer that holds messages by id according to their tile location. Makes clearing the map easier by being a separate layer. Each tile can have multiple messages.
+	
 	int campsite_distance_search = 5;
 
 	People();
+	bool check_death();
 	void update_all(int day_count, int hour_count, int hours_in_day);
 	void update(int day_count, int hour_count, int hours_in_day);
 	void utility_function();
+	void find_all();
 	bool move_to(Position pos);
+	Position walk_search_random_dest(); //returns a random destination for a random walk
+
+	//fix this, these should be functions inside the Position struct
 	bool valid_position(Position pos);
 	Position make_position_valid(Position dest, int ux, int lx, int uy, int ly);
 	int distance(Position pos1, Position pos2);
-	bool check_death();
-	Position walk_search_random_dest(); //returns a random destination for a random walk
+	
+	//find a way to make these 2 functions automatic rather than having to be manually called
 	int new_person_id();
-	int p_by_id(int id);//returns index of person in people list (pl).
-	void add_func_record();
 	int new_message_id();
+
+	//can these 2 functions be merged?
+	int p_by_id(int id);//returns index of person in people list (pl).
 	int message_by_id(int id);//returns index of message in message list.
+
+	void add_func_record();
 	vector<int> inventory_has(string target);
-	bool tile_has(string target, Position pos);
 	void create_item(string item_type, Position pos);
 	void pick_up_item(int item_id, Position pos);
 	void delete_item(int item_id, Position pos, int index);
+
+	//slated for replacement
+	bool tile_has(string target, Position pos);
+	bool give_food();
+	bool moving_to_bed();//this should be integrated into sleeping rather than being a separate function
+	Position empty_adjacent_tile();//should be replaced by drop_item()
+	bool mate_check(int pers_id);//temp function, needs better replacement, either integrate into reproduce or turn into a generic filter on found items and found people
 	
-	//find_all could be further reduced in terms of time by checking for all people at once, so the number of iterations is simply the largest search rather than searching for every person separately
-	void find_all(); //instead of calling find for a single use and having to search the map multiple times, this function searches the map for all use cases and saves the results in Person p.search_results to be accessed instead.
-
-
 	bool search_for_new_campsite();
 	bool set_up_camp();
 	bool idle();
 	bool sleeping();
 	bool eating();
 	bool searching_for_food();
-	bool gathering_food();
-	void speak(string message_text);
-	bool give_food();
 	bool reproduce();
-	bool moving_to_bed();
 	bool feed_own_infants();
-	//void carry_infant();
+	//void carry_infant();		//need generic carry function
 	//void drop_infant();
-	bool craft_mortar_pestle();
-	Position empty_adjacent_tile();
 
+	void speak(string message_text, int receiver_id);
 	bool craft(string product);
-	bool drop_item(int index);
+	bool drop_item(int index);//not done
 	void general_search_walk();
 	void check_tile_messages(Position pos);
-
-	bool mate_check(int pers_id);
-
 	bool acquire(string target);
+
+	vector<Position> filter_search_results();
 };
 
 #endif
