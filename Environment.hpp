@@ -29,13 +29,11 @@ using namespace std;
 class Environment {
 
 	struct Tile {
-
-
 		int person_id = -1;//helps enforce only 1 person per tile. Maybe make an exception for carrying infants or wounded? Or might be better to tie the carried infants/wounded in a the inventory of the carrier 
 		int animal_id = -1;
 		//tent/house/campsite is currently implemented as an item, not a building, implement buildings later
 		int item_id=-1;//holds the id's of item on tile, currently restricted to one per tile, later on add a method to handle stacking items up to a limit, including of different item types
-		
+		string terrain;
 	};
 
 	struct sky_tile {
@@ -51,9 +49,7 @@ public:
 	Environment(int hours_in_day);
 	static void update(int hours_in_day, int hour_count, int day_count);
 
-	static void add_berrybush(int x, int y);//temp function to make things easier
-	static void add_grain(int x, int y);
-	static void add_rock(int x, int y);
+	static void add_item_to_map(string item, int x, int y);
 };
 
 #endif

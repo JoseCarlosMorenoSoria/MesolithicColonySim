@@ -27,42 +27,48 @@ int range4_miny = 35;
 int range4_maxx = Environment::map_x_max;
 int range4_maxy = Environment::map_y_max;
 
-void Environment::add_berrybush(int x, int y) {
-	return;
-	ItemSys::Item food = it.presets["berrybush"];
-	food.item_id = ItemSys::new_item_id();
-	ItemSys::item_list.push_back(food);
-	Map[y][x].item_id = food.item_id;
-}
-void Environment::add_grain(int x, int y) {
-	return;
-	ItemSys::Item food = it.presets["grain"];
-	food.item_id = ItemSys::new_item_id();
-	ItemSys::item_list.push_back(food);
-	Map[y][x].item_id = food.item_id;
-}
+void Environment::add_item_to_map(string item, int x, int y) {
+	if (item == "berrybush" || item == "grain") {
+		//return;
+	}
 
-void Environment::add_rock(int x, int y) {
-	ItemSys::Item food = it.presets["rock"];
-	food.item_id = ItemSys::new_item_id();
-	ItemSys::item_list.push_back(food);
-	Map[y][x].item_id = food.item_id;
+	ItemSys::Item i = it.presets[item];
+	i.item_id = ItemSys::new_item_id();
+	ItemSys::item_list.push_back(i);
+	Map[y][x].item_id = i.item_id;
 }
 
 Environment::Environment(int hours_in_day) {
 	
 	for (int y = 0; y < map_y_max; y++) {
 		for (int x = 0; x < map_x_max; x++) { //z controls the percent chance of tile having food
+			if (Map[y][x].terrain != "water") {
+				Map[y][x].terrain = "dirt";
+			}
+
 			int zr = rand() % 100;
 			if (zr < 1) {
-				add_rock(x, y);
+				add_item_to_map("rock",x, y);
+			}
+			if (zr > 1 && zr < 3) {
+				add_item_to_map("tree", x, y);
+			}
+
+			int zw = rand() % 100;
+			if (zw < 1) {
+				if ((x > 5 && y > 5) && (x < map_x_max - 5 && y < map_y_max - 5)) {
+					Map[y][x].terrain = "water";
+					Map[y+1][x].terrain = "water";
+					Map[y][x+1].terrain = "water";
+					Map[y+1][x+1].terrain = "water";
+				}
 			}
 
 			if((y >= range1_miny && y <= range1_maxy) && (x >= range1_minx && x <= range1_maxx)) {
 					int z = rand() % 100;
 					if (z < 20) {
 						int f = rand() % 2;
-						(f == 0) ? add_berrybush(x, y) : add_grain(x, y);
+						(f == 0) ? add_item_to_map("berrybush", x, y) : add_item_to_map("grain", x, y);
 					}
 			}
 
@@ -70,7 +76,7 @@ Environment::Environment(int hours_in_day) {
 				int z = rand() % 100;
 				if (z < 20) {
 					int f = rand() % 2;
-					(f == 0) ? add_berrybush(x, y) : add_grain(x, y);
+					(f == 0) ? add_item_to_map("berrybush", x, y) : add_item_to_map("grain", x, y);
 				}
 			}
 
@@ -78,7 +84,7 @@ Environment::Environment(int hours_in_day) {
 				int z = rand() % 100;
 				if (z < 20) {
 					int f = rand() % 2;
-					(f == 0) ? add_berrybush(x, y) : add_grain(x, y);
+					(f == 0) ? add_item_to_map("berrybush", x, y) : add_item_to_map("grain", x, y);
 				}
 			}
 
@@ -86,7 +92,7 @@ Environment::Environment(int hours_in_day) {
 				int z = rand() % 100;
 				if (z < 2) {
 					int f = rand() % 2;
-					(f == 0) ? add_berrybush(x, y) : add_grain(x, y);
+					(f == 0) ? add_item_to_map("berrybush", x, y) : add_item_to_map("grain", x, y);
 				}
 			}
 
@@ -95,7 +101,7 @@ Environment::Environment(int hours_in_day) {
 				int z = rand() % 100;
 				if (z < 2) {
 					int f = rand() % 2;
-					(f == 0) ? add_berrybush(x, y) : add_grain(x, y);
+					(f == 0) ? add_item_to_map("berrybush", x, y) : add_item_to_map("grain", x, y);
 				}
 				
 			}
@@ -143,7 +149,7 @@ void Environment::update(int hours_in_day, int hour_count, int day_count) {
 			int y = rand() % (range1_maxy - range1_miny) + range1_miny;
 			if (Map[y][x].item_id == -1) {
 				int f = rand() % 2;
-				(f == 0) ? add_berrybush(x, y) : add_grain(x, y);
+				(f == 0) ? add_item_to_map("berrybush", x, y) : add_item_to_map("grain", x, y);
 			}
 		}
 	}
@@ -154,7 +160,7 @@ void Environment::update(int hours_in_day, int hour_count, int day_count) {
 			int y = rand() % (range2_maxy - range2_miny) + range2_miny;
 			if (Map[y][x].item_id == -1) {
 				int f = rand() % 2;
-				(f == 0) ? add_berrybush(x, y) : add_grain(x, y);
+				(f == 0) ? add_item_to_map("berrybush", x, y) : add_item_to_map("grain", x, y);
 			}
 		}
 	}
@@ -165,7 +171,7 @@ void Environment::update(int hours_in_day, int hour_count, int day_count) {
 			int y = rand() % (range3_maxy - range3_miny) + range3_miny;
 			if (Map[y][x].item_id == -1) {
 				int f = rand() % 2;
-				(f == 0) ? add_berrybush(x, y) : add_grain(x, y);
+				(f == 0) ? add_item_to_map("berrybush", x, y) : add_item_to_map("grain", x, y);
 			}
 		}
 	}
@@ -176,7 +182,7 @@ void Environment::update(int hours_in_day, int hour_count, int day_count) {
 			int y = rand() % (range4_maxy - range4_miny) + range4_miny;
 			if (Map[y][x].item_id == -1) {
 				int f = rand() % 2;
-				(f == 0) ? add_berrybush(x, y) : add_grain(x, y);
+				(f == 0) ? add_item_to_map("berrybush", x, y) : add_item_to_map("grain",x, y);
 			}
 		}
 	}

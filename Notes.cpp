@@ -1,17 +1,16 @@
 //TO DO NOW:
+// need to fix why the campsite restriction and trigger to move isn't working
+// 
 //remember close family to avoid mating with parents/etc. Children exclusion done.
 //Unsure if need to add a way to remember past locations that had food or if random searching is good enough for now in order to create cyclical seasonal camp movement
 //add a way to compare value of foods according to calorie count and work/time cost
-
-//add hunting deer and rabbits and trapping rabbits
-	//if Person is looking for food and has seen a rabbit in the last 3 days but does not see one now, randomly place trap item on map, check on trap every x hours for dead rabbit, if dead rabbit found, pick up, process with knife into ready food, eat
-	//if do see a rabbit now, get rock and move to within x distance of rabbit then throw rock and kill rabbit (for now just use hitscan and animation, no real projectile), rock ends up next to dead rabbit
-	// if Person is looking for food and sees a deer, get rock and go next to deer, kill deer, process into food
-//add water and thirst and fish and fishing
-	//add water tile and add water as searchable in acquire and find_all, add drink function, add thirst need
+//if do see a rabbit now, get rock and move to within x distance of rabbit then throw rock and kill rabbit (for now just use hitscan and animation, no real projectile), rock ends up next to dead rabbit
+//add fish and fishing
 	// if Person is looking for food and sees water, get wood and craft spear (add wood spawning and spear item), go to water tile, stab water tile for a chance at catching fish, then process fish with knife into food
 //add item degradation to ensure continual crafting of new items
 // add stations such as campfire so that Person must be next to campfire to turn deer or rabbit meat into ready food, stations also degrade or require refuelling (if campfire is low or off, brin wood to it to keep it on or reignite), tents require maintenance or else they degrade away
+
+
 //add dispositions between people and associated behavior (social fights, avoidance, escalation, calling for family/friends to join fight, noticing a family member being attacked and going to defend without being asked, sharing dispositions with others, etc)
 	//add map<People,Disposition> to Person and activities and triggers for changing dispositions
 	// add disposition checks to actions such as give item so as not to give items to people who are disliked or to give items based on a percent chance affected by disposition level, or higher chance of setting up camp near someone liked or the inverse if disliked, same for marriage and item requests, add a socialize need/function to seek out liked people to encourage clique congregation and avoidance

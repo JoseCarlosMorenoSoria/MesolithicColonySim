@@ -16,13 +16,13 @@ Animal::Animal(int init) {
 
     animal p1 = { new_animal_id(), {45,25}, true };
     p1.age = 11;
-    p1.species = "rabbit";
+    p1.species = "deer";
     p1.current_image = p1.species;
     al.push_back(p1);
     Environment::Map[p1.pos.y][p1.pos.x].animal_id = p1.id;
     animal p2 = { new_animal_id(), {46,26}, false };
     p2.age = 11;
-    p2.species = "rabbit";
+    p2.species = "deer";
     p2.current_image = p2.species;
     al.push_back(p2);
     Environment::Map[p2.pos.y][p2.pos.x].animal_id = p2.id;
@@ -213,7 +213,7 @@ int Animal::a_by_id(int id) {//uses binary search to find and return index to an
 }
 
 bool Animal::reproduce() {//later, add marriage ceremony/customs, options for polygamy, infidelity, premarital sex, widow status, age and family restrictions on potential mates, family size limits, divorce, etc
-    if (al[a].reproduction_cooldown < 10) {//function trigger
+    if (al[a].reproduction_cooldown < 1000) {//function trigger
         return false;
     }
     vector<Position>& pos_list1 = al[a].search_results[al[a].species];//note: using reference (&) reduces copying

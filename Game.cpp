@@ -92,7 +92,10 @@ void Game::initGameState() {
 	{"rabbit_resting", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit/rabbit_resting.png"))},
 	{"trap", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/trap.png"))},
 	{"deer_meat", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer_meat.png"))},
-	{"rabbit_meat", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit_meat.png"))}
+	{"rabbit_meat", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit_meat.png"))},
+	{"pics/shallow_water.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/shallow_water.png"))},
+	{"tree", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/tree.png"))},
+	{"wood", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/wood.png"))}
 	};
 }
 
@@ -180,7 +183,12 @@ void Game::render() {
 				textureManager(ItemSys::item_list[ItemSys::item_by_id(item_id)].image, destR);
 			}
 			else {
-				textureManager("pics/dirt.png", destR);
+				if (Environment::Map[y][x].terrain == "dirt") {
+					textureManager("pics/dirt.png", destR);
+				}
+				else if (Environment::Map[y][x].terrain == "water") {
+					textureManager("pics/shallow_water.png", destR);
+				}
 			}
 		}
 	}

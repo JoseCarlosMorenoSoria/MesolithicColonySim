@@ -152,6 +152,7 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
     pl[p].tired_level++; //same for tired level
     pl[p].campsite_age++;
     pl[p].reproduction_cooldown++; //for when to find mate and create new person
+    pl[p].thirst_level++;
 
     if (pl[p].clean_image) {
         pl[p].current_image = "pics/human.png";
@@ -209,14 +210,14 @@ bool People::move_to(Position dest, string caller) {//need to add speed of movin
     if (pl[p].general_search_called && caller != "general searching") {
         pl[p].general_search_called = false;
     }
-    //cout << caller << ":";
-    //if (pl[p].move_already || pl[p].current_image != "pics/human.png" || pl[p].age < 5) {//the image check shouldn't be necessary but I don't know why it still moves while having crafting image
-    //    if (pl[p].pos == dest) {
-    //        return true;
-    //    }
-     //   return false;
-    //}
-
+    
+    if (pl[p].immobile || pl[p].move_already || pl[p].age < 5) {//the image check shouldn't be necessary but I don't know why it still moves while having crafting image
+        if (pl[p].pos == dest) {
+            return true;
+        }
+        return false;
+    }
+    //cout << pl[p].id << " - " << caller << "\n";
     Position old_pos = pl[p].pos;
     Environment::Map[pl[p].pos.y][pl[p].pos.x].person_id = -1;//remove person from Map
     if (pl[p].pos.x < dest.x) {//for future optimization, see: https://stackoverflow.com/questions/14579920/fast-sign-of-integer-in-c
@@ -356,11 +357,32 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
 }
 
 Animal anim1;
+//for cleaner code      for some reason this is too slow compared to old find_all, fix later
+void People::find_all_helper(Position pos, string type) {
+    if (!valid_position(pos)) {return;}
+    string key;
+    if (type == "people") {
+        if (Environment::Map[pos.y][pos.x].person_id != -1) {key = "people";}
+        else {key = "no people";}}
+    else if (type == "item") {
+        if (Environment::Map[pos.y][pos.x].item_id != -1) {key = ItemSys::item_list[ItemSys::item_by_id(Environment::Map[pos.y][pos.x].item_id)].item_name;}
+        else {key = "no item";}}
+    else if (type == "animal") {
+        if (Environment::Map[pos.y][pos.x].animal_id != -1) {key = Animal::al[anim1.a_by_id(Environment::Map[pos.y][pos.x].animal_id)].species;}
+        else {key = "no animal";}}
+    else if (type == "terrain") {key = Environment::Map[pos.y][pos.x].terrain;}
+    if (pl[p].search_results.find(key) != pl[p].search_results.end()) {//check if key exists
+        pl[p].search_results[key].push_back(pos);}//key found
+    else {pl[p].search_results.insert({ key,{pos} });}//key not found
+}
+
+
+//this is the old find_all(), don't know why the new one was slower so using this for now. The new one is commented out below
 void People::find_all() {//returns all things (items, people, messages, etc) found, sorted according into Position lists for each thing type
     int radius_options[2] = {//all radius options
         pl[p].sightline_radius, pl[p].audioline_radius
     };
-    if(pl[p].radiusmax == -1){//used to store result instead of calling every time, only resets if one of the radius options changes such as damaged eyesight, etc
+    if (pl[p].radiusmax == -1) {//used to store result instead of calling every time, only resets if one of the radius options changes such as damaged eyesight, etc
         for (int i = 0; i < 2; i++) {//selects largest radius
             if (i == 0) {
                 pl[p].radiusmax = radius_options[i];
@@ -378,7 +400,7 @@ void People::find_all() {//returns all things (items, people, messages, etc) fou
             if (radius <= pl[p].sightline_radius) {
                 if (Environment::Map[o.y][o.x].item_id != -1) {
                     ItemSys::Item& item = ItemSys::item_list[ItemSys::item_by_id(Environment::Map[o.y][o.x].item_id)];
-                    search_results.insert({ item.item_name,{o}});
+                    search_results.insert({ item.item_name,{o} });
                 }
                 else {//creates list of tiles without any item, for use when placing an item on the map
                     search_results.insert({ "no item",{o} });
@@ -402,9 +424,36 @@ void People::find_all() {//returns all things (items, people, messages, etc) fou
         int ymin = o.y - radius + 1;//+1 and -1 to avoid double checking corners
         int ymax = o.y + radius - 1;
         for (int x = xmin, y = ymin; x <= xmax; x++, y++) {
-            for (int sign = -1; sign<=1; sign+=2) {//sign == -1, then sign == 1
+            for (int sign = -1; sign <= 1; sign += 2) {//sign == -1, then sign == 1
                 Position pos1 = { x,o.y + (sign * radius) };
                 Position pos2 = { o.x + (sign * radius), y };
+                if (valid_position(pos1)) {
+                    string t = Environment::Map[pos1.y][pos1.x].terrain;
+                        if (search_results.find(t) != search_results.end()) {//check if key exists
+                            //key found
+                            search_results[t].push_back(pos1);
+                        }
+                        else {
+                            //key not found
+                            search_results.insert({ t,{pos1} });
+                        }
+                }
+                if (y <= ymax) {
+                    if (valid_position(pos2)) {
+                        string t = Environment::Map[pos2.y][pos2.x].terrain;
+                            if (search_results.find(t) != search_results.end()) {//check if key exists
+                                //key found
+                                search_results[t].push_back(pos2);
+                            }
+                            else {
+                                //key not found
+                                search_results.insert({t,{pos2} });
+                            }                    
+                    }
+                }
+
+
+
                 //check for people
                 if (valid_position(pos1)) {
                     if (Environment::Map[pos1.y][pos1.x].person_id != -1) {
@@ -516,11 +565,11 @@ void People::find_all() {//returns all things (items, people, messages, etc) fou
                     else {//creates list of tiles without any item, for use when placing an item on the map
                         if (search_results.find("no animal") != search_results.end()) {//check if key exists
                             //key found
-                            search_results["no animal"].push_back({pos1});
+                            search_results["no animal"].push_back({ pos1 });
                         }
                         else {
                             //key not found
-                            search_results.insert({ "no animal",{pos1}});
+                            search_results.insert({ "no animal",{pos1} });
                         }
                     }
                 }
@@ -562,9 +611,73 @@ void People::find_all() {//returns all things (items, people, messages, etc) fou
             }
         }
     }
-    pl[p].search_results=search_results;
+    pl[p].search_results = search_results;
 }
 
+
+/*
+void People::find_all() {//returns all things (items, people, messages, etc) found, sorted according into Position lists for each thing type
+    int radius_options[2] = {//all radius options
+        pl[p].sightline_radius, pl[p].audioline_radius
+    };
+    if(pl[p].radiusmax == -1){//used to store result instead of calling every time, only resets if one of the radius options changes such as damaged eyesight, etc
+        for (int i = 0; i < 2; i++) {//selects largest radius
+            if (i == 0) {
+                pl[p].radiusmax = radius_options[i];
+            }
+            else if (pl[p].radiusmax < radius_options[i]) {
+                pl[p].radiusmax = radius_options[i];
+            }
+        }
+    }
+    Position o = pl[p].pos;//origin
+    vector<int> target_quantity_current;
+    for (int radius = 0; radius <= pl[p].radiusmax; radius++) { //this function checks tilemap in outward rings by checking top/bottom and left/right ring boundaries
+        if (radius == 0) {//avoids double checking origin
+            if (radius <= pl[p].sightline_radius) {
+                vector<string> types = { "item","animal","terrain" };
+                for (int i = 0; i < 3; i++) {
+                    find_all_helper(o, types[i]);
+                }
+            }
+            if (radius <= pl[p].audioline_radius) {
+                //check for messages
+                check_tile_messages(o);
+            }
+        }
+        int xmin = o.x - radius;
+        int xmax = o.x + radius;
+        int ymin = o.y - radius + 1;//+1 and -1 to avoid double checking corners
+        int ymax = o.y + radius - 1;
+        for (int x = xmin, y = ymin; x <= xmax; x++, y++) {
+            for (int sign = -1; sign <= 1; sign += 2) {//sign == -1, then sign == 1
+                Position pos1 = { x,o.y + (sign * radius) };
+                Position pos2 = { o.x + (sign * radius), y };
+                if (radius <= pl[p].sightline_radius) {
+                    vector<string> types = { "people","item","animal","terrain" };
+                    for (int i = 0; i < 4; i++) {
+                        find_all_helper(pos1, types[i]);
+                        if (y <= ymax) {
+                            find_all_helper(pos2, types[i]);
+                        }
+                    }
+                }
+                if (radius <= pl[p].audioline_radius) {
+                    //check for messages
+                    if (valid_position(pos1)) {
+                        check_tile_messages(pos1);
+                    }
+                    if (y <= ymax) {
+                        if (valid_position(pos2)) {
+                            check_tile_messages(pos2);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+*/
 void People::check_tile_messages(Position pos) {
     //might also serve as a generic for reacting to sounds
     for (int m_id : Message_Map[pos.y][pos.x]) {//check all messages in this tile
@@ -748,9 +861,12 @@ bool People::craft(string product) {//later add station requirements such as cam
     if (missing_ingredients.empty()) {//have all items, therefore craft product
         add_func_record("crafting " + product);
         pl[p].current_image = "human_crafting";
-        pl[p].move_already = true;//prevents moving while crafting
-        pl[p].crafting.insert({ product,{4} });//4 is the number of ticks/frames crafting image/animation lasts
+        //pl[p].immobile = true;//prevents moving while crafting?? doesn't work?
+        if (pl[p].crafting.find(product) == pl[p].crafting.end()) {//key not found
+            pl[p].crafting.insert({ product,{4} });//4 is the number of ticks/frames crafting image/animation lasts
+        }
         if (pl[p].crafting[product].progress_func()) {//animation/time delay    currently, progress is saved if interrupted which might not make sense in some contexts
+            cout << "made: " << product << "\n";
             for (int i = 0; i < num_of_ingredients; i++) {//later implement tool degradation here as well
                 if (it2.presets[it2.presets[product].ingredients[i]].consumable_ingredient) {
                     int consume_index = inventory_has(it2.presets[product].ingredients[i])[0];
@@ -760,6 +876,7 @@ bool People::craft(string product) {//later add station requirements such as cam
             create_item(product, { -1,-1 });
             pl[p].crafting.erase(product);
             pl[p].clean_image = true; //when this function ends, return to default image on next update
+           // pl[p].immobile = false;
             return true;//done
         }
         return false;//in progress
@@ -888,6 +1005,12 @@ bool People::acquire(string target) {
     //check if target is an item name or item tag
     if (it2.presets.find(target) != it2.presets.end()) {
         //target is an item name
+        if (target == "wood") {
+            if (cut_down_tree()) {//do/fix this: might make sense to make tree a consumable station, an activity that must be performed at a specific spot (next to a tree) but the spot is consumed at the end (tree turned into wood)
+                return true;//done
+            }
+            return false;//in progress
+        }
     }
     else if (anim1.species_names.find(target) != anim1.species_names.end()) {
         //target is an animal name
@@ -920,7 +1043,7 @@ bool People::acquire(string target) {
     if (pl[p].search_results.find(target) != pl[p].search_results.end()) {//key found, if key exists then at least 1 was found
         Position pos = pl[p].search_results[target][0];
         int item_id = Environment::Map[pos.y][pos.x].item_id;
-        if (move_to(pos,"found item")) {//if item is found, move to it and pick it up
+        if (move_to(pos,"found item"+target)) {//if item is found, move to it and pick it up
             pick_up_item(item_id, pos);
             return true;//item picked up
         }
@@ -969,6 +1092,7 @@ void People::utility_function() {//is currently actually just a behavior tree no
     //this implementation allows functions to be interrupted by higher priority ones on every update, however this means that a function may not properly reset or preserve as needed for when it gets called again later, need to fix
     //if(func()==false) go to next func(), if(func()==true) executed this func() for both in progress and done cases
     if (sleeping()) {}
+    else if(drinking()){}
     else if (eating()) {}//if don't have food, searches for food. Therefore the structure of utility_function is focused on which needs to satsify first (sleep, hunger, campsite, reproduction, etc)
     else if (search_for_new_campsite()) {}
     //else if (reproduce()) {} avoid execution of this function to focus on other features without worrying about population size
@@ -1084,7 +1208,7 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
 
 bool People::sleeping(){
     bool tired = pl[p].tired_level > 50;
-    bool start_moving_to_bed = tired && pl[p].campsite_pos.x != -1 && pl[p].hunger_level<50;
+    bool start_moving_to_bed = tired && pl[p].campsite_pos.x != -1 && pl[p].hunger_level<50 && pl[p].thirst_level<50;
     if (start_moving_to_bed) {
         add_func_record("moving to bed");
         if(move_to(pl[p].campsite_pos,"to bed")) { //go to campsite.
@@ -1115,20 +1239,6 @@ bool People::eating(){
     bool hungry = pl[p].hunger_level > 50;
     bool has_food = false;
     vector<int> food_indexes1 = inventory_has("ready food");//should these return sets instead? would remove the need for converting to sets when set operations are needed. Duplicate indexes are never relevant.
-    /*
-    vector<int> food_indexes2 = inventory_has("needs processing");
-
-    set<int> f_ind_1;
-    set<int> f_ind_2;
-    for (int i : food_indexes1) {//fix this? This should be part of the inventory_has() by passing a vector<string> instead of a single string
-        f_ind_1.insert(i);
-    }
-    for (int i : food_indexes2) {
-        f_ind_2.insert(i);
-    }
-    set<int> food_indexes;
-    set_difference(f_ind_1.begin(), f_ind_1.end(), f_ind_2.begin(), f_ind_2.end(), inserter(food_indexes,food_indexes.end()));//for legibility, might be better to overload operator- so that set3=set1-set2
-    */
     if (!food_indexes1.empty()) {
         has_food = true;
         //pl[p].eating_food_index = *food_indexes.begin();
@@ -1254,7 +1364,44 @@ bool People::hunting(string species) {
     return false;//searching
 }
 
+bool People::drinking() {
+    if (pl[p].thirst_level < 50) {
+        return false;
+    }
+    if (pl[p].search_results.find("water") != pl[p].search_results.end()) {
+        if (move_to(pl[p].search_results["water"][0],"to water")) {
+            pl[p].thirst_level -= 25;
+            return true;//done
+        }
+    }
+    else {
+        pl[p].general_search_called = true;
+    }
+    return true;//in progress
+}
 
+bool People::cut_down_tree() {
+    if (!inventory_has("wood").empty()) {
+        cout << "have wood";
+        return true;
+    }
+    if (pl[p].search_results.find("tree") != pl[p].search_results.end()) {
+        if (Position::distance(pl[p].pos, pl[p].search_results["tree"][0])==1 || move_to(pl[p].search_results["tree"][0], "to tree")) {
+            Position pos = pl[p].search_results["tree"][0];
+            int tree_id = Environment::Map[pos.y][pos.x].item_id;
+            delete_item(tree_id, pos, -1);
+            create_item("wood", pos);
+            int wood_id = Environment::Map[pos.y][pos.x].item_id;
+            pick_up_item(wood_id, pos);
+            return true;//done
+        }
+        return false;//in progress
+    }
+    else {
+        pl[p].general_search_called = true;
+        return false;//searching
+    }
+}
 
 
 //need to either figure out a way to handle order execution priority between getting food and removing campsite or create a function called remove_campsite to encapsulate its code and call before attempting to get food

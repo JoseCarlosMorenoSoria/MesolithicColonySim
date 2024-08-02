@@ -85,10 +85,11 @@ public:
 
 		string current_image = "pics/human.png";
 		//string current_state = "idle"; //state/action
-		int sightline_radius = 100; //how far around self can see objects
+		int sightline_radius = 5; //how far around self can see objects
 		int audioline_radius = 5; //how far around self can hear and be heard
 		int hunger_level = 0;
 		int hungry_time = 0;
+		int thirst_level = 0;
 		bool awake = true;
 		int tired_level = 0;
 		vector<int> item_inventory; //holds id's of items in inventory
@@ -138,9 +139,12 @@ public:
 		int day_I_saw_rabbit = -1;
 		vector<trap_check> traps_set;
 		Position dropsite;//for trap
+
+		//this lock didn't work, caused person to freeze
+		bool immobile = false;//a lock on movement, only released by same function that locked it
 	};
 
-	
+	//note: given how the acquire function is structured, berrybush is given priority over bread. Don't know if this is affected by order of which is searched for first or if the depth of the crafting chain has affect on which is chosen. To encourage farming/crafting/etc, need to bias choices towards things like bread. 
 	
 	//vectors use more memory than necessary? Need to check
 	static int pday_count;
@@ -159,6 +163,7 @@ public:
 	void update(int day_count, int hour_count, int hours_in_day);
 	void utility_function();
 	void find_all();
+	void find_all_helper(Position pos, string type);
 	bool move_to(Position pos, string caller);//string is the intended action calling move_to, such as hunting deer
 	Position walk_search_random_dest(); //returns a random destination for a random walk
 	
@@ -181,6 +186,7 @@ public:
 	bool sleeping();
 	bool eating();
 	bool reproduce();
+	bool drinking();
 	//void carry_infant();		//need generic carry function
 	//void drop_infant();
 
@@ -195,6 +201,7 @@ public:
 
 	void answer_item_request();
 	bool hunting(string species);
+	bool cut_down_tree();
 };
 
 #endif
