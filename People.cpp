@@ -8,6 +8,8 @@ int p = -1;//index for accessing current person. Using index to access instead o
 ItemSys it2;//used to access member functions and variables of ItemSys
 int People::ox = -1;
 int People::oy = -1;
+int People::pday_count;
+int People::phour_count;
 
 People::People() {
     Person p1 = { new_person_id(), {50,25}, true};
@@ -44,6 +46,9 @@ int People::message_by_id(int id) {//uses binary search to find and return index
 }
 
 void People::update_all(int day_count, int hour_count, int hours_in_day) {
+    pday_count = day_count;
+    phour_count = hour_count;
+
     for(int i = 0; i < pl.size(); i++) {
         p = i;
         ox = pl[p].pos.x;
@@ -155,6 +160,15 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
 
     find_all();//gets all items, people, etc from within sight/earshot to then react to or inform next action
     utility_function();
+
+    if (pl[p].search_results.find("rabbit") != pl[p].search_results.end()) {
+        pl[p].saw_rabbit_recently = true;
+        pl[p].day_I_saw_rabbit = day_count;
+    }
+    if (day_count - pl[p].day_I_saw_rabbit > 3) {
+        pl[p].saw_rabbit_recently = false;
+    }
+
     pl[p].found_messages.clear();
     pl[p].search_results.clear();
 
@@ -163,8 +177,14 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
         pl[p].campsite_pos = pl[p_by_id(pl[p].spouse_id)].campsite_pos;
     }
 
-    pl[p].search_active = false;//resets for next tick
+
+    
+
+    if (!pl[p].move_already && pl[p].general_search_called) {
+        general_search_walk("");//ensures this function only executes once per update and also only after all other move_to's have been considered. This prioritizes intentional movement (moving to a target) rather than random movement
+    }
     pl[p].move_already = false;
+    pl[p].general_search_called = false;
 }
 
 bool People::valid_position(Position pos) {
@@ -177,21 +197,26 @@ bool People::valid_position(Position pos) {
 }
 
 //person sometimes stops moving, need to check functions that call move_to to make sure they aren't asking to move to the same tile person is on
-bool People::move_to(Position dest) {//need to add speed of moving from one tile to another and how many tiles at a time. Also need to add a check to prevent it being called more than once per person per update.
+bool People::move_to(Position dest, string caller) {//need to add speed of moving from one tile to another and how many tiles at a time. Also need to add a check to prevent it being called more than once per person per update.
     //if (pl[p].search_active) {//prevents function getting called more than once per update
     //    return false;
     //}
-    if (pl[p].move_already || pl[p].current_image!="pics/human.png") {//the image check shouldn't be necessary but I don't know why it still moves while having crafting image
-        if (pl[p].pos == dest) {
-            return true;
-        }
-        return false;
-    }
     if (!valid_position(dest)) { //for debugging, kill npc if it tries to go off map or is asked to move to the spot it is already at
         pl[p].is_alive = false;
         pl[p].current_image = "pics/debug.png";
         return true;
     }
+    if (pl[p].general_search_called && caller != "general searching") {
+        pl[p].general_search_called = false;
+    }
+    //cout << caller << ":";
+    //if (pl[p].move_already || pl[p].current_image != "pics/human.png" || pl[p].age < 5) {//the image check shouldn't be necessary but I don't know why it still moves while having crafting image
+    //    if (pl[p].pos == dest) {
+    //        return true;
+    //    }
+     //   return false;
+    //}
+
     Position old_pos = pl[p].pos;
     Environment::Map[pl[p].pos.y][pl[p].pos.x].person_id = -1;//remove person from Map
     if (pl[p].pos.x < dest.x) {//for future optimization, see: https://stackoverflow.com/questions/14579920/fast-sign-of-integer-in-c
@@ -290,7 +315,7 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
         if (pl[p2].reproduction_cooldown > 100 && pl[p2].sex != pl[p].sex) {
             mate_willing = true;
         }
-        if (mate_willing && (Position::distance(pl[p].pos, pl[p2].pos)==1 || move_to(pl[p2].pos))) {//go to tile adjacent to p2
+        if (mate_willing && (Position::distance(pl[p].pos, pl[p2].pos)==1 || move_to(pl[p2].pos,"going to mate"))) {//go to tile adjacent to p2
             //create a new human, add pregnancy later, only female creates child
             if (!pl[p].sex) {
                 int sex = rand() % 2;
@@ -301,7 +326,7 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
                     }
                 }
                 if (child_pos.x == -1) {//if no empty adjacent tile found
-                    move_to(walk_search_random_dest());//move to a random adjacent tile
+                    pl[p].general_search_called = true;
                     return true;//in progress
                 }
                 Person child = { new_person_id(), child_pos, sex };
@@ -317,8 +342,6 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
                 }
                 //remove campsite and adopt male's campsite as own.
                 pl[p].adopt_spouse_campsite = true;
-                pl[p].end_search = true;///end search if was searching
-                pl[p2].end_search = true;
                 return true;//male will simply no longer call reproduce() given the cooldown==0, so only female needs to return true
             }
             else {
@@ -327,13 +350,12 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
         }
     }
     else {//if no mate found, walk to search
-        if (!pl[p].move_already) {
-            general_search_walk("mate");
-        }
+        pl[p].general_search_called = true;
     }
     return true;//in progress
 }
 
+Animal anim1;
 void People::find_all() {//returns all things (items, people, messages, etc) found, sorted according into Position lists for each thing type
     int radius_options[2] = {//all radius options
         pl[p].sightline_radius, pl[p].audioline_radius
@@ -362,6 +384,13 @@ void People::find_all() {//returns all things (items, people, messages, etc) fou
                     search_results.insert({ "no item",{o} });
                 }
                 //don't check if person is on origin tile, because that person is self
+                if (Environment::Map[o.y][o.x].animal_id != -1) {
+                    string species = Animal::al[anim1.a_by_id(Environment::Map[o.y][o.x].animal_id)].species;
+                    search_results.insert({ species,{o} });
+                }
+                else {//creates list of tiles without any item, for use when placing an item on the map
+                    search_results.insert({ "no animal",{o} });
+                }
             }
             if (radius <= pl[p].audioline_radius) {
                 //check for messages
@@ -472,6 +501,55 @@ void People::find_all() {//returns all things (items, people, messages, etc) fou
                         }
                     }
                 }
+                if (valid_position(pos1)) {
+                    if (Environment::Map[pos1.y][pos1.x].animal_id != -1) {
+                        string species = Animal::al[anim1.a_by_id(Environment::Map[pos1.y][pos1.x].animal_id)].species;
+                        if (search_results.find(species) != search_results.end()) {//check if key exists
+                            //key found
+                            search_results[species].push_back({ pos1 });
+                        }
+                        else {
+                            //key not found
+                            search_results.insert({ species,{pos1} });
+                        }
+                    }
+                    else {//creates list of tiles without any item, for use when placing an item on the map
+                        if (search_results.find("no animal") != search_results.end()) {//check if key exists
+                            //key found
+                            search_results["no animal"].push_back({pos1});
+                        }
+                        else {
+                            //key not found
+                            search_results.insert({ "no animal",{pos1}});
+                        }
+                    }
+                }
+                if (y <= ymax) {
+                    if (valid_position(pos2)) {
+                        if (Environment::Map[pos2.y][pos2.x].animal_id != -1) {
+                            string species = Animal::al[anim1.a_by_id(Environment::Map[pos2.y][pos2.x].animal_id)].species;
+                            if (search_results.find(species) != search_results.end()) {//check if key exists
+                                //key found
+                                search_results[species].push_back({ pos2 });
+                            }
+                            else {
+                                //key not found
+                                search_results.insert({ species,{pos2} });
+                            }
+                        }
+                        else {//creates list of tiles without any item, for use when placing an item on the map
+                            if (search_results.find("no animal") != search_results.end()) {//check if key exists
+                                //key found
+                                search_results["no animal"].push_back({ pos2 });
+                            }
+                            else {
+                                //key not found
+                                search_results.insert({ "no animal",{pos2} });
+                            }
+                        }
+                    }
+                }
+
                 //check for messages
                 if (valid_position(pos1)) {
                     check_tile_messages(pos1);
@@ -697,20 +775,10 @@ bool People::craft(string product) {//later add station requirements such as cam
 }
 
 void People::general_search_walk(string target) {
-    //if (pl[p].end_search) {
-    //    pl[p].end_search = false;
-    //    pl[p].general_search_dest = { -1,-1 };
-    //    return;
-    //}
-    //if (pl[p].search_active) {//prevents function getting called more than once per update
-    //    return;
-    //}
-    add_func_record("searching for " + target);//should include what is being searched for, as in the functions that called this and the targets
     //walk to search
-    if (pl[p].general_search_dest.x == -1 || move_to(pl[p].general_search_dest)) {//initialize function object or reinitialize if reached destination
+    if (pl[p].general_search_dest.x == -1 || move_to(pl[p].general_search_dest, "general searching")) {//initialize function object or reinitialize if reached destination
         pl[p].general_search_dest = walk_search_random_dest();
     }//the move_to function triggers in the conditional
-    //pl[p].search_active = true;
 }
 
 void People::answer_item_request() {
@@ -756,9 +824,9 @@ void People::answer_item_request() {
     speak("answering request for " + target, receiver_id);
     //move to requester's position, adjacent
     Person& p2 = pl[p_by_id(receiver_id)];
-    if (Position::distance(pl[p].pos, p2.pos) == 1 || move_to(p2.pos)) {
+    if (Position::distance(pl[p].pos, p2.pos) == 1 || move_to(p2.pos, "answering request")) {
         //once reached, place requested item in their inventory
-        int index = inventory_has("food")[0];
+        int index = inventory_has(target)[0];
         p2.item_inventory.push_back(pl[p].item_inventory[index]); //give item id from inventory
         pl[p].item_inventory.erase(pl[p].item_inventory.begin() + index);//remove from own inventory
         pl[p].clean_image = true;
@@ -777,6 +845,7 @@ bool People::drop_item(int index) {
         }
         Environment::Map[dropsite.y][dropsite.x].item_id = pl[p].item_inventory[index];//place on map
         pl[p].item_inventory.erase(pl[p].item_inventory.begin() + index);//remove from inventory
+        pl[p].dropsite = dropsite;
         return true;
     }
     else {
@@ -820,12 +889,18 @@ bool People::acquire(string target) {
     if (it2.presets.find(target) != it2.presets.end()) {
         //target is an item name
     }
+    else if (anim1.species_names.find(target) != anim1.species_names.end()) {
+        //target is an animal name
+        if (hunting(target)) {//call hunting function
+            return true;//done
+        }
+        return false;//in progress
+    }
     else if (it2.tags.find(target) != it2.tags.end()) {
         //target is a tag name
         for (string item_name : it2.tags[target]) {//for every item with this tag, attempt to acquire item, if one is acquired then tag is acquired therefore return true
             //cout << item_name;
             if (acquire(item_name)) {
-                pl[p].end_search = true;///end search if was searching
                 return true;//done
             }
         }
@@ -838,7 +913,6 @@ bool People::acquire(string target) {
     //if item is craftable, craft it but if in the process of crafting, the item is found, abort crafting the item
     if (!it2.presets[target].ingredients.empty()) {//if has ingredients, then is craftable
         if (craft(target)) {
-            pl[p].end_search = true;///end search if was searching
             return true;//crafting item was successful
         }
     }
@@ -846,9 +920,8 @@ bool People::acquire(string target) {
     if (pl[p].search_results.find(target) != pl[p].search_results.end()) {//key found, if key exists then at least 1 was found
         Position pos = pl[p].search_results[target][0];
         int item_id = Environment::Map[pos.y][pos.x].item_id;
-        if (move_to(pos)) {//if item is found, move to it and pick it up
+        if (move_to(pos,"found item")) {//if item is found, move to it and pick it up
             pick_up_item(item_id, pos);
-            pl[p].end_search=true;///end search if was searching
             return true;//item picked up
         }
         return false;//if still moving towards item, continue to next tick
@@ -871,7 +944,7 @@ bool People::acquire(string target) {
         //if request answered, stop requesting and move toward answerer
         if (request_answered) {//Due to sequence ordering issues of NPC updates, need to remember message for a bit to avoid missing messages from NPCs that update after self.
             Position pos = pl[p_by_id(answerer_id)].pos;
-            if (Position::distance(pos, pl[p].pos) == 1 || move_to(pos)) {//move to adjacent to answerer
+            if (Position::distance(pos, pl[p].pos) == 1 || move_to(pos,"recieving item")) {//move to adjacent to answerer
                 return false;//wait for answerer to place item in one's inventory (acquire() won't be called next update if was given requested item)
             }
             else {
@@ -883,7 +956,7 @@ bool People::acquire(string target) {
         }
     }
     //if all fails, move in search pattern. Search pattern is shared, to reduce erratic movement from various instances of search patterns
-    if (!pl[p].move_already) { general_search_walk(target); }
+    pl[p].general_search_called = true;
     return false;//searching
 }
 
@@ -921,7 +994,7 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
 
 
     if (pl[p].campsite_pos.x != -1) { //if have campsite, remove. //Later add an option to just abandon a campsite without removing the house. Should only decontruct if going to carry it to new location such as a tent/sleeping bag/lean to/etc.
-        if (move_to(pl[p].campsite_pos)) {//walk to campsite to remove
+        if (move_to(pl[p].campsite_pos, "to campsite")) {//walk to campsite to remove
             int item_id = Environment::Map[pl[p].campsite_pos.y][pl[p].campsite_pos.x].item_id;
             delete_item(item_id, pl[p].campsite_pos, -1);
             pl[p].campsite_pos = { -1,-1 };
@@ -941,7 +1014,7 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
         for (int i = 0; i < pl[p].children_id.size(); i++) {
             int kid_index = p_by_id(pl[p].children_id[i]);
             if (pl[kid_index].age < 5 && !pl[kid_index].being_carried) {
-                if (Position::distance(pl[kid_index].pos, pl[p].pos) == 1 || move_to(pl[kid_index].pos)) {
+                if (Position::distance(pl[kid_index].pos, pl[p].pos) == 1 || move_to(pl[kid_index].pos, "to infant")) {
                     pl[kid_index].being_carried = true;
                     pl[kid_index].carried_by_id = pl[p].id;
                     Environment::Map[pl[kid_index].pos.y][pl[kid_index].pos.x].person_id = -1;
@@ -982,7 +1055,7 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
                             }
                         }
                         if (child_pos.x == -1) {//if no empty adjacent tile found
-                            move_to(walk_search_random_dest());//move to a random adjacent tile
+                            pl[p].general_search_called = true;
                             return true;//in progress
                         }
 
@@ -993,13 +1066,10 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
                     }
                 }
             }
-            pl[p].end_search = true;///end search if was searching
             return true; //done. need to add an actual animation/progress to building the tent rather than immediate placement
         }
         else {
-            if (!pl[p].move_already) {
-                general_search_walk("empty tile for camp");
-            }
+            pl[p].general_search_called = true;
             return true;//in progress
         }
         return true;//done
@@ -1008,9 +1078,7 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
         //need to add a method of investigating if any food found might have more food just out of current sightline, but this probably will require more complex modifiable pathfinding, as in have it be a detour from the current destination rather than a change in destination.
     }
 
-    if (!pl[p].move_already) {
-        general_search_walk("new campsite");
-    }
+    pl[p].general_search_called = true;
     return true;//in progress
 }
 
@@ -1019,7 +1087,7 @@ bool People::sleeping(){
     bool start_moving_to_bed = tired && pl[p].campsite_pos.x != -1 && pl[p].hunger_level<50;
     if (start_moving_to_bed) {
         add_func_record("moving to bed");
-        if(move_to(pl[p].campsite_pos)){ //go to campsite.
+        if(move_to(pl[p].campsite_pos,"to bed")) { //go to campsite.
             //go to sleep, continue
         }
         else {
@@ -1099,6 +1167,92 @@ bool People::eating(){
      return true;//in progress
 }
 
+bool People::hunting(string species) {
+    if (species == "deer") {
+        if (pl[p].search_results.find("deer") != pl[p].search_results.end()) {
+            Animal::animal& a = anim1.al[anim1.a_by_id(Environment::Map[pl[p].search_results["deer"][0].y][pl[p].search_results["deer"][0].x].animal_id)];
+            if (inventory_has("rock").empty()) {
+                acquire("rock");
+                return false;//in progress
+            }
+            //don't know why it takes a while for the move_to to execute even after search_results has found deer, fix later, leave for now given it eventually does move to hunt the deer
+            bool reached = move_to({ a.pos.x,a.pos.y }, "to deer");
+            if (reached) {
+                if (a.is_alive) {
+                    a.is_alive = false;//kill deer
+                    return false;//in progress
+                }
+                if (inventory_has("knife").empty()) {
+                    acquire("knife");
+                   return false;//in progress
+                }
+                Environment::Map[a.pos.y][a.pos.x].animal_id = -1;//remove dead animal from map
+                create_item("deer_meat", {a.pos.x, a.pos.y});//add deer meat in its place
+                anim1.al.erase(anim1.al.begin() + anim1.a_by_id(a.id));//erase animal from global animal list
+                return true;//done
+            }
+        }
+        else {
+            pl[p].general_search_called = true;
+            return false;//search for target
+        }
+    }
+    else if (species == "rabbit") {//need to handle when to remove traps or place them in new spots, especially when either not having a campsite or when moving campsites, fix this
+        if (pl[p].search_results.find("rabbit") != pl[p].search_results.end()) {
+            vector<Position> pos_list = pl[p].search_results["rabbit"];
+            sort(pos_list.begin(), pos_list.end());//need to sort vector before using or else will get stuck. unsure if sort by current position or by 0,0
+            Animal::animal& a = anim1.al[anim1.a_by_id(Environment::Map[pos_list[0].y][pos_list[0].x].animal_id)]; 
+            if (!a.is_alive) {
+                if (inventory_has("knife").empty()) {
+                    acquire("knife");
+                    return false;//in progress
+                }
+                if (move_to(pos_list[0],"to rabbit")) {
+                    Environment::Map[a.pos.y][a.pos.x].animal_id = -1;//remove dead animal from map
+                    delete_item(Environment::Map[a.pos.y][a.pos.x].item_id, { a.pos.x,a.pos.y }, -1);//delete active trap
+                    create_item("rabbit_meat", { a.pos.x,a.pos.y });//add rabbit meat in its place
+                    anim1.al.erase(anim1.al.begin() + anim1.a_by_id(a.id));//erase animal from global animal list
+                    return true;//done
+                }
+            }
+        }
+        if (pl[p].saw_rabbit_recently) {
+            if (pl[p].traps_set.size() < 4) {
+                if (pl[p].search_results.find("no item") != pl[p].search_results.end()) {
+                    if (inventory_has("trap").empty()) {
+                        acquire("trap");
+                        return false; //in progress
+                    }
+                    int trap_ind = inventory_has("trap")[0];
+                    delete_item(pl[p].item_inventory[trap_ind], { -1,-1 }, trap_ind);
+                    create_item("active trap", { -1,-1 });
+                    trap_ind = inventory_has("active trap")[0];
+                    if (!drop_item(trap_ind)) {
+                        pl[p].general_search_called = true;
+                        return false;//in progress
+                    }
+                    pl[p].traps_set.push_back({ pl[p].dropsite, pday_count });
+                    pl[p].dropsite = { -1,-1 };
+                    return false;//in progress
+                }
+            }
+        }
+        if (!pl[p].traps_set.empty()) {//if have traps, check traps
+            bool all_traps_checked = true;
+            for (trap_check& t : pl[p].traps_set) {
+                if ((pday_count - t.last_day_checked) >= 3) {//check each trap once every other day since it was set
+                    all_traps_checked = false;
+                    if (move_to(t.pos, "to trap")) {
+                        t.last_day_checked = pday_count;
+                    }
+                    break;
+                }
+            }
+        }
+     }
+    pl[p].general_search_called = true;
+    return false;//searching
+}
 
 
 

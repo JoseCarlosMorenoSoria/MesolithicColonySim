@@ -12,6 +12,12 @@ ItemSys::ItemSys() {
     presets.insert({ "rock",            { -1, "rock", "rock",{},{} ,true} });
     presets.insert({ "mortar_pestle",   { -1, "mortar_pestle", "mortar and pestle" , {"tool"}, {"rock"},false}});
 
+    presets.insert({ "knife",   { -1, "knife", "pics/debug.png" , {"tool"}, {"rock"},false} });
+    presets.insert({ "trap",   { -1, "trap", "trap" , {}, {"rock"},false} });
+    presets.insert({ "active trap",   { -1, "active trap", "trap" , {}, {},false} });//a version of trap that avoids getting picked up, must create a special pick up function for it
+    presets.insert({ "rabbit_meat",   { -1, "rabbit_meat", "rabbit_meat" , {"ready food"}, {"rabbit"},false}});
+    presets.insert({ "deer_meat",   { -1, "deer_meat", "deer_meat" , {"ready food"}, {"deer"},false}});
+
     fill_tag_lookup();
     /*
     cout << "\n\n\n\n\n";

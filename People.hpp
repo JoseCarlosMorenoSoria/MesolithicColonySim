@@ -11,6 +11,7 @@
 #include <algorithm>
 #include "Environment.hpp"
 #include "ItemSys.hpp"
+#include "Animal.hpp"
 using namespace std;
 
 class People {
@@ -72,6 +73,11 @@ public:
 		}
 	};
 
+	struct trap_check {
+		Position pos;
+		int last_day_checked = -1;
+	};
+
 	struct Person {
 		int id; //need to figure out a way to make new id automatic rather than a parameter, currently using an int but not automatic enough
 		Position pos;
@@ -79,7 +85,7 @@ public:
 
 		string current_image = "pics/human.png";
 		//string current_state = "idle"; //state/action
-		int sightline_radius = 5; //how far around self can see objects
+		int sightline_radius = 100; //how far around self can see objects
 		int audioline_radius = 5; //how far around self can hear and be heard
 		int hunger_level = 0;
 		int hungry_time = 0;
@@ -126,12 +132,19 @@ public:
 		bool end_search = false;
 
 		bool move_already = false;//ensures only move once per update
+		bool general_search_called = false;//ensures search is the last move considered
+
+		bool saw_rabbit_recently = false;//resets every 3 days
+		int day_I_saw_rabbit = -1;
+		vector<trap_check> traps_set;
+		Position dropsite;//for trap
 	};
 
 	
 	
 	//vectors use more memory than necessary? Need to check
-
+	static int pday_count;
+	static int phour_count;
 	int people_id_iterator = 0;
 	int message_id_iterator = 0;
 	static vector<Person> pl;//people_list
@@ -146,7 +159,7 @@ public:
 	void update(int day_count, int hour_count, int hours_in_day);
 	void utility_function();
 	void find_all();
-	bool move_to(Position pos);
+	bool move_to(Position pos, string caller);//string is the intended action calling move_to, such as hunting deer
 	Position walk_search_random_dest(); //returns a random destination for a random walk
 	
 	//find a way to make these 2 functions automatic rather than having to be manually called
@@ -179,9 +192,9 @@ public:
 	bool acquire(string target);
 
 	vector<Position> filter_search_results(string target);
-	vector<Position> remove_duplicates(vector<Position> v1, vector<Position> v2);
 
 	void answer_item_request();
+	bool hunting(string species);
 };
 
 #endif

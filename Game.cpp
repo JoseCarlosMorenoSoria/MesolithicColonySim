@@ -34,6 +34,7 @@ void Game::init(const char* title, int xpos, int ypos, int width, int height, bo
 }
 
 People peep;
+Animal anim;
 //Environment envir;
 SDL_Rect srcR, destR;
 int sqdim = 15;
@@ -44,6 +45,7 @@ int day_count = 0; //temporary measure for counting days passed
 int hour_count = 0; //temporary measure for tracking when a new day starts, 20 updates == 1 day
 int hours_in_day = 40;
 
+int initint = 1;
 void Game::initGameState() {
 	int a = 0;
 	destR.h = sqdim;
@@ -53,6 +55,7 @@ void Game::initGameState() {
 	Environment::Environment(hours_in_day);
 	People::People();
 	ItemSys::ItemSys();
+	Animal::Animal(initint);//to avoid unintended execution of the constructor
 
 	texture_map = {
 	{"pics/dirt.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/dirt.png"))},
@@ -78,9 +81,18 @@ void Game::initGameState() {
 	{"rock", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rock.png"))},
 	{"mortar and pestle", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/mortar_pestle.png"))},
 	{"deer", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer.png"))},
-	{"deer resting", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer_resting.png"))},
-	{"deer sleeping", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer_sleeping.png"))},
-	{"deer dead", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer_dead.png"))},
+	{"deer_resting", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer_resting.png"))},
+	{"deer_sleeping", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer_sleeping.png"))},
+	{"deer_dead", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer_dead.png"))},
+	{"deer_eating", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer_eating.png"))},
+	{"rabbit", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit/rabbit.png"))},
+	{"rabbit_eating", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit/rabbit_eating.png"))},
+	{"rabbit_dead", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit/rabbit_dead.png"))},
+	{"rabbit_sleeping", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit/rabbit_sleeping.png"))},
+	{"rabbit_resting", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit/rabbit_resting.png"))},
+	{"trap", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/trap.png"))},
+	{"deer_meat", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer_meat.png"))},
+	{"rabbit_meat", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit_meat.png"))}
 	};
 }
 
@@ -107,6 +119,7 @@ void Game::update() {
 
 	Environment::update(hours_in_day, hour_count, day_count);
 	peep.update_all(day_count, hour_count, hours_in_day);
+	anim.update_all(day_count, hour_count, hours_in_day);
 
 }
 
@@ -171,6 +184,13 @@ void Game::render() {
 			}
 		}
 	}
+
+	for (int i = 0; i < Animal::al.size(); i++) {
+		destR.x = Animal::al[i].pos.x * sqdim;
+		destR.y = (Animal::al[i].pos.y + 1) * sqdim;
+		textureManager(Animal::al[i].current_image, destR);
+	}
+
 	for (int i = 0; i < People::pl.size(); i++) {
 		destR.x = People::pl[i].pos.x * sqdim;
 		destR.y = (People::pl[i].pos.y + 1) * sqdim;

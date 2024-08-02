@@ -32,6 +32,7 @@ class Environment {
 
 
 		int person_id = -1;//helps enforce only 1 person per tile. Maybe make an exception for carrying infants or wounded? Or might be better to tie the carried infants/wounded in a the inventory of the carrier 
+		int animal_id = -1;
 		//tent/house/campsite is currently implemented as an item, not a building, implement buildings later
 		int item_id=-1;//holds the id's of item on tile, currently restricted to one per tile, later on add a method to handle stacking items up to a limit, including of different item types
 		

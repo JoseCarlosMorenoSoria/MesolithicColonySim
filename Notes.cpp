@@ -3,15 +3,9 @@
 //Unsure if need to add a way to remember past locations that had food or if random searching is good enough for now in order to create cyclical seasonal camp movement
 //add a way to compare value of foods according to calorie count and work/time cost
 
-//add deer and rabbits
-	//a simplified version of Person, simply finds food, eats, sleeps, is idle, reproduces. No campsite, no caring for kids, no sharing food, no crafting, etc.
-	//can't implement until Person is fixed
-
 //add hunting deer and rabbits and trapping rabbits
 	//if Person is looking for food and has seen a rabbit in the last 3 days but does not see one now, randomly place trap item on map, check on trap every x hours for dead rabbit, if dead rabbit found, pick up, process with knife into ready food, eat
 	//if do see a rabbit now, get rock and move to within x distance of rabbit then throw rock and kill rabbit (for now just use hitscan and animation, no real projectile), rock ends up next to dead rabbit
-	//add knife as the mortar_pestle equivalent for processing rabbit and deer into ready food, also uses rock as ingredient
-	// add trap item, if rabbit is on same tile as a trap, rabbit dies
 	// if Person is looking for food and sees a deer, get rock and go next to deer, kill deer, process into food
 //add water and thirst and fish and fishing
 	//add water tile and add water as searchable in acquire and find_all, add drink function, add thirst need

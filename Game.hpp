@@ -10,6 +10,7 @@
 #include "People.hpp"
 #include "Environment.hpp"
 #include "ItemSys.hpp"
+#include "Animal.hpp"
 using namespace std;
 
 class Game {
