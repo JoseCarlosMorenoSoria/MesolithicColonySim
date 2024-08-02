@@ -17,6 +17,9 @@ class People {
 	struct Position {
 		int x = -1;
 		int y = -1;
+		bool operator==(Position const& pos2) {
+			return this->x == pos2.x && this->y == pos2.y;
+		}
 	};
 	
 	//fo == function object
@@ -31,12 +34,24 @@ class People {
 		int progress_done = 4;
 	};
 
-	struct Person {
-		//int id;
+	struct Message {//need to tie Messages to tiles in map instead of current Message list
+		int sender_id;
+		int reciever_id = -1; //-1 is a message for everyone/anyone
+		string messsage = "";
 		Position pos;
+	};
+
+	
+
+	struct Person {
+		int id; //need to figure out a way to make new id automatic rather than a parameter, currently using an int but not automatic enough
+		Position pos;
+		bool sex; //true==male, false==female
+
 		string current_image = "pics/human.png";
 		string current_state = "idle"; //state/action
 		int sightline_radius = 5; //how far around self can see objects
+		int audioline_radius = 5; //how far around self can hear and be heard
 		int hunger_level = 0;
 		int hungry_time = 0;
 		bool awake = true;
@@ -46,18 +61,20 @@ class People {
 		bool is_alive = true;
 		Position campsite_pos = {-1,-1};
 		int campsite_age = -1; //used to track how long have lived at that campsite since it was placed to provide a bit of breathing room before removing to find another campsite
+		int reproduction_cooldown = 0; 
 
 		//objects for tracking function states
 		fo_search_for_new_campsite fo1;
 		fo_searching_for_food fo2;
 		fo_eating fo3;
+		Position fo4;
 
 		//these bools need to preserve their state outside each execution of the utility_function
 		bool start_set_up_camp = false; //is set to true when search_for_new_campsite ends so that it only triggers on the next update after search_ ends.
 		bool start_gathering_food = false; //same as set up camp
 		bool clean_image = false; //used by a function to return to default image on the next update
 
-		vector<string> function_record;
+		vector<string> function_record;//useful for more than debugging, such as determining if did x within the last day (20 updates)
 
 	};
 
@@ -65,11 +82,12 @@ class People {
 	
 
 public:
+	int people_id_iterator = 0;
 	static vector<Person> people_list;
-
+	static vector<Message> map_message_list;//global list   vectors might cause a memory leak? Need to check
 	People();
-	void update_all(int day_count, int hour_count); //does this need to be static?
-	void update(int day_count, int hour_count);
+	void update_all(int day_count, int hour_count, int hours_in_day);
+	void update(int day_count, int hour_count, int hours_in_day);
 	void utility_function();
 	bool move_to(Position pos);
 	bool has_food();
@@ -77,8 +95,11 @@ public:
 	bool valid_position(Position pos);
 	Position distance(Position pos1, Position pos2);
 	int campsite_distance_search = 5;
-
-	bool tile_has(string target);
+	bool check_death();
+	vector<Message> check_messages();
+	Position walk_search_random_dest(); //returns a random destination for a random walk
+	int new_person_id();
+	void update_person(Person pers);//used to reinsert a person that was copied out and modified. A pointer might be better but I'm not fully certain to avoiding memory leaks, so using this for now.
 
 	bool search_for_new_campsite();
 	bool set_up_camp();
@@ -88,7 +109,12 @@ public:
 	bool searching_for_food();
 	bool gathering_food();
 	bool sharing_food();
+	void speak(string message_text);
+	bool give_food(Message m);
+	bool reproduce();
 
+	void find_replacement(int radius);
+	void find_check(Position pos, string target);
 };
 
 #endif

@@ -5,6 +5,7 @@
 #include "SDL_image.h"
 #include <iostream>
 #include <string>
+#include <vector>
 
 using namespace std;
 
@@ -22,9 +23,11 @@ class Environment {
 	};
 
 public:
-	static Tile Map[50][100];
-	static sky_tile Sky[10]; //strip of sky above map
-	Environment();
+	static const int map_y_max = 50;
+	static const int map_x_max = 100;
+	static Tile Map[map_y_max][map_x_max];
+	static vector<sky_tile> Sky; //strip of sky above map
+	Environment(int hours_in_day);
 	static void update(int hours_in_day, int hour_count);
 };
 

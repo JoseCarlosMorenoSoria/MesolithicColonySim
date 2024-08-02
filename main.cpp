@@ -2,6 +2,7 @@
 
 Game game; //rather than use pointers like the tutorial, I am using only instances to avoid memory leaks
 
+
 int main(int argc, const char* argv[]) {
 
 	//frame rate variables
@@ -34,3 +35,5 @@ int main(int argc, const char* argv[]) {
 
 	return 0;
 }
+
+

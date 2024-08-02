@@ -40,13 +40,17 @@ int sqdim = 15;
 
 map<string, SDL_Texture*> texture_map;
 
+int day_count = 0; //temporary measure for counting days passed
+int hour_count = 0; //temporary measure for tracking when a new day starts, 20 updates == 1 day
+int hours_in_day = 40;
+
 void Game::initGameState() {
 	int a = 0;
 	destR.h = sqdim;
 	destR.w = sqdim;
 	destR.x = 0;
 	destR.y = 0;
-	Environment::Environment();
+	Environment::Environment(hours_in_day);
 	People::People();
 
 	texture_map = {
@@ -63,6 +67,8 @@ void Game::initGameState() {
 	{"pics/moon.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/moon.png"))},
 	{"pics/sky_day.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/sky_day.png"))},
 	{"pics/sky_night.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/sky_night.png"))},
+	{"pics/debug.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/debug.png"))},
+	{"pics/human_giving_food.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human_giving_food.png"))},
 	};
 }
 
@@ -79,17 +85,16 @@ void Game::handleEvents() { //I think this handles user inputs such as keyboard 
 }
 
 
-int day_count = 0; //temporary measure for counting days passed
-int hour_count = 0; //temporary measure for tracking when a new day starts, 20 updates == 1 day
+
 void Game::update() {
 	hour_count++;
-	if (hour_count == 20) {
+	if (hour_count == hours_in_day) {
 		hour_count = 0;
 		day_count++;
 	}
 
-	Environment::update(20, hour_count);
-	peep.update_all(day_count, hour_count);
+	Environment::update(hours_in_day, hour_count);
+	peep.update_all(day_count, hour_count, hours_in_day);
 
 }
 
@@ -118,7 +123,7 @@ void Game::render() {
 	destR.x = 0;
 	destR.y = 0;
 
-	for (int x = 0; x < 10; x++) {
+	for (int x = 0; x < hours_in_day/2; x++) {
 		destR.x = x * sqdim;
 		destR.y = 0;
 		if (Environment::Sky[x].has_sun) {
@@ -128,7 +133,7 @@ void Game::render() {
 			textureManager("pics/moon.png", destR);
 		}
 		else {
-			if (hour_count < 10) {
+			if (hour_count < hours_in_day/2) {
 				textureManager("pics/sky_day.png", destR);
 			}
 			else {
@@ -137,8 +142,8 @@ void Game::render() {
 		}
 	}
 
-	for (int y = 0; y < 50; y++) {
-		for (int x = 0; x < 100; x++) {
+	for (int y = 0; y < Environment::map_y_max; y++) {
+		for (int x = 0; x < Environment::map_x_max; x++) {
 			destR.x = x * sqdim;
 			destR.y = (y+1) * sqdim;
 			if (Environment::Map[y][x].has_food) {
