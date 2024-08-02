@@ -95,7 +95,8 @@ void Game::initGameState() {
 	{"rabbit_meat", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit_meat.png"))},
 	{"pics/shallow_water.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/shallow_water.png"))},
 	{"tree", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/tree.png"))},
-	{"wood", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/wood.png"))}
+	{"wood", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/wood.png"))},
+	{"monument", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/monument.png"))}
 	};
 }
 

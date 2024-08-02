@@ -22,4 +22,4 @@
 //add terrain feritility and distribute using a noise function to create areas of varying amount of plants and therefore animals and food
 //add more animals and plants and rock/soil types, more aesthetic variation, more tools, weapons, armor, clothing, tents/house types, human visual variation, etc
 //add cultural activities, actions, rituals, etc. 
-
+//add maintenance of items/buildings and cleaning, decorating

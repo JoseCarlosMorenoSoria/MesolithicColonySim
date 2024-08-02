@@ -21,6 +21,8 @@ ItemSys::ItemSys() {
     presets.insert({ "tree",   { -1, "tree", "tree" , {"wood source"}, {},false} });
     presets.insert({ "wood",   { -1, "wood", "wood" , {}, {},true} });
 
+    presets.insert({ "monument",   { -1, "monument", "monument" , {}, {},false} });
+
     fill_tag_lookup();
     /*
     cout << "\n\n\n\n\n";

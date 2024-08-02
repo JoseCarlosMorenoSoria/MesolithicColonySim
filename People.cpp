@@ -10,6 +10,7 @@ int People::ox = -1;
 int People::oy = -1;
 int People::pday_count;
 int People::phour_count;
+int People::people_id_iterator = 0;
 
 People::People(){}
 
@@ -105,7 +106,9 @@ void People::update_all(int day_count, int hour_count, int hours_in_day) {
 
 bool People::check_death() {
     bool starvation = pl[p].hunger_level > 1000;
-    bool death = !pl[p].is_alive || starvation;
+    bool dehydration = pl[p].thirst_level > 1000;
+    bool old_age = pl[p].age > 50;
+    bool death = !pl[p].is_alive || starvation || dehydration || old_age;
     if (death) {
         pl[p].is_alive = false;
         add_func_record("dead");
@@ -172,8 +175,13 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
             pl[p].pos.x += 1;
             //cout << "am carried";
         }
+        pl[p].immobile = true;
         eating();
         return;
+    }
+    else {
+        pl[p].immobile = false;
+        pl[p].clean_image = true;
     }
 
     
@@ -218,7 +226,7 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
     pl[p].general_search_called = false;
 
     authority_calc();
-
+    build_monument();
     if (hour_count == 0) {//once a day
         for (auto& i : pl[p].dispositions) {//dispositions tend toward returning to neutral over time if no other factor involved
             if (i.second > 0) {
@@ -254,7 +262,7 @@ bool People::move_to(Position dest, string caller) {//need to add speed of movin
         pl[p].general_search_called = false;
     }
     
-    if (pl[p].immobile || pl[p].move_already || pl[p].age < 5) {//the image check shouldn't be necessary but I don't know why it still moves while having crafting image
+    if (pl[p].downed || pl[p].immobile || pl[p].move_already || pl[p].age < 5) {//the image check shouldn't be necessary but I don't know why it still moves while having crafting image
         if (pl[p].pos == dest) {
             return true;
         }
@@ -281,19 +289,24 @@ bool People::move_to(Position dest, string caller) {//need to add speed of movin
         Environment::Map[pl[p].pos.y][pl[p].pos.x].person_id = pl[p].id;//add person back to Person_Map at new location
         reached = pl[p].pos == dest;
     }
-    else {
-        pl[p].pos = old_pos;//NEED TO FIX: need to handle case where someone else is blocking path or occuppying destination
-        //move to a random adjacent tile. Temporary fix
-        //potential fix would be to have a direction attribute for person and a function to handle turning right or left to then simply turn perpendicular to the obstacle until no obstacle is in the way.
+    else {//if a person is blocking path, move to first empty tile in a clockwise direction
+        pl[p].current_direction = { old_pos.x - pl[p].pos.x, old_pos.y - pl[p].pos.y };
         Position test_pos;
-        for (int y = -1;y <= 1;y++) {
-            for (int x = -1;x <= 1;x++) {
-                test_pos.x = old_pos.x + x;
-                test_pos.y = old_pos.y + y;
+        bool next = false;
+        for (Position pos : pl[p].rotations) {//still just a temp fix, need actual pathfinding algo
+            if (next) {
+                test_pos = { old_pos.x + pos.x, old_pos.y + pos.y };
                 if (valid_position(test_pos) && test_pos != pl[p].pos && Environment::Map[test_pos.y][test_pos.x].person_id == -1) {
                     pl[p].pos = test_pos;
                     break;//need to handle if no adjacent tile is empty, fix this
                 }
+            }
+            if (pl[p].current_direction == pos) {
+                if (next) {
+                    pl[p].pos = old_pos;//no free adjacent tile, don't move
+                    break;
+                }
+                next = true;
             }
         }
     }
@@ -330,6 +343,34 @@ int People::p_by_id(int id){//uses binary search to find and return index to per
     return -1;//not found
 }
 
+bool People::child_birth() {
+    if (pl[p].sex) {
+        return false;//am male
+    }
+    if (pl[p].pregnancy.progress == 0) {
+        return false;//not pregnant
+    }
+    if (pl[p].pregnancy.progress_func()) {//advance pregnancy until done, if done create child
+        int sex = rand() % 2;
+        Position child_pos;
+        if (pl[p].search_results.find("no people") != pl[p].search_results.end()) {
+            if (Position::distance(pl[p].search_results["no people"][0], pl[p].pos) == 1) {//if empty adjacent tile
+                child_pos = pl[p].search_results["no people"][0];
+            }
+        }
+        if (child_pos.x == -1) {//if no empty adjacent tile found
+            pl[p].general_search_called = true;
+            return true;//in progress
+        }
+        Person child = { new_person_id(), child_pos, sex };
+        Environment::Map[child.pos.y][child.pos.x].person_id = child.id;
+        pl.push_back(child);
+        pl[p].children_id.push_back(child.id);
+        pl[p_by_id(pl[p].spouse_id)].children_id.push_back(child.id);
+        return true;//done
+    }
+}
+
 bool People::reproduce() {//later, add marriage ceremony/customs, options for polygamy, infidelity, premarital sex, widow status, age and family restrictions on potential mates, family size limits, divorce, etc
     if (!(pl[p].reproduction_cooldown > 100)) {//function trigger
         return false;
@@ -361,23 +402,8 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
         }
         if (mate_willing && (Position::distance(pl[p].pos, pl[p2].pos)==1 || move_to(pl[p2].pos,"going to mate"))) {//go to tile adjacent to p2
             //create a new human, add pregnancy later, only female creates child
-            if (!pl[p].sex) {
-                int sex = rand() % 2;
-                Position child_pos;
-                if (pl[p].search_results.find("no people") != pl[p].search_results.end()) {
-                    if (Position::distance(pl[p].search_results["no people"][0], pl[p].pos) == 1) {//if empty adjacent tile
-                        child_pos = pl[p].search_results["no people"][0];
-                    }
-                }
-                if (child_pos.x == -1) {//if no empty adjacent tile found
-                    pl[p].general_search_called = true;
-                    return true;//in progress
-                }
-                Person child = { new_person_id(), child_pos, sex };
-                Environment::Map[child.pos.y][child.pos.x].person_id = child.id;
-                pl.push_back(child);
-                pl[p].children_id.push_back(child.id);
-                pl[p2].children_id.push_back(child.id);
+            if (!pl[p].sex) {//if female
+                pl[p].pregnancy.progress = 1;//am now pregnant
                 pl[p].reproduction_cooldown = 0;//reset
                 pl[p2].reproduction_cooldown = 0;//unsure if this is the best way to handle interaction between 2 people, speaking or some other function might be better to avoid 2 people not being in sync
                 if (pl[p].spouse_id == -1 && pl[p2].spouse_id == -1) {//if don't have spouse, set as spouse
@@ -400,11 +426,15 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
 }
 
 Animal anim1;
-//for cleaner code      for some reason this is too slow compared to old find_all, fix later
+//for cleaner code
 void People::find_all_helper(Position pos, string type) {
     if (!valid_position(pos)) {return;}
     string key;
     if (type == "people") {
+        if (pl[p].lastpos == pos) {
+            throw std::invalid_argument("my error");
+        }
+        pl[p].lastpos = pos;
         if (Environment::Map[pos.y][pos.x].person_id != -1) {key = "people";}
         else {key = "no people";}}
     else if (type == "item") {
@@ -414,251 +444,12 @@ void People::find_all_helper(Position pos, string type) {
         if (Environment::Map[pos.y][pos.x].animal_id != -1) {key = Animal::al[anim1.a_by_id(Environment::Map[pos.y][pos.x].animal_id)].species;}
         else {key = "no animal";}}
     else if (type == "terrain") {key = Environment::Map[pos.y][pos.x].terrain;}
+    
     if (pl[p].search_results.find(key) != pl[p].search_results.end()) {//check if key exists
         pl[p].search_results[key].push_back(pos);}//key found
     else {pl[p].search_results.insert({ key,{pos} });}//key not found
 }
 
-
-//this is the old find_all(), don't know why the new one was slower so using this for now. The new one is commented out below
-void People::find_all() {//returns all things (items, people, messages, etc) found, sorted according into Position lists for each thing type
-    int radius_options[2] = {//all radius options
-        pl[p].sightline_radius, pl[p].audioline_radius
-    };
-    if (pl[p].radiusmax == -1) {//used to store result instead of calling every time, only resets if one of the radius options changes such as damaged eyesight, etc
-        for (int i = 0; i < 2; i++) {//selects largest radius
-            if (i == 0) {
-                pl[p].radiusmax = radius_options[i];
-            }
-            else if (pl[p].radiusmax < radius_options[i]) {
-                pl[p].radiusmax = radius_options[i];
-            }
-        }
-    }
-    map<string, vector<Position>> search_results;
-    Position o = pl[p].pos;//origin
-    vector<int> target_quantity_current;
-    for (int radius = 0; radius <= pl[p].radiusmax; radius++) { //this function checks tilemap in outward rings by checking top/bottom and left/right ring boundaries
-        if (radius == 0) {//avoids double checking origin
-            if (radius <= pl[p].sightline_radius) {
-                if (Environment::Map[o.y][o.x].item_id != -1) {
-                    ItemSys::Item& item = ItemSys::item_list[ItemSys::item_by_id(Environment::Map[o.y][o.x].item_id)];
-                    search_results.insert({ item.item_name,{o} });
-                }
-                else {//creates list of tiles without any item, for use when placing an item on the map
-                    search_results.insert({ "no item",{o} });
-                }
-                //don't check if person is on origin tile, because that person is self
-                if (Environment::Map[o.y][o.x].animal_id != -1) {
-                    string species = Animal::al[anim1.a_by_id(Environment::Map[o.y][o.x].animal_id)].species;
-                    search_results.insert({ species,{o} });
-                }
-                else {//creates list of tiles without any item, for use when placing an item on the map
-                    search_results.insert({ "no animal",{o} });
-                }
-            }
-            if (radius <= pl[p].audioline_radius) {
-                //check for messages
-                check_tile_messages(o);
-            }
-        }
-        int xmin = o.x - radius;
-        int xmax = o.x + radius;
-        int ymin = o.y - radius + 1;//+1 and -1 to avoid double checking corners
-        int ymax = o.y + radius - 1;
-        for (int x = xmin, y = ymin; x <= xmax; x++, y++) {
-            for (int sign = -1; sign <= 1; sign += 2) {//sign == -1, then sign == 1
-                Position pos1 = { x,o.y + (sign * radius) };
-                Position pos2 = { o.x + (sign * radius), y };
-                if (valid_position(pos1)) {
-                    string t = Environment::Map[pos1.y][pos1.x].terrain;
-                        if (search_results.find(t) != search_results.end()) {//check if key exists
-                            //key found
-                            search_results[t].push_back(pos1);
-                        }
-                        else {
-                            //key not found
-                            search_results.insert({ t,{pos1} });
-                        }
-                }
-                if (y <= ymax) {
-                    if (valid_position(pos2)) {
-                        string t = Environment::Map[pos2.y][pos2.x].terrain;
-                            if (search_results.find(t) != search_results.end()) {//check if key exists
-                                //key found
-                                search_results[t].push_back(pos2);
-                            }
-                            else {
-                                //key not found
-                                search_results.insert({t,{pos2} });
-                            }                    
-                    }
-                }
-
-
-
-                //check for people
-                if (valid_position(pos1)) {
-                    if (Environment::Map[pos1.y][pos1.x].person_id != -1) {
-                        if (search_results.find("people") != search_results.end()) {//check if key exists
-                            //key found
-                            search_results["people"].push_back(pos1);
-                        }
-                        else {
-                            //key not found
-                            search_results.insert({ "people",{pos1} });
-                        }
-                    }
-                    else {//creates list of tiles without any people, for use when placing an item on the map
-                        if (search_results.find("no people") != search_results.end()) {//check if key exists
-                            //key found
-                            search_results["no people"].push_back({ pos1 });
-                        }
-                        else {
-                            //key not found
-                            search_results.insert({ "no people",{pos1} });
-                        }
-                    }
-                }
-                if (y <= ymax) {
-                    if (valid_position(pos2)) {
-                        if (Environment::Map[pos2.y][pos2.x].person_id != -1) {
-                            if (search_results.find("people") != search_results.end()) {//check if key exists
-                                //key found
-                                search_results["people"].push_back(pos2);
-                            }
-                            else {
-                                //key not found
-                                search_results.insert({ "people",{pos2} });
-                            }
-                        }
-                        else {//creates list of tiles without any people, for use when placing an item on the map
-                            if (search_results.find("no people") != search_results.end()) {//check if key exists
-                                //key found
-                                search_results["no people"].push_back({ pos2 });
-                            }
-                            else {
-                                //key not found
-                                search_results.insert({ "no people",{pos2} });
-                            }
-                        }
-                    }
-                }
-                //check for items
-                if (valid_position(pos1)) {
-                    if (Environment::Map[pos1.y][pos1.x].item_id != -1) {
-                        string item_name = ItemSys::item_list[ItemSys::item_by_id(Environment::Map[pos1.y][pos1.x].item_id)].item_name;
-                        if (search_results.find(item_name) != search_results.end()) {//check if key exists
-                            //key found
-                            search_results[item_name].push_back({ pos1 });
-                        }
-                        else {
-                            //key not found
-                            search_results.insert({ item_name,{pos1} });
-                        }
-                    }
-                    else {//creates list of tiles without any item, for use when placing an item on the map
-                        if (search_results.find("no item") != search_results.end()) {//check if key exists
-                            //key found
-                            search_results["no item"].push_back({ pos1 });
-                        }
-                        else {
-                            //key not found
-                            search_results.insert({ "no item",{pos1} });
-                        }
-                    }
-                }
-                if (y <= ymax) {
-                    if (valid_position(pos2)) {
-                        if (Environment::Map[pos2.y][pos2.x].item_id != -1) {
-                            string item_name = ItemSys::item_list[ItemSys::item_by_id(Environment::Map[pos2.y][pos2.x].item_id)].item_name;
-                            if (search_results.find(item_name) != search_results.end()) {//check if key exists
-                                //key found
-                                search_results[item_name].push_back({ pos2 });
-                            }
-                            else {
-                                //key not found
-                                search_results.insert({ item_name,{pos2} });
-                            }
-                        }
-                        else {//creates list of tiles without any item, for use when placing an item on the map
-                            if (search_results.find("no item") != search_results.end()) {//check if key exists
-                                //key found
-                                search_results["no item"].push_back({ pos2 });
-                            }
-                            else {
-                                //key not found
-                                search_results.insert({ "no item",{pos2} });
-                            }
-                        }
-                    }
-                }
-                if (valid_position(pos1)) {
-                    if (Environment::Map[pos1.y][pos1.x].animal_id != -1) {
-                        string species = Animal::al[anim1.a_by_id(Environment::Map[pos1.y][pos1.x].animal_id)].species;
-                        if (search_results.find(species) != search_results.end()) {//check if key exists
-                            //key found
-                            search_results[species].push_back({ pos1 });
-                        }
-                        else {
-                            //key not found
-                            search_results.insert({ species,{pos1} });
-                        }
-                    }
-                    else {//creates list of tiles without any item, for use when placing an item on the map
-                        if (search_results.find("no animal") != search_results.end()) {//check if key exists
-                            //key found
-                            search_results["no animal"].push_back({ pos1 });
-                        }
-                        else {
-                            //key not found
-                            search_results.insert({ "no animal",{pos1} });
-                        }
-                    }
-                }
-                if (y <= ymax) {
-                    if (valid_position(pos2)) {
-                        if (Environment::Map[pos2.y][pos2.x].animal_id != -1) {
-                            string species = Animal::al[anim1.a_by_id(Environment::Map[pos2.y][pos2.x].animal_id)].species;
-                            if (search_results.find(species) != search_results.end()) {//check if key exists
-                                //key found
-                                search_results[species].push_back({ pos2 });
-                            }
-                            else {
-                                //key not found
-                                search_results.insert({ species,{pos2} });
-                            }
-                        }
-                        else {//creates list of tiles without any item, for use when placing an item on the map
-                            if (search_results.find("no animal") != search_results.end()) {//check if key exists
-                                //key found
-                                search_results["no animal"].push_back({ pos2 });
-                            }
-                            else {
-                                //key not found
-                                search_results.insert({ "no animal",{pos2} });
-                            }
-                        }
-                    }
-                }
-
-                //check for messages
-                if (valid_position(pos1)) {
-                    check_tile_messages(pos1);
-                }
-                if (y <= ymax) {
-                    if (valid_position(pos2)) {
-                        check_tile_messages(pos2);
-                    }
-                }
-            }
-        }
-    }
-    pl[p].search_results = search_results;
-}
-
-
-/*
 void People::find_all() {//returns all things (items, people, messages, etc) found, sorted according into Position lists for each thing type
     int radius_options[2] = {//all radius options
         pl[p].sightline_radius, pl[p].audioline_radius
@@ -679,29 +470,39 @@ void People::find_all() {//returns all things (items, people, messages, etc) fou
         if (radius == 0) {//avoids double checking origin
             if (radius <= pl[p].sightline_radius) {
                 vector<string> types = { "item","animal","terrain" };
-                for (int i = 0; i < 3; i++) {
-                    find_all_helper(o, types[i]);
+                for (string s : types) {
+                    find_all_helper(o, s);
                 }
             }
             if (radius <= pl[p].audioline_radius) {
                 //check for messages
                 check_tile_messages(o);
             }
+            continue;
         }
         int xmin = o.x - radius;
+        if (xmin < 0) { xmin = 0; }//these reduce iterations when near edges of map
         int xmax = o.x + radius;
+        if (xmax > Environment::map_x_max-1) { xmax = Environment::map_x_max-1; }
         int ymin = o.y - radius + 1;//+1 and -1 to avoid double checking corners
+        if (ymin < 0) { ymin = 0; }
         int ymax = o.y + radius - 1;
+        if (ymax > Environment::map_y_max - 1) { ymax = Environment::map_y_max - 1; }
         for (int x = xmin, y = ymin; x <= xmax; x++, y++) {
             for (int sign = -1; sign <= 1; sign += 2) {//sign == -1, then sign == 1
                 Position pos1 = { x,o.y + (sign * radius) };
                 Position pos2 = { o.x + (sign * radius), y };
+
+                //if (pos1==pos2) {
+                //        throw std::invalid_argument("my error2");
+                 //   }
+
                 if (radius <= pl[p].sightline_radius) {
                     vector<string> types = { "people","item","animal","terrain" };
-                    for (int i = 0; i < 4; i++) {
-                        find_all_helper(pos1, types[i]);
-                        if (y <= ymax) {
-                            find_all_helper(pos2, types[i]);
+                    for (string s : types) {
+                        find_all_helper(pos1, s);
+                        if (y <= ymax && pos1!=pos2) {//need to figure out why pos1 sometimes == pos2 and rewrite for loops to avoid this
+                            find_all_helper(pos2, s);
                         }
                     }
                 }
@@ -710,7 +511,7 @@ void People::find_all() {//returns all things (items, people, messages, etc) fou
                     if (valid_position(pos1)) {
                         check_tile_messages(pos1);
                     }
-                    if (y <= ymax) {
+                    if (y <= ymax && pos1 != pos2) {
                         if (valid_position(pos2)) {
                             check_tile_messages(pos2);
                         }
@@ -720,7 +521,7 @@ void People::find_all() {//returns all things (items, people, messages, etc) fou
         }
     }
 }
-*/
+
 void People::check_tile_messages(Position pos) {
     //might also serve as a generic for reacting to sounds
     for (int m_id : Message_Map[pos.y][pos.x]) {//check all messages in this tile
@@ -817,36 +618,46 @@ bool People::idle() {
     if (pl[p].dispositions.empty()) {
         option = 51;
     }
-    if (option > 50) {
-        //flip between idle and default image
-        if (pl[p].current_image == "pics/human.png") {
-            pl[p].current_image = "pics/human_idle.png"; //need to make image, just have human with raised hands
-        }
-        else {
-            pl[p].current_image = "pics/human.png";
-        }
-    }
-    else {//should this instead be a social need or is it good here in idle?
-        int sum = 0;
-        for (auto const& i : pl[p].dispositions) {
-            if (i.second > 0) {
-                sum += i.second;
+    bool have_no_friends = false;
+    do {
+        if (option > 50) {
+            //flip between idle and default image
+            if (pl[p].current_image == "pics/human.png") {
+                pl[p].current_image = "pics/human_idle.png"; //need to make image, just have human with raised hands
             }
+            else {
+                pl[p].current_image = "pics/human.png";
+            }
+            have_no_friends = false;
         }
-        int dice = rand() % sum;
-        sum = 0;
-        int p2id = -1;
-        for (auto const& i : pl[p].dispositions) {//selects a person one likes with higher chance the more someone is liked, to go to socialize with
-            if (i.second > 0) {
-                sum += i.second;
-                if (sum > dice) {
-                    p2id = i.first;
-                    break;
+        else {//should this instead be a social need or is it good here in idle?
+            int sum = 0;
+            for (auto const& i : pl[p].dispositions) {
+                if (i.second > 0) {
+                    sum += i.second;
                 }
             }
+            int dice = (rand() % (sum + 1)) - 1;//+1,-1 is to avoid division by 0
+            sum = 0;
+            int p2id = -1;
+            for (auto const& i : pl[p].dispositions) {//selects a person one likes with higher chance the more someone is liked, to go to socialize with
+                if (i.second > 0) {
+                    sum += i.second;
+                    if (sum > dice) {
+                        p2id = i.first;
+                        break;
+                    }
+                }
+            }
+            if (p2id != -1) {
+                move_to(pl[p_by_id(p2id)].pos, "to socialize - idle");//to search out liked people to encourage clique congregation and disposition sharing
+            }
+            else {
+                have_no_friends = true;//causes execution of other idle option
+                option = 51;
+            }
         }
-        move_to(pl[p_by_id(p2id)].pos, "to socialize - idle");//to search out liked people to encourage clique congregation and disposition sharing
-    }
+    } while (have_no_friends);
     return true;
 }
 
@@ -968,9 +779,9 @@ void People::general_search_walk(string target) {
     }//the move_to function triggers in the conditional
 }
 
-void People::answer_item_request() {
+bool People::answer_item_request() {
     if (pl[p].found_messages.empty()) {
-        return;
+        return false;
     }
     //if request for an item found, and have item, and willing to give item (don't give food if hungry or only to kids if kids are hungry, etc)
     vector<Message> request_messages;
@@ -985,16 +796,38 @@ void People::answer_item_request() {
         }
     }
     if (items_requested.empty()) {//none of the messages were item requests
-        return;
+        return false;
     }
-    for (int i = items_requested.size() - 1; i > -1; i--) {
-        if (inventory_has(items_requested[i]).empty()) {//if don't have item requested, remove from list of items requested
-            items_requested.erase(items_requested.begin() + i);
+    //choose message to answer  //answering item requests. if answered and whether to answer. If like person or they have authority or I submit to them, then chance of if they request something I don't have, I acquire item in order to give it to them
+    bool acquire_to_give = false;
+    int service=-1;
+    for (int i = request_messages.size() - 1; i > -1; i--) {
+        int sid = request_messages[i].sender_id;
+        change_disposition(sid, 0, "check exists");
+        if (pl[p].submissive_to.find(sid) == pl[p].submissive_to.end()) { pl[p].submissive_to.insert({ sid,{0,false} }); }//should have a first contact function to populate these lists instead of checking if exists every time the list is used. Fix this
+        if (pl[p].dispositions[sid] < -25 && !pl[p].submissive_to[sid].submissive_to) {//don't answer requests from disliked people unless you are submissive to them
             request_messages.erase(request_messages.begin() + i);
+            items_requested.erase(items_requested.begin() + i);
+        }
+        if (pl[p].dispositions[sid] > 75 || pl[p].submissive_to[sid].submissive_to) {
+            acquire_to_give = true;
+            service = i;
+            break;//force answer this request
         }
     }
-    if (items_requested.empty()) {//don't have any of the items requested
-        return;
+    if (items_requested.empty()) {//requests were from disliked and non dominant people
+        return false;
+    }
+    if (!acquire_to_give) {
+        for (int i = items_requested.size() - 1; i > -1; i--) {
+            if (inventory_has(items_requested[i]).empty()) {//if don't have item requested, remove from list of items requested
+                items_requested.erase(items_requested.begin() + i);
+                request_messages.erase(request_messages.begin() + i);
+            }
+        }
+        if (items_requested.empty()) {//don't have any of the items requested
+            return false;
+        }
     }
 
     //conditional checks such as don't give food if self is hungry or give to kids before others if kids are hungry. Not implemented, fix this
@@ -1002,10 +835,22 @@ void People::answer_item_request() {
     * bool hungry = pl[p].hunger_level > 50;//condition on willingness to answer request
       bool start_give_food = !hungry && !pl[p].child_is_hungry;
     */
+    
+
 
     //send answer
-    string target = items_requested[0];//currently simply selects the first item request in list to answer. Fix this, no condition on when or when not to answer has been implemented
-    int receiver_id = request_messages[0].sender_id;//id of person who requested the item
+    int m_ind = 0;
+    if (acquire_to_give) {
+        m_ind = service;
+        if (acquire(items_requested[service])) {
+            //continue
+        }
+        else {
+            return true;//in process
+        }
+    }
+    string target = items_requested[m_ind];//currently simply selects the first item request in list to answer. Fix this, no condition on when or when not to answer has been implemented
+    int receiver_id = request_messages[m_ind].sender_id;//id of person who requested the item
     add_func_record("answering request for " + target);
     pl[p].current_image = "pics/human_giving_food.png";
     speak("answering request for " + target, receiver_id);
@@ -1021,9 +866,9 @@ void People::answer_item_request() {
         p = p_by_id(receiver_id);
         change_disposition(pl[op].id, 10, "recieved item requested");
         p = op;
-        return;
+        return true;//done
     }
-    return;
+    return true;//in process
 }
 
 bool People::drop_item(int index) {
@@ -1162,12 +1007,14 @@ void People::utility_function() {//is currently actually just a behavior tree no
     //if(func()==false) go to next func(), if(func()==true) executed this func() for both in progress and done cases
     chat();//chance to chat every update
     
-    if(fight()){}
+    if(child_birth()){}
+    else if(fight()){}
     else if (sleeping()) {}
     else if(drinking()){}
     else if (eating()) {}//if don't have food, searches for food. Therefore the structure of utility_function is focused on which needs to satsify first (sleep, hunger, campsite, reproduction, etc)
     else if (search_for_new_campsite()) {}
     else if (reproduce()) {} //avoid execution of this function to focus on other features without worrying about population size
+    else if(answer_item_request()){}
     else {idle();}
     //DO THIS: (this (authority pursuit AI) might be too complex for this version, maybe organic leaders is better and add behavior that makes it likelier for some npcs to get to victory condition?) need to add authority as a need/goal to be pursued. Which means starting and winning fights with new people to increase number of submissives, and gaining favor with more people and increasing favor with existing friends/allies
 }
@@ -1195,6 +1042,7 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
             delete_item(item_id, pl[p].campsite_pos, -1);
             pl[p].campsite_pos = { -1,-1 };
             pl[p].campsite_age = -1;
+            pl[p].friend_camp_check = true;
             if (pl[p].adopt_spouse_campsite) {
                 pl[p].campsite_pos = pl[p_by_id(pl[p].spouse_id)].campsite_pos;
                 pl[p].adopt_spouse_campsite = false;//reset for if spouse dies later
@@ -1214,6 +1062,11 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
                     pl[kid_index].being_carried = true;
                     pl[kid_index].carried_by_id = pl[p].id;
                     Environment::Map[pl[kid_index].pos.y][pl[kid_index].pos.x].person_id = -1;
+                    for (int j = 0; j < pl[p].search_results["people"].size(); j++) {//ensure integrity of search_results (due to possible vector out of bounds error source)
+                        if (pl[p].search_results["people"][j] == pl[kid_index].pos) {
+                            pl[p].search_results["people"].erase(pl[p].search_results["people"].begin() + j);
+                        }
+                    }
                     pl[kid_index].pos = { -1,-1 };
                     cout << "carrying kid";
                 }
@@ -1228,6 +1081,21 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
     if (!food_pos_list.empty()) {
         food_pos = food_pos_list[0];
         found_food = true;
+    }
+
+    if (pl[p].friend_camp_check) {//encourages campsite congregation between people who like each other (forgot to check if other person likes self, fix this)
+        for (auto const& i : pl[p].dispositions) {
+            if (i.second > 75) {
+                if (pl[p_by_id(i.first)].campsite_pos.x != -1) {//if have a friend with a campsite and am finding a new campsite, move to within 10 tiles of friend to search for campsite location there
+                    if (Position::distance(pl[p].pos, pl[p_by_id(i.first)].campsite_pos) < 10 || move_to(pl[p_by_id(i.first)].campsite_pos, "to friend's campsite")) {
+                        pl[p].friend_camp_check = false;
+                    }
+                    else {
+                        return true;//in progress
+                    }
+                }
+            }
+        }
     }
 
     if (food_pos_list.size() >= 4) {//if there are 4 food items within sight, select area for campsite, else keep searching
@@ -1308,6 +1176,10 @@ bool People::sleeping(){
 }
 
 bool People::eating(){
+    if (pl[p].hungry_time > 3 && pl[p].campsite_pos.x != 1 && pl[p].campsite_age>15) {//allows search for campsite to trigger but not before new camp is at least a few ticks old
+        return false;
+    }
+
     bool hungry = pl[p].hunger_level > 50;
     bool has_food = false;
     vector<int> food_indexes1 = inventory_has("ready food");//should these return sets instead? would remove the need for converting to sets when set operations are needed. Duplicate indexes are never relevant.
@@ -1476,6 +1348,9 @@ bool People::cut_down_tree() {
 }
 
 void People::change_disposition(int p_id, int amount, string reason) {
+    if (p_id == 0) {
+        throw std::invalid_argument("pid is 0");
+    }
     if (pl[p].id == p_id) {
         return;
     }
@@ -1561,6 +1436,7 @@ void People::authority_calc() {
         }
     }
     pl[p].authority = num_people_liked_by * amount_liked * num_submissives * pl[p].num_fights_won;
+    //10000 = 10*10*10*10 = 1*100*1*1  <-- this may be a problem, rethink formula
     if (pl[p].authority > 10000 && am_sovereign) {
         pl[p].monument_unlocked = true;
     }
@@ -1569,98 +1445,199 @@ void People::authority_calc() {
     }
 }
 
-//need to implement being downed if lost a personal fight and how to recover, as well as in what cases might be killed or can kill (maybe a percent chance?)
-//DO THIS NOW   Need trigger for when to fight
-//no hp, simply downed or killed on hit
-//need to add weapons and armor that affect dice rolls, and triggers for acquiring them
-bool People::fight() {//not implemented, fix this. Order of execution for people here might necessitate having an extra tick to resolve results of combat dice rolls, otherwise people who update first will always attack and the latter always defend?
-    //go through every person have disposition towards. If hate someone, chance to trigger fight. If fight triggered, chance to invite friends and family to join fight. 
-    vector<int> hated;
-    for (auto const& i : pl[p].dispositions) {
-        if (i.second < -75) {
-            hated.push_back(i.first);
+bool People::hostile_detection() {
+    bool found_hostiles = false;
+    if (pl[p].search_results.find("people") != pl[p].search_results.end()) {
+        for (Position pos : pl[p].search_results["people"]) {
+            Person& p2 = pl[p_by_id(Environment::Map[pos.y][pos.x].person_id)];
+            for (int i : p2.active_hostile_towards) {
+                if (i == pl[p].id) {//if a person nearby is actively hostile to self
+                    pl[p].active_hostile_towards.push_back(p2.id);
+                    pl[p].hostile_towards.push_back(p2.id);
+                    found_hostiles = true;
+                }
+            }
         }
     }
-    int fight_choice = -1;
-    if (!hated.empty()) {
-        fight_choice = rand() % hated.size();
+    if (found_hostiles) {
+        return true;
     }
-    int chance_to_fight = rand() % 100;
-
-    if (!(chance_to_fight < 5 && fight_choice != -1)) {//function trigger
+    else {
         return false;
     }
-    
-    
-    
-    
-    
-    bool won = false;//for individual fights and glory
-    bool battle_won = false;//if in group and group wins fight, get a bit of reflected glory (increase fights won by 1 even if lost personal fights)
-    //fight - do something
-        //DO THIS: if initiating fight, become hostile towards target
-        //DO THIS: check surroundings for people who became hostile to me in response or who joined the fight as hostiles to me
-        //DO THIS: check combat allies, if a third have been downed or killed, surrender and submit
-    for (int i = 0; i < pl[p].active_hostile_towards.size(); i++) {//for every enemy combatant in the fight
-        int p2=-1;//need to determine how to get p2
-        bool tie = true;
-        while (tie && (Position::distance(pl[p].pos, pl[p2].pos) == 1 || move_to(pl[p2].pos, "to enemy combatant"))) {//go to target
-            if (pl[p].dice == -1) {
-                pl[p].dice = rand() % 20;//when next to target, progress delay and dice roll
-                return false;//in progress
-            }
-            //DO THIS: win or lose, need to move myself or other from active_hostile to hostile list to no longer be targeted in fight
-            if (pl[p].dice > pl[p2].dice) {//if my dice roll is larger than theirs, I win, else I lose. Tie means keep fighting
-                won = true;
-                tie = false;
-            }
-            if (pl[p].dice < pl[p2].dice) {
-                won = false;
-                tie = false;
-            }
-            else {
-                pl[p].dice = -1;
+}
+
+vector<int> People::remove_dup(vector<int> v) {
+    vector<int> v2;
+    bool dupe = false;
+    for (int i : v) {
+        for (int j : v2) {
+            if (i == j) {
+                dupe = true;
+                break;
             }
         }
-        //can only fight against 1 person at a time meaning being outnumbered personally at the moment is immediate loss of fight
-        if (won) {
-            pl[p].num_fights_won++;
+        if (!dupe) {
+            v2.push_back(i);
+        }
+        dupe = false;
+    }
+    return v2;
+}
+
+
+//need to implement being downed if lost a personal fight and how to recover, as well as in what cases might be killed or can kill (maybe a percent chance?)
+//need to add weapons and armor that affect dice rolls, and triggers for acquiring them
+bool People::fight() {//Order of execution for people here might necessitate having an extra tick to resolve results of combat dice rolls, otherwise people who update first will always attack and the latter always defend?
+    hostile_detection();//gets active enemies
+    pl[p].active_hostile_towards = remove_dup(pl[p].active_hostile_towards);
+    pl[p].hostile_towards = remove_dup(pl[p].hostile_towards);
+    int fight_choice = -1;
+    if (pl[p].hostile_towards.empty()) {//if initiating fight
+        //go through every person have disposition towards. If hate someone, chance to trigger fight. //not yet implemented: If fight triggered, chance to invite friends and family to join fight. 
+        vector<int> hated;
+        for (auto const& i : pl[p].dispositions) {
+            if (i.second < -75) {
+                hated.push_back(i.first);//get id's
+            }
+        }
+        if (!hated.empty()) {
+            fight_choice = rand() % hated.size();//get index
+            fight_choice = hated[fight_choice];//get id of enemy
+        }
+        int chance_to_fight = rand() % 100;
+
+        if (!(chance_to_fight < 5 && fight_choice != -1)) {//function trigger
+            return false;//no fight
+        }
+
+        //if initiating fight, become hostile towards target
+        pl[p].active_hostile_towards.push_back(fight_choice);
+        pl[p].hostile_towards.push_back(fight_choice);
+    }
+    else {
+        if (!pl[p].active_hostile_towards.empty()) {
+            fight_choice = pl[p].active_hostile_towards[0];//if didn't initiate fight, focus on fighting first active hostile found
+        }
+    }
+
+    if (!pl[p].active_hostile_towards.empty()) {//active hostiles means fight is active
+        bool won = false;//for individual fights and personal glory
+        //DO THIS, later: check combat allies, if a third have been downed or killed, surrender and submit. Currently fights are only 1v1, no combat allies. Multiple enemies or combat allies might appear simply due to hate triggering 1v1 fights but is unintended.
+        for (int i = 0; i < pl[p].active_hostile_towards.size(); i++) {//for every enemy combatant in the fight
+            int p2 = p_by_id(fight_choice);
+            bool tie = true;
             
+            //combat
+            while (tie && (Position::distance(pl[p].pos, pl[p2].pos) == 1 || move_to(pl[p2].pos, "to enemy combatant"))) {//go to target
+                if (pl[p].dice == -1) {
+                    pl[p].dice = rand() % 20;//when next to target, progress delay and dice roll, currently no progress delay implemented
+                    return true;//in progress
+                }
+                if (pl[p].dice > pl[p2].dice) {//if my dice roll is larger than theirs, I win, else I lose. Tie means keep fighting
+                    won = true;
+                    tie = false;
+                    for (int i = 0; i < pl[p].active_hostile_towards.size(); i++) {//win or lose, need to move myself or other from active_hostile to hostile list to no longer be targeted in fight
+                        if (pl[p].active_hostile_towards[i] == pl[p2].id) {
+                            pl[p].active_hostile_towards.erase(pl[p].active_hostile_towards.begin() + i);
+                            break;
+                        }
+                    }
+                    for (int i = 0; i < pl[p2].active_hostile_towards.size(); i++) {
+                        if (pl[p2].active_hostile_towards[i] == pl[p].id) {
+                            pl[p2].active_hostile_towards.erase(pl[p2].active_hostile_towards.begin() + i);
+                            break;
+                        }
+                    }
+                }
+                else if (pl[p].dice < pl[p2].dice) {
+                    pl[p].downed = true;
+                    won = false;
+                    tie = false;
+                    for (int i = 0; i < pl[p].active_hostile_towards.size(); i++) {
+                        if (pl[p].active_hostile_towards[i] == pl[p2].id) {
+                            pl[p].active_hostile_towards.erase(pl[p].active_hostile_towards.begin() + i);
+                            break;
+                        }
+                    }
+                    for (int i = 0; i < pl[p2].active_hostile_towards.size(); i++) {
+                        if (pl[p2].active_hostile_towards[i] == pl[p].id) {
+                            pl[p2].active_hostile_towards.erase(pl[p2].active_hostile_towards.begin() + i);
+                            break;
+                        }
+                    }
+                }
+                else {
+                    pl[p].dice = -1;
+                }
+            }
+            //can only fight against 1 person at a time meaning being outnumbered personally at the moment is immediate loss of fight
+            if (won) {
+                pl[p].num_fights_won++;
+
+            }
+            else {
+                pl[p].num_fights_won--;
+
+            }
+        }
+    }
+    
+    if (pl[p].active_hostile_towards.empty() && !pl[p].hostile_towards.empty()) {//unsure if this check is redundant. Post fight/battle handling.
+        bool battle_won = false;
+        if (!pl[p].combat_allies.empty()) {
+            //check if battle won or lost   not yet implemented
+            //do something
+            //if in group and group wins fight, get a bit of reflected glory (increase fights won by 1 even if lost personal fights)
+        }
+        if (pl[p].downed = false) {//for now, battle is won if not downed when no active hostiles left
+            battle_won = true;
+        }
+        else {
+            battle_won = false;
+        }
+        if (battle_won) {
+            pl[p].num_fights_won++;
+            for (int i = 0; i < pl[p].hostile_towards.size(); i++) {//enemies submit. If I lose then when enemy updates they will modify my own list to submit to them
+                if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.find(pl[p].id) != pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.end()) {
+                    pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost++;
+                    if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost >= 3) {
+                        pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].submissive_to = true;
+                    }
+                }
+                else {
+                    pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.insert({ pl[p].id,{false,1} });
+                }
+            }
         }
         else {
             pl[p].num_fights_won--;
-            
-        }
-    }
-    if (battle_won) {
-        pl[p].num_fights_won++;
-        for (int i = 0; i < pl[p].hostile_towards.size(); i++) {//enemies submit. If I lose then when enemy updates they will modify my own list to submit to them
-            if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.find(pl[p].id) != pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.end()) {
-                pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost++;
-                if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost >= 3) {
-                    pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].submissive_to = true;
+            for (int i = 0; i < pl[p].hostile_towards.size(); i++) {//reduces enemy submission level to me
+                if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.find(pl[p].id) != pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.end()) {
+                    pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost--;
+                    if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost < 3) {
+                        pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].submissive_to = false;
+                    }
+                }
+                else {
+                    pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.insert({ pl[p].id,{false,-1} });
                 }
             }
-            else {
-                pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.insert({ pl[p].id,{false,1} });
-            }
         }
-    }
-    else {
-        pl[p].num_fights_won--;
-        for (int i = 0; i < pl[p].hostile_towards.size(); i++) {//reduces enemy submission level to me
-            if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.find(pl[p].id) != pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.end()) {
-                pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost--;
-                if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost < 3) {
-                    pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].submissive_to = false;
+
+        for (int i = 0; i < pl[p].hostile_towards.size(); i++) {//for every person I'm hostile to, remove me from their hostile list. Clean up this code to make more readable
+            for (int j = 0; j < pl[p_by_id(pl[p].hostile_towards[i])].hostile_towards.size(); j++) {
+                if (pl[p_by_id(pl[p].hostile_towards[i])].hostile_towards[j] == pl[p].id) {
+                    pl[p_by_id(pl[p].hostile_towards[i])].hostile_towards.erase(pl[p_by_id(pl[p].hostile_towards[i])].hostile_towards.begin() + j);
+                    break;
                 }
             }
-            else {
-                pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.insert({ pl[p].id,{false,-1} });
-            }
         }
+        pl[p].hostile_towards.clear();
+        pl[p].downed = false;//when fight ends, no longer downed.
+        return true;//fight over
     }
-    return true;//fight over
+    return false;//no fight. is this check redundant?
 }
 
 void People::share_disposition(int p2_ind) {
@@ -1695,10 +1672,10 @@ void People::share_disposition(int p2_ind) {
         disp = (their_opinion_of_me/10)*(disp / 10);//if like the person, disposition towards 3rd party goes up/down by a fraction, greater change proportional to how much one likes the sharer
         change_disposition(subjectp_id, disp, "shared disposition");
         if ((pl[p2_ind].dispositions[subjectp_id] >= 0 && pl[op].dispositions[subjectp_id] >= 0)||(pl[p2_ind].dispositions[subjectp_id] <= 0 && pl[op].dispositions[subjectp_id] <= 0)) {
-            change_disposition(op, 1, "shared friend/enemy");
+            change_disposition(pl[op].id, 1, "shared friend/enemy");
         }
         else {
-            change_disposition(op, -1, "different friend/enemy");
+            change_disposition(pl[op].id, -1, "different friend/enemy");
         }
         p = op;
     }
@@ -1708,10 +1685,10 @@ void People::share_disposition(int p2_ind) {
         disp = -1*(disp / 10)* (their_opinion_of_me / 10);//if dislike the person, same as above but inverted
         change_disposition(subjectp_id, disp, "shared disposition");
         if ((pl[p2_ind].dispositions[subjectp_id] >= 0 && pl[op].dispositions[subjectp_id] >= 0) || (pl[p2_ind].dispositions[subjectp_id] <= 0 && pl[op].dispositions[subjectp_id] <= 0)) {
-            change_disposition(op, 1, "shared friend/enemy");
+            change_disposition(pl[op].id, 1, "shared friend/enemy");
         }
         else {
-            change_disposition(op, -1, "different friend/enemy");
+            change_disposition(pl[op].id, -1, "different friend/enemy");
         }
         p = op;
     }
@@ -1760,6 +1737,7 @@ bool People::rebel() {
     }
     //DO THIS
     //trigger fight against one of the targets, preferrably the one with lowest authority and/or fights won
+    return false;
 }
 
 //DO THIS
@@ -1768,6 +1746,10 @@ void People::build_monument() {
         return;
     }
     //not sure yet how to implement this. If built, win game. If choose to continue playing, then grants huge authority boost
+    //temp implementation
+    create_item("monument", { -1,-1 });
+    drop_item(inventory_has("monument")[0]);
+    cout << pl[p].id << " HAS WON THE GAME\n";
 }
 //need to implement a chance of no longer submitting to someone if their authority level falls too low or below one's own
 //need to either figure out a way to handle order execution priority between getting food and removing campsite or create a function called remove_campsite to encapsulate its code and call before attempting to get food
@@ -1778,8 +1760,6 @@ void People::build_monument() {
 //note: DO THIS add a small limit to inventory size to encourage the use of bags, carts/travois, multiple trips, etc. Makes more interesting logistics and behavior and the dropping of items or use of storage containers creates a nicer aesthetic
 
 //disposition should be affected by or affect:
-//answering item requests. if answered and whether to answer. If like person or they have authority or I submit to them, then chance of if they request something I don't have, I acquire item in order to give it to them
-//campsite placement. place near liked people, away from disliked
 //item requests. don't request from disliked people. If I have authority or they submit to me, chance of requesting items even if I don't need them. Need to add requests for other actions such as to marry, to marry someone's daughter or to marry my kids to theirs, to start a fight with an enemy, to move campsite somewhere else (near mine or somewhere specific), etc
 //chatting. likelihood of chatting with someone
 //marriage. if married and whether to marry
@@ -1791,15 +1771,24 @@ void People::build_monument() {
 
 /* TO DO:
 * fix bugs
-* finish fight function
-* add disposition effects
-* finish rebel
-* handle picking up traps or moving them
-* handle better for carrying and dropping infants
-* handle better for moving around obstacles
-* implement death by old age and pregnancy
+* add disposition effects - later
+* finish rebel - later
+* handle picking up traps or moving them - later
+* handle better for carrying and dropping infants - later
+* 
+* then implement player and do a test run to see if can reach victory condition
+* then polish graphics and animations
+* then add more variety both visual, item, misc small features/mechanics, etc
+* then add sounds/music, menu, tutorial, etc
 */
 
 //if average family is kept at 2 parents, 2 grandparents of male, and 2 kids/infants, then family is size 6, then soft cap total pop size at around 60 people or 10 families
 
+//need to conduct unit tests on all functions to ensure they work properly and for all edge cases
 
+//need to write out in english list of all conditionals, scenarios and behaviors and then check that the code actually does these. 
+//write out exactly what each function does in english to see if it is actually a desirable behavior
+
+//Compare current version of my game to rimworld and list all differences so as to reach action/item parity where it makes sense. 
+//Where an item or action does not make sense to add to my game, then add something else such that there is numerical parity of features at least. 
+//Do the same with other similar games to ensure my quality is worth an equal pricing of game.

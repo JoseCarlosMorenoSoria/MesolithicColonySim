@@ -12,6 +12,7 @@
 #include "Environment.hpp"
 #include "ItemSys.hpp"
 #include "Animal.hpp"
+#include <stdexcept>
 using namespace std;
 
 class People {
@@ -98,8 +99,15 @@ public:
 		bool awake = true;
 		int tired_level = 0;
 		vector<int> item_inventory; //holds id's of items in inventory
-
-
+		
+		Position current_direction;//based on last tile moved from. Rotations and direction only used for circumnavigating obstacles for now.
+		vector<Position> rotations = { {0,-1},{1,-1},{1,0} ,{1,1} ,{0,1} ,{-1,1} ,{-1,0} ,{-1,-1} };//includes diagonals
+		//clockwise rotation
+		// 0,-1 N - up
+		// 1,0 E - right
+		// 0,1 S - down
+		//-1,0 W - left
+		
 		//vector<int> group_members; //holds id's of group members
 		map<int, int> dispositions;//{Person_ID, favorability} holds id's of known people and whether and how much one likes or dislikes each
 		
@@ -162,11 +170,18 @@ public:
 		//once x level of authority is met, can build a monument that when completed wins the game. Other npcs should be pursuing increasing their own authority and building a monument as well, and attacking the play if the player tries to build a monument.
 		//getting tribute from having both high authority and many people submissive to oneself also allows spending the time of self and allies on time and resource costly actions such as crafting weapons, armor, walls, larger tents/clothing/mining/art that grant authority boosts, etc.
 		
+		//having these as sets would be useful for avoiding duplicates, but sets cause problems regarding access and ordering so for now vectors are better
 		vector<int> active_hostile_towards;//Person id's of people currently fighting against, for knowing which enemies to go after
 		vector<int> hostile_towards;//Person id's of people who were in this fight but might be downed, killed, surrendered. For accounting when battle ends.
 		vector<int> combat_allies;//Person id's of people in current fight fighting on my side
 		progress_state fight_prog = {4};//fix this, maybe have delay be affected by dice roll, such that if one's dice roll is a lot larger or a lot smaller than that of opponent, fight is over faster. Longest fight is when tied.
 		int dice=-1;
+		bool downed = false;
+
+		progress_state pregnancy = {10};
+		bool friend_camp_check = false;//used for searching for new campsite, check near friend first but only once
+	
+		People::Position lastpos;//for debugging find_all_helper. Unsure if actually bugged.
 	};
 
 	//note: given how the acquire function is structured, berrybush is given priority over bread. Don't know if this is affected by order of which is searched for first or if the depth of the crafting chain has affect on which is chosen. To encourage farming/crafting/etc, need to bias choices towards things like bread. 
@@ -174,7 +189,7 @@ public:
 	//vectors use more memory than necessary? Need to check
 	static int pday_count;
 	static int phour_count;
-	int people_id_iterator = 0;
+	static int people_id_iterator;
 	int message_id_iterator = 0;
 	static vector<Person> pl;//people_list
 	static vector<Message> message_list;
@@ -192,6 +207,7 @@ public:
 	void find_all_helper(Position pos, string type);
 	bool move_to(Position pos, string caller);//string is the intended action calling move_to, such as hunting deer
 	Position walk_search_random_dest(); //returns a random destination for a random walk
+	vector<int> remove_dup(vector<int> v);//to remove duplicates from vector but preserve original order
 	
 	//find a way to make these 2 functions automatic rather than having to be manually called
 	int new_person_id();
@@ -225,9 +241,11 @@ public:
 
 	vector<Position> filter_search_results(string target);
 
-	void answer_item_request();
+	bool answer_item_request();
 	bool hunting(string species);
 	bool cut_down_tree();
+
+	bool child_birth();
 
 	void change_disposition(int p_id, int amount, string reason);//wrapper for changing disposition, might be useful to keep a record of all changes
 	void chat();//random chance to compliment or insult
@@ -237,6 +255,9 @@ public:
 	void build_monument();//game victory condition. Player must complete before any NPC
 	bool give_tribute();//if submissive to someone, chance of giving them tribute, chance increased according to their authority
 	bool rebel();//chance to remove submissive status towards someone
+	bool hostile_detection();//detects if someone nearby is hostile to self
+	//might make sense to create a relationship struct to hold all data regarding one person's relation to another, including dispositions, history of interactions and disp changes, familial ties, formal ties (boss, employee), submission, etc
+	//bool disposition_chance_check(int p2id);//unsure about use cases. checks probability of an action towards someone based on how they're liked. d=100 = always will, d=0= 50/50 chance, d=-100=never will. Could be used as inverse as well for negative actions. So always will do positive actions such as give food to liked people, but also always will do negative action such as insult to disliked people.
 };
 
 #endif
