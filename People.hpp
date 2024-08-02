@@ -7,13 +7,17 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
+#include <algorithm>
 #include "Environment.hpp"
 #include "ItemSys.hpp"
 using namespace std;
 
 class People {
 	//NEED TO DO: pull out all constants such as the hunger_level threshold for being hungry out and into the Person struct to better be able to balance these variables with each other
-
+public:
+	static int ox;//origin.x for use in distance() function of Position struct. Uses current Person position
+	static int oy;
 	struct Position {
 		int x = -1;
 		int y = -1;
@@ -23,11 +27,29 @@ class People {
 		bool operator!=(Position const& pos2) {
 			return this->x != pos2.x || this->y != pos2.y;
 		}
+		static int distance(Position pos1, Position pos2);
+		bool operator<(Position const& pos2) const {//sorting order is according to distance from an origin, the origin being the person's current position
+			int d1 = distance(*this,{ox,oy});
+			int d2 = distance(pos2, { ox,oy });
+			if (d1 < d2) {
+				return true;
+			}
+			else if(d1==d2){
+				if (this->x < pos2.x) { return true; }
+				if (this->x == pos2.x && this->y < pos2.y) { return true; }
+			}
+			return false;
+		}
 		//should this include an overload of ! operator to check if pos == {-1,-1} which is the NULL equivalent?
 	};
 
+	//fix this, these should be functions inside the Position struct
+	bool valid_position(Position pos);
+	Position make_position_valid(Position dest, int ux, int lx, int uy, int ly);
+	
+
 	struct Message {//need to tie Messages to tiles in map instead of current Message list
-		int message_id = -1;
+		int message_id = -1;//is map<> more efficient than keeping in a vector?
 		int sender_id = -1;
 		int reciever_id = -1; //-1 is a message for everyone/anyone
 		string messsage = "";
@@ -81,7 +103,8 @@ class People {
 		map<string, progress_state> crafting;//key is product name		fix this: need to avoid case of progress saved, all ingredients lost (instead of being used up by starting the crafting process), new ingredients obtained, then picking up progress where it was last left off instead of starting over again
 
 		bool child_is_hungry = false;//currently a flag to communicate between feed_own_children and searching_for_food and gathering_food. I need to rethink how functions communicate with each other and facilitate direct calls by one to another. Fix this.
-		int hungry_child_index = -1;
+		//int hungry_child_index = -1;
+		
 		//these bools need to preserve their state outside each execution of the utility_function
 		bool start_set_up_camp = false; //is set to true when search_for_new_campsite ends so that it only triggers on the next update after search_ ends.
 
@@ -94,10 +117,8 @@ class People {
 
 		vector<int> found_messages;//message id's
 		map<string, vector<Position>> search_results;//for results of function find_all()
-		
-		bool message_clear_flag = false;//unsure if thise should be in Person or as part of the class
 
-		bool printed = true;//for function record printing. set to true to prevent execution
+		bool printed = false;//for function record printing. set to true to prevent execution
 
 		bool adopt_spouse_campsite = false;
 
@@ -108,13 +129,13 @@ class People {
 	
 	
 	//vectors use more memory than necessary? Need to check
-public:
+
 	int people_id_iterator = 0;
 	int message_id_iterator = 0;
 	static vector<Person> pl;//people_list
 	static vector<Message> message_list;
 	static vector<int> Message_Map[Environment::map_y_max][Environment::map_x_max];//a map layer that holds messages by id according to their tile location. Makes clearing the map easier by being a separate layer. Each tile can have multiple messages.
-	
+	bool message_clear_flag = false;
 	int campsite_distance_search = 5;
 
 	People();
@@ -125,11 +146,6 @@ public:
 	void find_all();
 	bool move_to(Position pos);
 	Position walk_search_random_dest(); //returns a random destination for a random walk
-
-	//fix this, these should be functions inside the Position struct
-	bool valid_position(Position pos);
-	Position make_position_valid(Position dest, int ux, int lx, int uy, int ly);
-	int distance(Position pos1, Position pos2);
 	
 	//find a way to make these 2 functions automatic rather than having to be manually called
 	int new_person_id();
@@ -145,32 +161,26 @@ public:
 	void pick_up_item(int item_id, Position pos);
 	void delete_item(int item_id, Position pos, int index);
 
-	//slated for replacement
-	bool tile_has(string target, Position pos);
-	bool give_food();
-	bool moving_to_bed();//this should be integrated into sleeping rather than being a separate function
-	Position empty_adjacent_tile();//should be replaced by drop_item()
-	bool mate_check(int pers_id);//temp function, needs better replacement, either integrate into reproduce or turn into a generic filter on found items and found people
-	
 	bool search_for_new_campsite();
-	bool set_up_camp();
 	bool idle();
 	bool sleeping();
 	bool eating();
 	bool searching_for_food();
 	bool reproduce();
-	bool feed_own_infants();
 	//void carry_infant();		//need generic carry function
 	//void drop_infant();
 
 	void speak(string message_text, int receiver_id);
-	bool craft(string product);
+	bool craft(string product);//need to add some method of slowing it down, or else might craft multiple items within a single update. Maybe create an action flag that allows only a single action (walk/craft/speak/etc) per update)
 	bool drop_item(int index);//not done
-	void general_search_walk();
+	void general_search_walk(string target);
 	void check_tile_messages(Position pos);
 	bool acquire(string target);
 
-	vector<Position> filter_search_results();
+	vector<Position> filter_search_results(string target);
+	vector<Position> remove_duplicates(vector<Position> v1, vector<Position> v2);
+
+	void answer_item_request();
 };
 
 #endif

@@ -11,6 +11,21 @@ ItemSys::ItemSys() {
     presets.insert({ "bread",           { -1, "bread", "bread" , {"food"}, {"grain","mortar_pestle"},false}});
     presets.insert({ "rock",            { -1, "rock", "rock",{},{} ,true} });
     presets.insert({ "mortar_pestle",   { -1, "mortar_pestle", "mortar and pestle" , {"tool"}, {"rock"},false}});
+
+    fill_tag_lookup();
+}
+
+void ItemSys::fill_tag_lookup() {
+    for(auto const& i : presets){
+        for (string t : i.second.tags) {
+            if (tags.find(t) != tags.end()) {//if tag is in list
+                tags[i.first].push_back(i.first);//add item name to tag list
+            }
+            else {
+                tags.insert({ t,{i.first} });//else add tag to list with item name as its first element
+            }
+        }
+    }
 }
 
 int ItemSys::item_by_id(int id) {//uses binary search to find and return index to item in item list

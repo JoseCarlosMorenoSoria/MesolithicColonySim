@@ -28,20 +28,20 @@ int range4_maxx = Environment::map_x_max;
 int range4_maxy = Environment::map_y_max;
 
 void Environment::add_berrybush(int x, int y) {
-	ItemSys::Item food = it.grain;
+	ItemSys::Item food = it.presets["berrybush"];
 	food.item_id = ItemSys::new_item_id();
 	ItemSys::item_list.push_back(food);
 	Map[y][x].item_id = food.item_id;
 }
 void Environment::add_grain(int x, int y) {
-	ItemSys::Item food = it.grain;
+	ItemSys::Item food = it.presets["grain"];
 	food.item_id = ItemSys::new_item_id();
 	ItemSys::item_list.push_back(food);
 	Map[y][x].item_id = food.item_id;
 }
 
 void Environment::add_rock(int x, int y) {
-	ItemSys::Item food = it.rock;
+	ItemSys::Item food = it.presets["rock"];
 	food.item_id = ItemSys::new_item_id();
 	ItemSys::item_list.push_back(food);
 	Map[y][x].item_id = food.item_id;

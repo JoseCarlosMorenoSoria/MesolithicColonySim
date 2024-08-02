@@ -27,10 +27,12 @@ public:
 	};
 	//presets
 	map<string, Item> presets;
+	map<string, vector<string>> tags; //caches all items by name under their associated tags for ease of lookup
 
 	static vector<Item> item_list;//global list
 	static int item_by_id(int id);
 	static int new_item_id();
+	void fill_tag_lookup();
 };
 
 #endif
