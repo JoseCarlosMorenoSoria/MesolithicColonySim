@@ -11,7 +11,9 @@ int People::oy = -1;
 int People::pday_count;
 int People::phour_count;
 
-People::People() {
+People::People(){}
+
+People::People(int initint) {
     Person p1 = { new_person_id(), {50,25}, true};
     p1.age = 11;
     pl.push_back(p1);
@@ -20,6 +22,24 @@ People::People() {
     p2.age = 11;
     pl.push_back(p2);
     Environment::Map[p2.pos.y][p2.pos.x].person_id = p2.id;
+
+    Person p3 = { new_person_id(), {50,24}, true };
+    p3.age = 11;
+    pl.push_back(p3);
+    Environment::Map[p3.pos.y][p3.pos.x].person_id = p3.id;
+    Person p4 = { new_person_id(), {52,23}, true };
+    p4.age = 11;
+    pl.push_back(p4);
+    Environment::Map[p4.pos.y][p4.pos.x].person_id = p4.id;
+    Person p5 = { new_person_id(), {53,22}, false };
+    p5.age = 11;
+    pl.push_back(p5);
+    Environment::Map[p5.pos.y][p5.pos.x].person_id = p5.id;
+    Person p6 = { new_person_id(), {54,21}, false };
+    p6.age = 11;
+    pl.push_back(p6);
+    Environment::Map[p6.pos.y][p6.pos.x].person_id = p6.id;
+
 }
 
 int People::new_person_id() {//unsure if this function is redundant with how int++ works or if there's a better method
@@ -69,6 +89,16 @@ void People::update_all(int day_count, int hour_count, int hours_in_day) {
     if (day_count == -1) {//kill all people. set to -1 to prevent execution
         for (Person& pip : pl) {
             pip.is_alive = false;
+        }
+    }
+
+    if (day_count % 5 == 0 && hour_count==0) {
+        for (int i = 0; i < pl.size(); i++) {
+            cout << "id: " << pl[i].id << " -- \n";
+            for (auto const& d : pl[i].dispositions) {
+                cout << "pers: " << d.first << " disp:" << d.second << "\n";
+            }
+            cout << "----------------------------\n\n\n";
         }
     }
 }
@@ -186,6 +216,19 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
     }
     pl[p].move_already = false;
     pl[p].general_search_called = false;
+
+    authority_calc();
+
+    if (hour_count == 0) {//once a day
+        for (auto& i : pl[p].dispositions) {//dispositions tend toward returning to neutral over time if no other factor involved
+            if (i.second > 0) {
+                change_disposition(i.first, -1, "neutral drift");
+            }
+            else if (i.second < 0) {
+                change_disposition(i.first, 1, "neutral drift");
+            }
+        }
+    }
 }
 
 bool People::valid_position(Position pos) {
@@ -306,7 +349,7 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
                 }
             }
             if (!is_my_child && ((pl[pid].spouse_id == -1 && pl[p].spouse_id == -1) || (pl[pid].spouse_id == pl[p].id && pl[p].spouse_id == pl[pid].id))) {//if not my child AND both unmarried or if married to each other
-                p2 = pers_id;//mate found
+                p2 = p_by_id(pers_id);//mate found
                 break;
             }
         }
@@ -770,12 +813,39 @@ People::Position People::make_position_valid(Position dest, int ux, int lx, int 
 
 bool People::idle() {
     add_func_record("idle");
-    //flip between idle and default image
-    if (pl[p].current_image == "pics/human.png") {
-        pl[p].current_image = "pics/human_idle.png"; //need to make image, just have human with raised hands
+    int option = rand() % 100;
+    if (pl[p].dispositions.empty()) {
+        option = 51;
     }
-    else {
-        pl[p].current_image = "pics/human.png";
+    if (option > 50) {
+        //flip between idle and default image
+        if (pl[p].current_image == "pics/human.png") {
+            pl[p].current_image = "pics/human_idle.png"; //need to make image, just have human with raised hands
+        }
+        else {
+            pl[p].current_image = "pics/human.png";
+        }
+    }
+    else {//should this instead be a social need or is it good here in idle?
+        int sum = 0;
+        for (auto const& i : pl[p].dispositions) {
+            if (i.second > 0) {
+                sum += i.second;
+            }
+        }
+        int dice = rand() % sum;
+        sum = 0;
+        int p2id = -1;
+        for (auto const& i : pl[p].dispositions) {//selects a person one likes with higher chance the more someone is liked, to go to socialize with
+            if (i.second > 0) {
+                sum += i.second;
+                if (sum > dice) {
+                    p2id = i.first;
+                    break;
+                }
+            }
+        }
+        move_to(pl[p_by_id(p2id)].pos, "to socialize - idle");//to search out liked people to encourage clique congregation and disposition sharing
     }
     return true;
 }
@@ -866,7 +936,7 @@ bool People::craft(string product) {//later add station requirements such as cam
             pl[p].crafting.insert({ product,{4} });//4 is the number of ticks/frames crafting image/animation lasts
         }
         if (pl[p].crafting[product].progress_func()) {//animation/time delay    currently, progress is saved if interrupted which might not make sense in some contexts
-            cout << "made: " << product << "\n";
+            //cout << "made: " << product << "\n";
             for (int i = 0; i < num_of_ingredients; i++) {//later implement tool degradation here as well
                 if (it2.presets[it2.presets[product].ingredients[i]].consumable_ingredient) {
                     int consume_index = inventory_has(it2.presets[product].ingredients[i])[0];
@@ -947,6 +1017,10 @@ void People::answer_item_request() {
         p2.item_inventory.push_back(pl[p].item_inventory[index]); //give item id from inventory
         pl[p].item_inventory.erase(pl[p].item_inventory.begin() + index);//remove from own inventory
         pl[p].clean_image = true;
+        int op = p;//temp reassign main p
+        p = p_by_id(receiver_id);
+        change_disposition(pl[op].id, 10, "recieved item requested");
+        p = op;
         return;
     }
     return;
@@ -1083,22 +1157,20 @@ bool People::acquire(string target) {
     return false;//searching
 }
 
-
-
-/////////////////////////above is verified, check below
-
-//need to restructure this function completely given the new changes to find_all and acquire, etc
 void People::utility_function() {//is currently actually just a behavior tree not a utility function. Selects what action to take this tick.
     //this implementation allows functions to be interrupted by higher priority ones on every update, however this means that a function may not properly reset or preserve as needed for when it gets called again later, need to fix
     //if(func()==false) go to next func(), if(func()==true) executed this func() for both in progress and done cases
-    if (sleeping()) {}
+    chat();//chance to chat every update
+    
+    if(fight()){}
+    else if (sleeping()) {}
     else if(drinking()){}
     else if (eating()) {}//if don't have food, searches for food. Therefore the structure of utility_function is focused on which needs to satsify first (sleep, hunger, campsite, reproduction, etc)
     else if (search_for_new_campsite()) {}
-    //else if (reproduce()) {} avoid execution of this function to focus on other features without worrying about population size
+    else if (reproduce()) {} //avoid execution of this function to focus on other features without worrying about population size
     else {idle();}
+    //DO THIS: (this (authority pursuit AI) might be too complex for this version, maybe organic leaders is better and add behavior that makes it likelier for some npcs to get to victory condition?) need to add authority as a need/goal to be pursued. Which means starting and winning fights with new people to increase number of submissives, and gaining favor with more people and increasing favor with existing friends/allies
 }
-
 
 //fix later
 //much of this function is taken up by carrying or dropping infants, need to create separate functions for that, fix this. Also need to otherwise simplify this function.
@@ -1245,7 +1317,7 @@ bool People::eating(){
         pl[p].eating_food_index = food_indexes1[0];
     }
 
-    if (hungry && !has_food) {
+    if ((hungry && !has_food) || food_indexes1.size() < 2) {//ensures that person has 2 food items in inventory for self or to share
         if (acquire("ready food")) {
             add_func_record("acquired ready food");
             //done
@@ -1403,9 +1475,331 @@ bool People::cut_down_tree() {
     }
 }
 
+void People::change_disposition(int p_id, int amount, string reason) {
+    if (pl[p].id == p_id) {
+        return;
+    }
+    if (pl[p].dispositions.find(p_id) != pl[p].dispositions.end()) {
+        pl[p].dispositions[p_id] = pl[p].dispositions[p_id] + amount;
+        if (pl[p].dispositions[p_id] < -100) {//caps dispostion at -100 and 100
+            pl[p].dispositions[p_id] = -100;
+        }
+        else if (pl[p].dispositions[p_id] > 100) {
+            pl[p].dispositions[p_id] = 100;
+        }
+        //cout << "change\n";
+    }
+    else {
+        pl[p].dispositions.insert({ p_id,amount });
+    }
+}
 
+void People::chat() {//if make this a speak() action, can affect dispositions of more than 1 person with 1 comment, fix this?
+    if (pl[p].search_results.find("people") != pl[p].search_results.end()) {
+    int topic = rand() % 100;
+    int p2_ind = p_by_id(Environment::Map[pl[p].search_results["people"][0].y][pl[p].search_results["people"][0].x].person_id);
+    int p2_id = pl[p2_ind].id;
+    if (topic < 50) {//compliment or insult
+            int comment = (rand() % 30) - 15;
+            if (pl[p].dispositions.find(p2_id) == pl[p].dispositions.end()) {//fix this every instance, these are unnecessary as it is more readable to just call change_disposition with an amount of 0 to do the same (insert key if key not found)
+                pl[p].dispositions.insert({ p2_id,0 });
+            }
+            if (pl[p].dispositions[p2_id] >= 0) {//if like person, make compliment bigger, if like person, make insult smaller. Inverse for dislike person
+                if (comment >= 0) {
+                    comment = comment * ((pl[p].dispositions[p2_id] / 100) * 2 + 1);
+                }
+                else {
+                    comment = comment * ((pl[p].dispositions[p2_id] / 100) * 0.5 + 1);
+                }
+            }
+            else {
+                if (comment >= 0) {
+                    comment = comment * ((pl[p].dispositions[p2_id] / 100) * 0.5 + 1);
+                }
+                else {
+                    comment = comment * ((pl[p].dispositions[p2_id] / 100) * 2 + 1);
+                }
+            }
+
+            int op = p;
+            p = p2_ind;
+            string valence;//valence should be the int and comment should be the string, switch, fix this, just for clarity
+
+            (comment < 0) ? valence = "insult" : valence = "compliment";
+            change_disposition(pl[op].id, comment, valence);//positive is compliment, negative is insult
+            p = op;
+            //cout << "chat\n";
+
+        }
+        else {
+            share_disposition(p2_ind);
+        }
+    }
+}
+
+void People::authority_calc() {
+    int num_people_liked_by = 0;
+    int amount_liked = 0;
+    int num_submissives = 0;
+    bool am_sovereign = true;
+    for (int i = 0; i < pl.size(); i++) {
+        if (pl[i].dispositions.find(pl[p].id) != pl[i].dispositions.end()) {
+            if (pl[i].dispositions[pl[p].id] > 0) {
+                num_people_liked_by++;
+                amount_liked += pl[i].dispositions[pl[p].id];
+            }
+        }
+        if (pl[i].submissive_to.find(pl[p].id) != pl[i].submissive_to.end()) {
+            if (pl[i].submissive_to[pl[p].id].submissive_to) {
+                num_submissives++;
+            }
+        }
+    }
+    for (auto const& i : pl[p].submissive_to) {//if one is submissive to anyone, one is not sovereign. Fix this. DO THIS: Need to implement a rebellion function so that when one's authority increases a certain amount or relative to a dominator, can cast off submissive status and become sovereign
+        if (i.second.submissive_to) {
+            am_sovereign = false;
+        }
+    }
+    pl[p].authority = num_people_liked_by * amount_liked * num_submissives * pl[p].num_fights_won;
+    if (pl[p].authority > 10000 && am_sovereign) {
+        pl[p].monument_unlocked = true;
+    }
+    else {
+        pl[p].monument_unlocked = false;//access to monument building can be lost if authority is lost
+    }
+}
+
+//need to implement being downed if lost a personal fight and how to recover, as well as in what cases might be killed or can kill (maybe a percent chance?)
+//DO THIS NOW   Need trigger for when to fight
+//no hp, simply downed or killed on hit
+//need to add weapons and armor that affect dice rolls, and triggers for acquiring them
+bool People::fight() {//not implemented, fix this. Order of execution for people here might necessitate having an extra tick to resolve results of combat dice rolls, otherwise people who update first will always attack and the latter always defend?
+    //go through every person have disposition towards. If hate someone, chance to trigger fight. If fight triggered, chance to invite friends and family to join fight. 
+    vector<int> hated;
+    for (auto const& i : pl[p].dispositions) {
+        if (i.second < -75) {
+            hated.push_back(i.first);
+        }
+    }
+    int fight_choice = -1;
+    if (!hated.empty()) {
+        fight_choice = rand() % hated.size();
+    }
+    int chance_to_fight = rand() % 100;
+
+    if (!(chance_to_fight < 5 && fight_choice != -1)) {//function trigger
+        return false;
+    }
+    
+    
+    
+    
+    
+    bool won = false;//for individual fights and glory
+    bool battle_won = false;//if in group and group wins fight, get a bit of reflected glory (increase fights won by 1 even if lost personal fights)
+    //fight - do something
+        //DO THIS: if initiating fight, become hostile towards target
+        //DO THIS: check surroundings for people who became hostile to me in response or who joined the fight as hostiles to me
+        //DO THIS: check combat allies, if a third have been downed or killed, surrender and submit
+    for (int i = 0; i < pl[p].active_hostile_towards.size(); i++) {//for every enemy combatant in the fight
+        int p2=-1;//need to determine how to get p2
+        bool tie = true;
+        while (tie && (Position::distance(pl[p].pos, pl[p2].pos) == 1 || move_to(pl[p2].pos, "to enemy combatant"))) {//go to target
+            if (pl[p].dice == -1) {
+                pl[p].dice = rand() % 20;//when next to target, progress delay and dice roll
+                return false;//in progress
+            }
+            //DO THIS: win or lose, need to move myself or other from active_hostile to hostile list to no longer be targeted in fight
+            if (pl[p].dice > pl[p2].dice) {//if my dice roll is larger than theirs, I win, else I lose. Tie means keep fighting
+                won = true;
+                tie = false;
+            }
+            if (pl[p].dice < pl[p2].dice) {
+                won = false;
+                tie = false;
+            }
+            else {
+                pl[p].dice = -1;
+            }
+        }
+        //can only fight against 1 person at a time meaning being outnumbered personally at the moment is immediate loss of fight
+        if (won) {
+            pl[p].num_fights_won++;
+            
+        }
+        else {
+            pl[p].num_fights_won--;
+            
+        }
+    }
+    if (battle_won) {
+        pl[p].num_fights_won++;
+        for (int i = 0; i < pl[p].hostile_towards.size(); i++) {//enemies submit. If I lose then when enemy updates they will modify my own list to submit to them
+            if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.find(pl[p].id) != pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.end()) {
+                pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost++;
+                if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost >= 3) {
+                    pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].submissive_to = true;
+                }
+            }
+            else {
+                pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.insert({ pl[p].id,{false,1} });
+            }
+        }
+    }
+    else {
+        pl[p].num_fights_won--;
+        for (int i = 0; i < pl[p].hostile_towards.size(); i++) {//reduces enemy submission level to me
+            if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.find(pl[p].id) != pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.end()) {
+                pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost--;
+                if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost < 3) {
+                    pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].submissive_to = false;
+                }
+            }
+            else {
+                pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.insert({ pl[p].id,{false,-1} });
+            }
+        }
+    }
+    return true;//fight over
+}
+
+void People::share_disposition(int p2_ind) {
+    if (pl[p].dispositions.empty()) {
+        return;
+    }
+    //random person for now, but should adjust to move all dispositions closer (or further) between the 2 people chatting
+    int subjectp_ind = rand() % pl[p].dispositions.size();
+    vector<int> pids;
+    for (auto const& i : pl[p].dispositions) {//convert to vector because can't access random element from map
+        pids.push_back(i.first);
+    }
+    int subjectp_id = pids[subjectp_ind];
+    int disp = pl[p].dispositions[subjectp_id];
+
+    int their_opinion_of_me;
+    if (pl[p2_ind].dispositions.find(pl[p].id) != pl[p2_ind].dispositions.end()) {
+        their_opinion_of_me = pl[p2_ind].dispositions[pl[p].id];
+    }
+    else{
+        pl[p2_ind].dispositions.insert({pl[p].id,0});
+        their_opinion_of_me = 0;
+    }
+
+    if (pl[p2_ind].dispositions.find(subjectp_id) == pl[p2_ind].dispositions.end()) {
+        pl[p2_ind].dispositions.insert({ subjectp_id,0 });
+    }
+
+    if (their_opinion_of_me >= 0) {
+        int op = p;
+        p = p2_ind;
+        disp = (their_opinion_of_me/10)*(disp / 10);//if like the person, disposition towards 3rd party goes up/down by a fraction, greater change proportional to how much one likes the sharer
+        change_disposition(subjectp_id, disp, "shared disposition");
+        if ((pl[p2_ind].dispositions[subjectp_id] >= 0 && pl[op].dispositions[subjectp_id] >= 0)||(pl[p2_ind].dispositions[subjectp_id] <= 0 && pl[op].dispositions[subjectp_id] <= 0)) {
+            change_disposition(op, 1, "shared friend/enemy");
+        }
+        else {
+            change_disposition(op, -1, "different friend/enemy");
+        }
+        p = op;
+    }
+    else {
+        int op = p;
+        p = p2_ind;
+        disp = -1*(disp / 10)* (their_opinion_of_me / 10);//if dislike the person, same as above but inverted
+        change_disposition(subjectp_id, disp, "shared disposition");
+        if ((pl[p2_ind].dispositions[subjectp_id] >= 0 && pl[op].dispositions[subjectp_id] >= 0) || (pl[p2_ind].dispositions[subjectp_id] <= 0 && pl[op].dispositions[subjectp_id] <= 0)) {
+            change_disposition(op, 1, "shared friend/enemy");
+        }
+        else {
+            change_disposition(op, -1, "different friend/enemy");
+        }
+        p = op;
+    }
+}
+
+//DO THIS
+bool People::give_tribute() {
+    vector<int> superiors;
+    int sum = 0;
+    for (auto const& i : pl[p].submissive_to) {
+        if (i.second.submissive_to) {
+            superiors.push_back(i.first);
+            sum += pl[p_by_id(i.first)].authority;
+        }
+    }
+    int give_to = rand() % sum;
+    sum = 0;
+    int tribute_to = -1;
+    for (int i : superiors) {
+        sum += pl[p_by_id(i)].authority;
+        if (sum > give_to) {
+            tribute_to = i;
+        }
+    }
+    //choose gift to give
+        //food, tool, clothing, art, etc
+
+    //go to give it
+    if (move_to(pl[p_by_id(tribute_to)].pos,"to give tribute")) {
+        //give tribute
+        //dispositions affected
+        return true;//done????
+    }
+    return false;//in progress???? how to signal don't run this function?
+}
+
+//DO THIS
+bool People::rebel() {
+    vector<int> rebel_targets;
+    for (auto const& i : pl[p].submissive_to) {
+        if (i.second.submissive_to) {
+            if (pl[p_by_id(i.first)].authority <= pl[p].authority || pl[p_by_id(i.first)].num_fights_won<=pl[p].num_fights_won) {
+                rebel_targets.push_back(i.first);
+            }
+        }
+    }
+    //DO THIS
+    //trigger fight against one of the targets, preferrably the one with lowest authority and/or fights won
+}
+
+//DO THIS
+void People::build_monument() {
+    if (!pl[p].monument_unlocked) {
+        return;
+    }
+    //not sure yet how to implement this. If built, win game. If choose to continue playing, then grants huge authority boost
+}
+//need to implement a chance of no longer submitting to someone if their authority level falls too low or below one's own
 //need to either figure out a way to handle order execution priority between getting food and removing campsite or create a function called remove_campsite to encapsulate its code and call before attempting to get food
 
 //note: need to make parent check on kid periodically, and give priority to giving food to kids rather than others. fix this //feed hungriest first? Unsure if this should be implemented
-//note: when gathering food, always gather a bit more than needed to satisfy hunger to have some in inventory either for self later or to share or feed infants
 //note: spoken messages might need their own priority tree separate from the movement related actions
+
+//note: DO THIS add a small limit to inventory size to encourage the use of bags, carts/travois, multiple trips, etc. Makes more interesting logistics and behavior and the dropping of items or use of storage containers creates a nicer aesthetic
+
+//disposition should be affected by or affect:
+//answering item requests. if answered and whether to answer. If like person or they have authority or I submit to them, then chance of if they request something I don't have, I acquire item in order to give it to them
+//campsite placement. place near liked people, away from disliked
+//item requests. don't request from disliked people. If I have authority or they submit to me, chance of requesting items even if I don't need them. Need to add requests for other actions such as to marry, to marry someone's daughter or to marry my kids to theirs, to start a fight with an enemy, to move campsite somewhere else (near mine or somewhere specific), etc
+//chatting. likelihood of chatting with someone
+//marriage. if married and whether to marry
+//family. like children, parents and siblings more?
+//movement. keep larger distance from enemies, closer to liked people
+//fight. if fought on the same side as someone or opposite sides, and if made to submit to someone
+//need more social activities, maybe song, dance, ritual. Cooperative actions such as group hunts, group gathers, building, crafting, etc. Smoking, etc.
+//need more sources of drama such as infidelity, jealousy (of wealth measured in average hunger level, items, kids, being liked, etc), emotions such as sadness/grief if someone dies, theft, specific revenge, asking for forgiveness, asking for 3rd party help in resolving a problem, etc.
+
+/* TO DO:
+* fix bugs
+* finish fight function
+* add disposition effects
+* finish rebel
+* handle picking up traps or moving them
+* handle better for carrying and dropping infants
+* handle better for moving around obstacles
+* implement death by old age and pregnancy
+*/
+
+//if average family is kept at 2 parents, 2 grandparents of male, and 2 kids/infants, then family is size 6, then soft cap total pop size at around 60 people or 10 families
+
+

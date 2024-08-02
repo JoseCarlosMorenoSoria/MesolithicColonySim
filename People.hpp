@@ -78,6 +78,11 @@ public:
 		int last_day_checked = -1;
 	};
 
+	struct submit_tracker {
+		bool submissive_to = false;
+		int fights_lost = 0;//if net fights lost to this person is equal or greater than 3, become submissive to that person
+	};
+
 	struct Person {
 		int id; //need to figure out a way to make new id automatic rather than a parameter, currently using an int but not automatic enough
 		Position pos;
@@ -93,7 +98,14 @@ public:
 		bool awake = true;
 		int tired_level = 0;
 		vector<int> item_inventory; //holds id's of items in inventory
-		vector<int> group_members; //holds id's of group members
+
+
+		//vector<int> group_members; //holds id's of group members
+		map<int, int> dispositions;//{Person_ID, favorability} holds id's of known people and whether and how much one likes or dislikes each
+		
+		map<int, submit_tracker> submissive_to;//{Person_ID, submissive_to/Not submissive_to} tracks people who have won a fight against self at least 3 times (them being present as a hotile during a fight that was lost against someone else counts)
+		//being submissive to another means when a fight would normally break out, instead cede, show sign of submission, and every now and then bring a gift to that person with a higher chance and frequency of giving gift if the person has high authority
+
 		bool is_alive = true;
 		Position campsite_pos = {-1,-1};
 		int campsite_age = -1; //used to track how long have lived at that campsite since it was placed to provide a bit of breathing room before removing to find another campsite
@@ -142,6 +154,19 @@ public:
 
 		//this lock didn't work, caused person to freeze
 		bool immobile = false;//a lock on movement, only released by same function that locked it
+
+		bool monument_unlocked = false;//choice of stonehenge/great temple/etc
+		int num_fights_won = 0;//net number of fights, so lost fights get subtracted
+		int authority=0;//the main goal of the game, to achieve x level of authority. unsure about the formula. Authority = (number of people who like you * amount they like you) * number of fights won * number of people dominated
+		//player must be incentivized to both start and win fights, get many people to like him, get them to like him a lot, and use those people to both win more fights and get more likes and people. As well as winning fights in a way that causes enemies to submit and give tribute rather than just beating on the same enemy person many times or killing enemies
+		//once x level of authority is met, can build a monument that when completed wins the game. Other npcs should be pursuing increasing their own authority and building a monument as well, and attacking the play if the player tries to build a monument.
+		//getting tribute from having both high authority and many people submissive to oneself also allows spending the time of self and allies on time and resource costly actions such as crafting weapons, armor, walls, larger tents/clothing/mining/art that grant authority boosts, etc.
+		
+		vector<int> active_hostile_towards;//Person id's of people currently fighting against, for knowing which enemies to go after
+		vector<int> hostile_towards;//Person id's of people who were in this fight but might be downed, killed, surrendered. For accounting when battle ends.
+		vector<int> combat_allies;//Person id's of people in current fight fighting on my side
+		progress_state fight_prog = {4};//fix this, maybe have delay be affected by dice roll, such that if one's dice roll is a lot larger or a lot smaller than that of opponent, fight is over faster. Longest fight is when tied.
+		int dice=-1;
 	};
 
 	//note: given how the acquire function is structured, berrybush is given priority over bread. Don't know if this is affected by order of which is searched for first or if the depth of the crafting chain has affect on which is chosen. To encourage farming/crafting/etc, need to bias choices towards things like bread. 
@@ -158,6 +183,7 @@ public:
 	int campsite_distance_search = 5;
 
 	People();
+	People(int initint);
 	bool check_death();
 	void update_all(int day_count, int hour_count, int hours_in_day);
 	void update(int day_count, int hour_count, int hours_in_day);
@@ -202,9 +228,45 @@ public:
 	void answer_item_request();
 	bool hunting(string species);
 	bool cut_down_tree();
+
+	void change_disposition(int p_id, int amount, string reason);//wrapper for changing disposition, might be useful to keep a record of all changes
+	void chat();//random chance to compliment or insult
+	void authority_calc();
+	bool fight();//returns true fight is over, false otherwise. DO THIS: Need to figure out a way to have fights affect disposition of 3rd parties, maybe shrain_disposition is enough? The idea is to encourage player to fight common enemies of friends and not attack the friends of friends or at least weigh the consequences.
+	void share_disposition(int p_ind);
+	void build_monument();//game victory condition. Player must complete before any NPC
+	bool give_tribute();//if submissive to someone, chance of giving them tribute, chance increased according to their authority
+	bool rebel();//chance to remove submissive status towards someone
 };
 
 #endif
+
+//DO THIS:
+/*
+* Balance:
+Rate of plant respawning per day + death rate due to childbirth, sickness, old age
+									=
+				Plants eaten per person per day + rate of birth
+
+*/
+
+//TO DO NOW:
+// need to fix why the campsite restriction and trigger to move isn't working
+// to optimize, need to cache more data to reduce function calls
+
+//add associated behavior (avoidance, escalation, noticing a family member being attacked and going to defend without being asked, etc)
+	// add disposition checks to actions such as give item so as not to give items to people who are disliked or to give items based on a percent chance affected by disposition level, or higher chance of setting up camp near someone liked or the inverse if disliked, same for marriage and item requests
+
+
+//note: convert vectors to map or sets? whatever has the fastest lookup
+
+//note: add more methods to cooperate be it hunting, gathering, building, partying, etc. Add methods to delegate tasks between npcs and maybe specialize tasks and roles as well, especially men for hunting and fighting, etc. Maybe one guy for butchering, another for pottery/basket making, another for bow/spear making or art/carvings. Skills can be add to aid in selecting who to delegate to. 
+
+//note: what about handling the satisfaction of multiple needs at once? Such as if both thirsty and hungry, a watermelon would be ideal, rather than simply seeking out water then bread because each was handled independently?
+
+//note: to add speed and better movement between tiles, Person must hold their pixel position relative to the tile they are on until a threshold is passed midway between tiles and the npc is tied to the next tile.
+
+//fix this, to make movement less random, have npc remember the last x amount of tiles seen and move towards tiles not yet seen. Also, to get past obstacles, have direction and always turn right or left. Also, within npc's visual range, if path is blocked x tiles away, head for first empty tile to the right or left instead of waiting to turn when next to obstacle. If walking randomly and come across an obstacle, can also just choose a new random destination to go in another direction
 
 /*
 * Format of action functions (not utility functions or main loop functions)

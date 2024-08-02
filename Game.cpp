@@ -53,7 +53,7 @@ void Game::initGameState() {
 	destR.x = 0;
 	destR.y = 0;
 	Environment::Environment(hours_in_day);
-	People::People();
+	People::People(initint);
 	ItemSys::ItemSys();
 	Animal::Animal(initint);//to avoid unintended execution of the constructor
 

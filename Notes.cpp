@@ -1,6 +1,3 @@
-//TO DO NOW:
-// need to fix why the campsite restriction and trigger to move isn't working
-// 
 //remember close family to avoid mating with parents/etc. Children exclusion done.
 //Unsure if need to add a way to remember past locations that had food or if random searching is good enough for now in order to create cyclical seasonal camp movement
 //add a way to compare value of foods according to calorie count and work/time cost
@@ -10,14 +7,6 @@
 //add item degradation to ensure continual crafting of new items
 // add stations such as campfire so that Person must be next to campfire to turn deer or rabbit meat into ready food, stations also degrade or require refuelling (if campfire is low or off, brin wood to it to keep it on or reignite), tents require maintenance or else they degrade away
 
-
-//add dispositions between people and associated behavior (social fights, avoidance, escalation, calling for family/friends to join fight, noticing a family member being attacked and going to defend without being asked, sharing dispositions with others, etc)
-	//add map<People,Disposition> to Person and activities and triggers for changing dispositions
-	// add disposition checks to actions such as give item so as not to give items to people who are disliked or to give items based on a percent chance affected by disposition level, or higher chance of setting up camp near someone liked or the inverse if disliked, same for marriage and item requests, add a socialize need/function to seek out liked people to encourage clique congregation and avoidance
-	// add chance of certain events happening such as a social fight between 2 people who hate each other
-	// to add social fight, need to add hp to Person and a melee attack that reduces hp, don't reduce to the point of killing the other person
-	// share dispositions with others, shared disposition is added to one's own disposition proportionally according to the disposition to the sharer
-	// random chances to compliment and insult others, chances affected by disposition (highest disposition == never insult, lowest disposition == never compliment)
 //add method to map and label natural cliques formed through the network of dispositions
 	//???
 //add method to map or create internal hierarchies among cliques, as well as ways to break/shift the hierarchies
@@ -31,14 +20,6 @@
 //add projectiles for when throwing rock/spear/dart, etc
 //add temperature to affect clothing use and creation
 //add terrain feritility and distribute using a noise function to create areas of varying amount of plants and therefore animals and food
-//add trees, more animals, more aesthetic variation, more tools, weapons, armor, clothing, tents/house types, human visual variation, etc
+//add more animals and plants and rock/soil types, more aesthetic variation, more tools, weapons, armor, clothing, tents/house types, human visual variation, etc
 //add cultural activities, actions, rituals, etc. 
 
-
-//gameplay - sandbox colony sim with rpg mechanics - survival social management game - Nomad King
-//survive (keep your npc alive from wolves, other npcs, get enough food, water, avoid dying from cold/heat, etc)
-//raise a family (get a mate, have kids, keep them alive by bringing them food, give them commands for tasks to prioritize such as hunting, gathering, crafting, building, etc)
-//raise your disposition with other people to gain advantages in resource access and number of people you can delegate tasks too
-//achieve enough social influence to be declared tribal chief and beat out competitors for the title both external and internal, as well as settling disputes within your group and defending against outside attacks
-//can delegate tasks, roles and partition terrirory but npcs might rebel according to their dispositions to you and each other and internal motives
-//ensure your chosen heir successfully takes over after your death, keep your dynasty alive. 
