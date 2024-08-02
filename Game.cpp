@@ -158,10 +158,10 @@ void Game::render() {
 		}
 	}
 
-	for (int i = 0; i < People::people_list.size(); i++) {
-		destR.x = People::people_list[i].pos.x * sqdim;
-		destR.y = (People::people_list[i].pos.y + 1) * sqdim;
-		textureManager(People::people_list[i].current_image, destR);
+	for (int i = 0; i < People::pl.size(); i++) {
+		destR.x = People::pl[i].pos.x * sqdim;
+		destR.y = (People::pl[i].pos.y + 1) * sqdim;
+		textureManager(People::pl[i].current_image, destR);
 	}
 
 	SDL_RenderPresent(renderer);

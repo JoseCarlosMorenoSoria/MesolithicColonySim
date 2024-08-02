@@ -1,9 +1,14 @@
 #include "Game.hpp"
+#include <iostream>
+#include <cstdlib>
+#include <ctime>
+using namespace std;
 
 Game game; //rather than use pointers like the tutorial, I am using only instances to avoid memory leaks
 
 
 int main(int argc, const char* argv[]) {
+	srand((unsigned int)time(NULL));//set seed for rand()
 
 	//frame rate variables
 	const int FPS = 8; //normally 60 FPS, currently less for testing

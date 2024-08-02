@@ -22,6 +22,7 @@ class People {
 		bool operator==(Position const& pos2) {
 			return this->x == pos2.x && this->y == pos2.y;
 		}
+		//should this include an overload of ! operator to check if pos == {-1,-1} which is the NULL equivalent?
 	};
 	
 	//fo == function object
@@ -37,7 +38,7 @@ class People {
 	};
 
 	struct Message {//need to tie Messages to tiles in map instead of current Message list
-		int sender_id;
+		int sender_id = -1;
 		int reciever_id = -1; //-1 is a message for everyone/anyone
 		string messsage = "";
 		Position pos;//might make more sense to have an origin position rather than a position for the whole range now that a map layer exists for messages
@@ -65,7 +66,7 @@ class People {
 		int reproduction_cooldown = 0; 
 
 		//objects for tracking function states
-		fo_search_for_new_campsite fo1;
+		fo_search_for_new_campsite fo1; //unsure if these should be kept or if it makes more sense to have a single shared variable, cuurent_dest
 		fo_searching_for_food fo2;
 		fo_eating fo3;
 		Position fo4;
@@ -76,6 +77,8 @@ class People {
 		bool clean_image = false; //used by a function to return to default image on the next update
 
 		vector<string> function_record;//useful for more than debugging, such as determining if did x within the last day (20 updates)
+		vector<int> function_record_nums;//tracks how many times in a row each function was called to reduce size of function_record. Might make more sense combining as a struct of {record, times repeated}
+		bool function_done = false;//flag used by all functions to declare them as done if they can't be interrupted
 
 		int radiusmax = -1;//largest radius for searching map. Is set or reset in relevant function
 
@@ -83,15 +86,25 @@ class People {
 		vector<vector<Position>> all_found;//for results of function find_all()
 		vector<string> potential_targets = { "food", "people", "mate", "no campsite", "messages" };//these should be class members not object members?
 		map<string, int> target_index = { {"food", 0}, {"people", 1}, {"mate", 2}, {"no campsite", 3}, {"messages", 4} };
+		vector<int> target_quantity_limit = {10, 1, 1, 1, -1};
+		vector<bool> target_chosen = { true, true, true, true, true };
+		//targets above might make more sense as a single list of a struct for targets as a type rather than multiple separate lists
+	
+		bool message_clear_flag = false;//unsure if thise should be in Person or as part of the class
+
+		bool printed = true;//for function record printing. set to true to prevent execution
 	};
 
-	static Person p; 
+	
 	
 	//vectors use more memory than necessary? Need to check
 public:
 	int people_id_iterator = 0;
-	static vector<Person> people_list;
+	static vector<Person> pl;//people_list
+	//DO NOW: give each message an id and store the id on the Message_Map to reduce the storage size of Message_Map
 	static vector<Message> Message_Map[Environment::map_y_max][Environment::map_x_max];//a map layer that holds messages according to their tile location. Makes clearing the map easier by being a separate layer. Each tile can have multiple messages.
+	static vector<int> Person_Map[Environment::map_y_max][Environment::map_x_max];//a map layer to hold people to access directly from a tile instead of searching the whole people list. Holds the id of each person
+	//Need to test without the messages to see if that is the cause of lag
 
 	int campsite_distance_search = 5;
 
@@ -100,14 +113,16 @@ public:
 	void update(int day_count, int hour_count, int hours_in_day);
 	void utility_function();
 	bool move_to(Position pos);
-	bool has_food();
 	bool valid_position(Position pos);
-	Position distance(Position pos1, Position pos2);
+	Position make_position_valid(Position dest, int ux, int lx, int uy, int ly);
+	int distance(Position pos1, Position pos2);
 	bool check_death();
 	Position walk_search_random_dest(); //returns a random destination for a random walk
 	int new_person_id();
-	void update_person(Person pers);//used to reinsert a person that was copied out and modified. A pointer might be better but I'm not fully certain to avoiding memory leaks, so using this for now.
+	int p_by_id(int id);//returns index of person in people list (pl).
+	void add_func_record();
 	
+	//find_all could be further reduced in terms of time by checking for all people at once, so the number of iterations is simply the largest search rather than searching for every person separately
 	vector<vector<Position>> find_all(vector<string> potential_targets); //instead of calling find for a single use and having to search the map multiple times, this function searches the map for all use cases and returns the results to be accessed instead.
 	//Result categories: [0]: ? Unsure whether categories (food, people, mate, messages, etc) should have a fixed index or not, maybe not.
 	bool find_check(Position pos, string target);//evaluates a single tile to determine if it contains the target being sought
@@ -121,9 +136,30 @@ public:
 	bool gathering_food();
 	bool sharing_food();
 	void speak(string message_text);
-	bool give_food(Message m);
+	bool give_food();
 	bool reproduce();
+	bool moving_to_bed();
 
 };
 
 #endif
+
+/*
+* Format of action functions (not utility functions or main loop functions)
+* 
+* called from utility_function()
+* check function trigger, if false return false, else continue
+* action
+* if action is not done this tick, return true; In Progress
+* if action is done/ended this tick, return true; Done
+*/
+
+/*
+* Actions generally take the format of:
+* find x
+* go to x
+* perform action on/with x
+* 
+* Some actions are simply a composition of smaller actions that reduce to this format.
+* Need to standardize format of functions so that they can be more easily read, combined, and simplified
+*/
