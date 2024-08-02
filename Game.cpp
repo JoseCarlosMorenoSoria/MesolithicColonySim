@@ -76,7 +76,11 @@ void Game::initGameState() {
 	{"bread", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/bread.png"))},
 	{"human_crafting", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_crafting.png"))},
 	{"rock", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rock.png"))},
-	{"mortar and pestle", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/mortar_pestle.png"))}
+	{"mortar and pestle", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/mortar_pestle.png"))},
+	{"deer", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer.png"))},
+	{"deer resting", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer_resting.png"))},
+	{"deer sleeping", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer_sleeping.png"))},
+	{"deer dead", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer_dead.png"))},
 	};
 }
 

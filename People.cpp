@@ -73,7 +73,7 @@ bool People::check_death() {
     bool death = !pl[p].is_alive || starvation;
     if (death) {
         pl[p].is_alive = false;
-        pl[p].current_state = "dead";
+        add_func_record("dead");
         pl[p].current_image = "pics/human_dead.png";
         if (pl[p].age < 5) {
             pl[p].current_image = "human_infant_dead";
@@ -83,9 +83,9 @@ bool People::check_death() {
             pl[p_by_id(pl[p].spouse_id)].spouse_id = -1;//unlink from spouse
         }
         //set these to -1 to prevent others referencing them
-        pl[p].hunger_level = -1;
-        pl[p].hungry_time = -1;
-        pl[p].reproduction_cooldown = -1;
+        //pl[p].hunger_level = -1;
+        //pl[p].hungry_time = -1;
+        //pl[p].reproduction_cooldown = -1;
         if(!pl[p].printed){
             //print record of function history for debugging
             cout << "\n______\n"<<pl[p].id<<" ~ ";
@@ -157,7 +157,6 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
     utility_function();
     pl[p].found_messages.clear();
     pl[p].search_results.clear();
-    add_func_record();//adds current function to record
 
     //check to ensure that spouses share campsite
     if (!pl[p].sex && !pl[p].adopt_spouse_campsite && pl[p].spouse_id != -1) {
@@ -165,6 +164,7 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
     }
 
     pl[p].search_active = false;//resets for next tick
+    pl[p].move_already = false;
 }
 
 bool People::valid_position(Position pos) {
@@ -178,6 +178,15 @@ bool People::valid_position(Position pos) {
 
 //person sometimes stops moving, need to check functions that call move_to to make sure they aren't asking to move to the same tile person is on
 bool People::move_to(Position dest) {//need to add speed of moving from one tile to another and how many tiles at a time. Also need to add a check to prevent it being called more than once per person per update.
+    //if (pl[p].search_active) {//prevents function getting called more than once per update
+    //    return false;
+    //}
+    if (pl[p].move_already || pl[p].current_image!="pics/human.png") {//the image check shouldn't be necessary but I don't know why it still moves while having crafting image
+        if (pl[p].pos == dest) {
+            return true;
+        }
+        return false;
+    }
     if (!valid_position(dest)) { //for debugging, kill npc if it tries to go off map or is asked to move to the spot it is already at
         pl[p].is_alive = false;
         pl[p].current_image = "pics/debug.png";
@@ -219,20 +228,21 @@ bool People::move_to(Position dest) {//need to add speed of moving from one tile
             }
         }
     }
+    pl[p].move_already = true;
     return reached;
 }
 
-void People::add_func_record() {
+void People::add_func_record(string s) {
     if (pl[p].function_record.empty()) {
-        pl[p].function_record.push_back(pl[p].current_state);
+        pl[p].function_record.push_back(s);
         pl[p].function_record_nums.push_back(1);
     }
     else {
-        if (pl[p].function_record.back() == pl[p].current_state) {
+        if (pl[p].function_record.back() == s) {
             pl[p].function_record_nums.back()++;
         }
         else {
-            pl[p].function_record.push_back(pl[p].current_state);
+            pl[p].function_record.push_back(s);
             pl[p].function_record_nums.push_back(1);
         }
     }
@@ -255,7 +265,7 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
     if (!(pl[p].reproduction_cooldown > 100)) {//function trigger
         return false;
     }
-    pl[p].current_state = "reproduce";
+    add_func_record("reproduce");
     vector<Position> &pos_list1 = pl[p].search_results["people"];//note: using reference (&) reduces copying
     int p2 = -1;
     for (int i = 0; i < pos_list1.size(); i++) {//filter out valid mates from people found list
@@ -307,6 +317,8 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
                 }
                 //remove campsite and adopt male's campsite as own.
                 pl[p].adopt_spouse_campsite = true;
+                pl[p].end_search = true;///end search if was searching
+                pl[p2].end_search = true;
                 return true;//male will simply no longer call reproduce() given the cooldown==0, so only female needs to return true
             }
             else {
@@ -315,7 +327,9 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
         }
     }
     else {//if no mate found, walk to search
-        general_search_walk("mate");
+        if (!pl[p].move_already) {
+            general_search_walk("mate");
+        }
     }
     return true;//in progress
 }
@@ -564,7 +578,7 @@ People::Position People::make_position_valid(Position dest, int ux, int lx, int 
 }
 
 bool People::idle() {
-    pl[p].current_state = "idle";
+    add_func_record("idle");
     //flip between idle and default image
     if (pl[p].current_image == "pics/human.png") {
         pl[p].current_image = "pics/human_idle.png"; //need to make image, just have human with raised hands
@@ -590,6 +604,9 @@ vector<int> People::inventory_has(string target) {//return list of indexes of ma
     }
     for (int i = 0; i < pl[p].item_inventory.size(); i++) {
         int item_index = ItemSys::item_by_id(pl[p].item_inventory[i]);
+        if (item_index == -1) {//this shouldn't be happening, need to figure out why, temp fix. fix this
+            return indexes;
+        }
         if (ItemSys::item_list[item_index].item_name == target) {
             indexes.push_back(i);
         }
@@ -640,7 +657,6 @@ void People::delete_item(int item_id, Position pos, int index) {
 }
 
 bool People::craft(string product) {//later add station requirements such as campfire/stove/oven/furnace
-    pl[p].current_state = "crafting " + product;
     //if inventory has product.ingredients then craft product (consumes non tool ingredients) and place in inventory
     int num_of_ingredients = it2.presets[product].ingredients.size();
     vector<string> missing_ingredients;//fix this, this should be a single string given that every update rechecks if it can craft the item and only 1 ingredient is sought per tick. Unless a more detailed method is implemented such as checking if any missing ingredient is craftable rather than doing them strictly in order.
@@ -652,7 +668,9 @@ bool People::craft(string product) {//later add station requirements such as cam
         }
     }
     if (missing_ingredients.empty()) {//have all items, therefore craft product
+        add_func_record("crafting " + product);
         pl[p].current_image = "human_crafting";
+        pl[p].move_already = true;//prevents moving while crafting
         pl[p].crafting.insert({ product,{4} });//4 is the number of ticks/frames crafting image/animation lasts
         if (pl[p].crafting[product].progress_func()) {//animation/time delay    currently, progress is saved if interrupted which might not make sense in some contexts
             for (int i = 0; i < num_of_ingredients; i++) {//later implement tool degradation here as well
@@ -679,15 +697,20 @@ bool People::craft(string product) {//later add station requirements such as cam
 }
 
 void People::general_search_walk(string target) {
-    if (pl[p].search_active) {//prevents function getting called more than once per update
-        return;
-    }
-    pl[p].current_state = "searching for "+target;//should include what is being searched for, as in the functions that called this and the targets
+    //if (pl[p].end_search) {
+    //    pl[p].end_search = false;
+    //    pl[p].general_search_dest = { -1,-1 };
+    //    return;
+    //}
+    //if (pl[p].search_active) {//prevents function getting called more than once per update
+    //    return;
+    //}
+    add_func_record("searching for " + target);//should include what is being searched for, as in the functions that called this and the targets
     //walk to search
     if (pl[p].general_search_dest.x == -1 || move_to(pl[p].general_search_dest)) {//initialize function object or reinitialize if reached destination
         pl[p].general_search_dest = walk_search_random_dest();
     }//the move_to function triggers in the conditional
-    pl[p].search_active = true;
+    //pl[p].search_active = true;
 }
 
 void People::answer_item_request() {
@@ -728,7 +751,7 @@ void People::answer_item_request() {
     //send answer
     string target = items_requested[0];//currently simply selects the first item request in list to answer. Fix this, no condition on when or when not to answer has been implemented
     int receiver_id = request_messages[0].sender_id;//id of person who requested the item
-    pl[p].current_state = "answering request for " + target;
+    add_func_record("answering request for " + target);
     pl[p].current_image = "pics/human_giving_food.png";
     speak("answering request for " + target, receiver_id);
     //move to requester's position, adjacent
@@ -792,7 +815,7 @@ vector<People::Position> People::filter_search_results(string target) {
 }
 
 bool People::acquire(string target) {
-    pl[p].current_state = "acquiring " + target;
+    //add_func_record("acquiring " + target);
     //check if target is an item name or item tag
     if (it2.presets.find(target) != it2.presets.end()) {
         //target is an item name
@@ -800,7 +823,9 @@ bool People::acquire(string target) {
     else if (it2.tags.find(target) != it2.tags.end()) {
         //target is a tag name
         for (string item_name : it2.tags[target]) {//for every item with this tag, attempt to acquire item, if one is acquired then tag is acquired therefore return true
+            //cout << item_name;
             if (acquire(item_name)) {
+                pl[p].end_search = true;///end search if was searching
                 return true;//done
             }
         }
@@ -813,6 +838,7 @@ bool People::acquire(string target) {
     //if item is craftable, craft it but if in the process of crafting, the item is found, abort crafting the item
     if (!it2.presets[target].ingredients.empty()) {//if has ingredients, then is craftable
         if (craft(target)) {
+            pl[p].end_search = true;///end search if was searching
             return true;//crafting item was successful
         }
     }
@@ -822,6 +848,7 @@ bool People::acquire(string target) {
         int item_id = Environment::Map[pos.y][pos.x].item_id;
         if (move_to(pos)) {//if item is found, move to it and pick it up
             pick_up_item(item_id, pos);
+            pl[p].end_search=true;///end search if was searching
             return true;//item picked up
         }
         return false;//if still moving towards item, continue to next tick
@@ -856,7 +883,7 @@ bool People::acquire(string target) {
         }
     }
     //if all fails, move in search pattern. Search pattern is shared, to reduce erratic movement from various instances of search patterns
-    general_search_walk(target);
+    if (!pl[p].move_already) { general_search_walk(target); }
     return false;//searching
 }
 
@@ -875,32 +902,24 @@ void People::utility_function() {//is currently actually just a behavior tree no
     else {idle();}
 }
 
+
+//fix later
 //much of this function is taken up by carrying or dropping infants, need to create separate functions for that, fix this. Also need to otherwise simplify this function.
 bool People::search_for_new_campsite(){ //need to bias search direction in the direction of wherever there is more food rather than waiting to randomly stumble on a site with enough food for campsite. Also need to add a system of not searching the same tile within too short a time frame.
-    if (pl[p].start_set_up_camp) {
-        return true;//continue to next function in function chain
-    }
     if (!pl[p].sex && pl[p].spouse_id!=-1 && pl[p].campsite_pos == pl[p_by_id(pl[p].spouse_id)].campsite_pos) {
         return false;//prevent searching for a new campsite if married, only for females
     }
-    vector<Position> food_pos_list = filter_search_results("food"); //gets results, assigns 1 result to food_pos
-    Position food_pos = { -1,-1 };
-    bool found_food = false;
-    if (!food_pos_list.empty()) {
-        food_pos = food_pos_list[0];
-        found_food = true;
-    }
-    int dist = Position::distance(food_pos, pl[p].campsite_pos);
-    bool cond1 = !found_food || (found_food && dist > campsite_distance_search);//if no food found OR food was found but the distance is too far from the campsite
+    
     bool cond2 = pl[p].campsite_pos.x == -1 || pl[p].hungry_time >= 3;//AND: have no campsite OR have been hungry too long
     bool cond3 = pl[p].campsite_age > 10;//AND: campsite is old enough to move again. Unsure if this might have an issue if the null campsite has an age
-    bool start = (cond1 && cond2 && cond3) || pl[p].adopt_spouse_campsite;
+    bool start = (cond2 && cond3) || pl[p].adopt_spouse_campsite;
     //currently only creates a campsite after having been hungry 3 days. Still need to figure out when and when not to create a campsite, such as for trips away from home or extreme high mobility nomad
     //function trigger
     if (!start){
         return false;
     }
-    pl[p].current_state = "search for new campsite";
+
+
     if (pl[p].campsite_pos.x != -1) { //if have campsite, remove. //Later add an option to just abandon a campsite without removing the house. Should only decontruct if going to carry it to new location such as a tent/sleeping bag/lean to/etc.
         if (move_to(pl[p].campsite_pos)) {//walk to campsite to remove
             int item_id = Environment::Map[pl[p].campsite_pos.y][pl[p].campsite_pos.x].item_id;
@@ -918,7 +937,7 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
         }
     }
     //if have infants, carry them
-    if(!pl[p].children_id.empty()) {//if the game renderer stops running through the whole people list, this breaks because infant is no longer on map. Therefore need to create a better function for carrying and dropping both infants and general items/people. Currently also carries all infants in the same spot, so they overlap. Need to fix this.
+    if (!pl[p].children_id.empty()) {//if the game renderer stops running through the whole people list, this breaks because infant is no longer on map. Therefore need to create a better function for carrying and dropping both infants and general items/people. Currently also carries all infants in the same spot, so they overlap. Need to fix this.
         for (int i = 0; i < pl[p].children_id.size(); i++) {
             int kid_index = p_by_id(pl[p].children_id[i]);
             if (pl[kid_index].age < 5 && !pl[kid_index].being_carried) {
@@ -932,21 +951,30 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
             }
         }
     }
+
+
+    vector<Position> food_pos_list = filter_search_results("food"); //gets results, assigns 1 result to food_pos
+    Position food_pos = { -1,-1 };
+    bool found_food = false;
+    if (!food_pos_list.empty()) {
+        food_pos = food_pos_list[0];
+        found_food = true;
+    }
+
     if (food_pos_list.size() >= 4) {//if there are 4 food items within sight, select area for campsite, else keep searching
-        pl[p].current_state = "set up camp";
+        add_func_record("set up camp");
         pl[p].campsite_age = 0; //resets campsite age
         //place tent
         vector<Position> pos_list = pl[p].search_results["no item"];
         if (!pos_list.empty()) {
             create_item("tent", pos_list[0]);//create and place tent
             pl[p].campsite_pos = pos_list[0]; //store campsite location
-            pl[p].start_set_up_camp = false;
             //if have infants, drop them
             if (!pl[p].children_id.empty()) {
                 for (int i = 0; i < pl[p].children_id.size(); i++) {
                     int kid_index = p_by_id(pl[p].children_id[i]);
                     if (pl[kid_index].being_carried && pl[kid_index].carried_by_id == pl[p].id) {
-                        
+
                         Position child_pos;
                         if (pl[p].search_results.find("no people") != pl[p].search_results.end()) {
                             if (Position::distance(pl[p].search_results["no people"][0], pl[p].pos) == 1) {//if empty adjacent tile
@@ -965,12 +993,13 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
                     }
                 }
             }
-
+            pl[p].end_search = true;///end search if was searching
             return true; //done. need to add an actual animation/progress to building the tent rather than immediate placement
         }
         else {
-            Position dest = walk_search_random_dest();
-            move_to(dest);//random movement without destination
+            if (!pl[p].move_already) {
+                general_search_walk("empty tile for camp");
+            }
             return true;//in progress
         }
         return true;//done
@@ -978,7 +1007,10 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
     else if (!food_pos_list.empty()) {
         //need to add a method of investigating if any food found might have more food just out of current sightline, but this probably will require more complex modifiable pathfinding, as in have it be a detour from the current destination rather than a change in destination.
     }
-    general_search_walk("new campsite");
+
+    if (!pl[p].move_already) {
+        general_search_walk("new campsite");
+    }
     return true;//in progress
 }
 
@@ -986,7 +1018,7 @@ bool People::sleeping(){
     bool tired = pl[p].tired_level > 50;
     bool start_moving_to_bed = tired && pl[p].campsite_pos.x != -1 && pl[p].hunger_level<50;
     if (start_moving_to_bed) {
-        pl[p].current_state = "moving to bed";
+        add_func_record("moving to bed");
         if(move_to(pl[p].campsite_pos)){ //go to campsite.
             //go to sleep, continue
         }
@@ -999,7 +1031,7 @@ bool People::sleeping(){
     if (!(!pl[p].awake || cond1 || very_tired)) {//function trigger
         return false;
     }
-    pl[p].current_state = "sleeping";
+    add_func_record("sleeping");
     pl[p].current_image = "pics/human_sleeping.png";
     pl[p].awake = false;
     pl[p].tired_level-=11; //every call to this function reduces tired by 11, this means need 5 hours/updates to stop sleeping and sleep every 50 hours/updates. Is -11 so as to do -10 per hour and also -1 to negate the +1 tired in the regular update function
@@ -1013,8 +1045,9 @@ bool People::sleeping(){
 
 bool People::eating(){
     bool hungry = pl[p].hunger_level > 50;
-    bool cond1 = false;
-    vector<int> food_indexes1 = inventory_has("food");//should these return sets instead? would remove the need for converting to sets when set operations are needed. Duplicate indexes are never relevant.
+    bool has_food = false;
+    vector<int> food_indexes1 = inventory_has("ready food");//should these return sets instead? would remove the need for converting to sets when set operations are needed. Duplicate indexes are never relevant.
+    /*
     vector<int> food_indexes2 = inventory_has("needs processing");
 
     set<int> f_ind_1;
@@ -1027,17 +1060,28 @@ bool People::eating(){
     }
     set<int> food_indexes;
     set_difference(f_ind_1.begin(), f_ind_1.end(), f_ind_2.begin(), f_ind_2.end(), inserter(food_indexes,food_indexes.end()));//for legibility, might be better to overload operator- so that set3=set1-set2
-
-    if (!food_indexes.empty()) {
-        cond1 = true;
-        pl[p].eating_food_index = *food_indexes.begin();
+    */
+    if (!food_indexes1.empty()) {
+        has_food = true;
+        //pl[p].eating_food_index = *food_indexes.begin();
+        pl[p].eating_food_index = food_indexes1[0];
     }
 
-    if (!(hungry && cond1)) {//function trigger
-        searching_for_food();
+    if (hungry && !has_food) {
+        if (acquire("ready food")) {
+            add_func_record("acquired ready food");
+            //done
+            return true;
+        }
+        else {
+            return true;
+        }
+    }
+
+    if (!(hungry && has_food)) {//function trigger
         return false;
     }
-    pl[p].current_state = "eating";
+    add_func_record("eating");
     if (pl[p].eating_progress.progress == 0) {
         pl[p].current_image = "pics/human_eating.png";
     }
@@ -1055,28 +1099,11 @@ bool People::eating(){
      return true;//in progress
 }
 
-bool People::searching_for_food(){//fix this, need to finish this function, essentially amounts to just a conditional check to trigger acquiring food, can this be further generalized?
-    bool hungry = pl[p].hunger_level > 50;
-    if (!((hungry || pl[p].child_is_hungry) && inventory_has("food").empty())) {//function trigger
-        return false;
-    }
-    pl[p].current_state = "searching for food";
-
-    //need to either figure out a way to handle order execution priority between getting food and removing campsite or create a function called remove_campsite to encapsulate its code and call before attempting to get food
-    
-    //alternative is to run a for loop and execute acquire on every item in global item_list with the food tag until one returns true. Cost of that may be too high, might be better to just modify acquire to accept a tag as an input
-    if (acquire("berrybush")) {//?? see if I can modify acquire in a way to be able to call it on tags such as food rather than just item names
-        //done
-    }
-    else if (acquire("bread")) {
-        //done
-    }
-
-    return true;//in progress
-}
 
 
 
+
+//need to either figure out a way to handle order execution priority between getting food and removing campsite or create a function called remove_campsite to encapsulate its code and call before attempting to get food
 
 //note: need to make parent check on kid periodically, and give priority to giving food to kids rather than others. fix this //feed hungriest first? Unsure if this should be implemented
 //note: when gathering food, always gather a bit more than needed to satisfy hunger to have some in inventory either for self later or to share or feed infants

@@ -9,12 +9,13 @@
 #include "ItemSys.hpp"
 using namespace std;
 
+//FIX NOW: person sometimes doesn't move at all, might have to do with search_for_new_campsite(), though it happened even when the person created a campsite, fix this
+
 //TO DO NOW:
 //remember close family to avoid mating with parents/etc. Children exclusion done.
 //Unsure if need to add a way to remember past locations that had food or if random searching is good enough for now in order to create cyclical seasonal camp movement
 //add a way to compare value of foods according to calorie count and work/time cost
 
-//consolidate functions into generics such as acquire(x) which is composed of search_for(x) and move_to(x) and pick_up(x), or if craft(x) is chosen then acquire(ingredients/tools)
 //add deer and rabbits
 //add hunting deer and rabbits and trapping rabbits
 //add water and thirst and fish and fishing

@@ -78,7 +78,7 @@ public:
 		bool sex; //true==male, false==female
 
 		string current_image = "pics/human.png";
-		string current_state = "idle"; //state/action
+		//string current_state = "idle"; //state/action
 		int sightline_radius = 5; //how far around self can see objects
 		int audioline_radius = 5; //how far around self can hear and be heard
 		int hunger_level = 0;
@@ -106,8 +106,7 @@ public:
 		//int hungry_child_index = -1;
 		
 		//these bools need to preserve their state outside each execution of the utility_function
-		bool start_set_up_camp = false; //is set to true when search_for_new_campsite ends so that it only triggers on the next update after search_ ends.
-
+		
 		bool clean_image = false; //used by a function to return to default image on the next update
 
 		vector<string> function_record;//useful for more than debugging, such as determining if did x within the last day (20 updates)
@@ -124,6 +123,9 @@ public:
 
 		bool search_active = false;//a shared, generic search flag that reduces erratic movement by having a single search pattern serve all current targets
 		Position general_search_dest;//this and search_active should be together in a function object
+		bool end_search = false;
+
+		bool move_already = false;//ensures only move once per update
 	};
 
 	
@@ -155,7 +157,7 @@ public:
 	int p_by_id(int id);//returns index of person in people list (pl).
 	int message_by_id(int id);//returns index of message in message list.
 
-	void add_func_record();
+	void add_func_record(string s);
 	vector<int> inventory_has(string target);
 	void create_item(string item_type, Position pos);
 	void pick_up_item(int item_id, Position pos);
@@ -165,7 +167,6 @@ public:
 	bool idle();
 	bool sleeping();
 	bool eating();
-	bool searching_for_food();
 	bool reproduce();
 	//void carry_infant();		//need generic carry function
 	//void drop_infant();
