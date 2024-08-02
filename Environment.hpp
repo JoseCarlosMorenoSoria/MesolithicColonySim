@@ -12,14 +12,14 @@ using namespace std;
 //TO DO NOW:
 //remember close family to avoid mating with parents/etc. Children exclusion done.
 //Unsure if need to add a way to remember past locations that had food or if random searching is good enough for now in order to create cyclical seasonal camp movement
+//add a way to compare value of foods according to calorie count and work/time cost
 
-//include grain and a method to process it, as well as a way to compare value and pick either berries or grain according to calorie count and work/time cost
-//then implement a crafting system and a tool requirement for processing grain (instead of just bringing it back to camp to perform an animation)
 //consolidate functions into generics such as acquire(x) which is composed of search_for(x) and move_to(x) and pick_up(x), or if craft(x) is chosen then acquire(ingredients/tools)
 //add deer and rabbits
 //add hunting deer and rabbits and trapping rabbits
 //add water and thirst and fish and fishing
 //add dispositions between people and associated behavior (social fights, avoidance, escalation, calling for family/friends to join fight, noticing a family member being attacked and going to defend without being asked, sharing dispositions with others, etc)
+
 //add method to map and label natural cliques formed through the network of dispositions
 //add method to map or create internal hierarchies among cliques, as well as ways to break/shift the hierarchies
 //ensure natural methods for cliques not to become too stable so that groups are always changing, being formed, dissappearing, splitting, merging

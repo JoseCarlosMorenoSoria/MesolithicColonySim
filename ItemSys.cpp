@@ -5,12 +5,12 @@ vector<ItemSys::Item> ItemSys::item_list;
 int ItemSys::item_id_iterator = 0; 
 
 ItemSys::ItemSys() {
-    tent = { -1, "tent", "pics/house.png" };
-    berrybush = { -1, "berrybush", "pics/berrybush.png", {"food"}};
-    grain = { -1, "grain", "grain" , {"food", "needs processing"}};
-    bread = { -1, "bread", "bread" , {"food"} };
-    rock = { -1, "rock", "rock" };
-    mortar_pestle = { -1, "mortar_pestle", "mortar and pestle" , {"tool"} };
+    presets.insert({ "tent",            { -1, "tent", "pics/house.png", {/*tags*/}, {/*ingredients*/},false}});
+    presets.insert({ "berrybush",       { -1, "berrybush", "pics/berrybush.png", {"food"}, {/*ingredients*/},false } });
+    presets.insert({ "grain",            { -1, "grain", "grain" , {"food", "needs processing"}, {/*ingredients*/},true} });
+    presets.insert({ "bread",           { -1, "bread", "bread" , {"food"}, {"grain","mortar_pestle"},false}});
+    presets.insert({ "rock",            { -1, "rock", "rock",{},{} ,true} });
+    presets.insert({ "mortar_pestle",   { -1, "mortar_pestle", "mortar and pestle" , {"tool"}, {"rock"},false}});
 }
 
 int ItemSys::item_by_id(int id) {//uses binary search to find and return index to item in item list

@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
 using namespace std;
 
 class ItemSys {//Item System
@@ -21,14 +22,11 @@ public:
 		string item_name = "";
 		string image = "";
 		vector<string> tags;//include tags such as "food", "tool", "building", etc
+		vector<string> ingredients;//includes tools (and later station) needed to craft item. Later can add quantity requirements for ingredients, etc
+		bool consumable_ingredient;//true means item is consumed when used as an ingredient to craft something, false means it isn't
 	};
 	//presets
-	Item tent;
-	Item grain;
-	Item bread;
-	Item berrybush;
-	Item rock;
-	Item mortar_pestle;
+	map<string, Item> presets;
 
 	static vector<Item> item_list;//global list
 	static int item_by_id(int id);

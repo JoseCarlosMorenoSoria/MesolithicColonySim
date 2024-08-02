@@ -86,7 +86,7 @@ class People {
 		int eating_food_index = -1;//this and eating_progress should be encapsulated in a function object
 		Position fo4;
 		progress_state processing_food_prog = { 4 };
-		progress_state crafting = { 4 };
+		map<string, progress_state> crafting;//key is product name
 		Position rock_search;
 
 		bool child_is_hungry = false;//currently a flag to communicate between feed_own_children and searching_for_food and gathering_food. I need to rethink how functions communicate with each other and facilitate direct calls by one to another. Fix this.
@@ -103,18 +103,16 @@ class People {
 		int radiusmax = -1;//largest radius for searching map. Is set or reset in relevant function
 
 		vector<int> found_messages;//message id's
-		vector<vector<Position>> all_found;//for results of function find_all()
-		vector<string> potential_targets = { "food", "people", "mate", "no campsite", "messages", "rock"};//these should be class members not object members?
-		map<string, int> target_index = { {"food", 0}, {"people", 1}, {"mate", 2}, {"no campsite", 3}, {"messages", 4}, {"rock",5} };
-		vector<int> target_quantity_limit = {10, 1, 1, 1, -1, 1};
-		vector<bool> target_chosen = { true, true, true, true, true , true};
-		//targets above might make more sense as a single list of a struct for targets as a type rather than multiple separate lists
-	
+		map<string, vector<Position>> search_results;//for results of function find_all()
+		
 		bool message_clear_flag = false;//unsure if thise should be in Person or as part of the class
 
 		bool printed = true;//for function record printing. set to true to prevent execution
 
 		bool adopt_spouse_campsite = false;
+
+		bool search_active = false;//a shared, generic search flag that reduces erratic movement by having a single search pattern serve all current targets
+		Position general_search_dest;
 	};
 
 	
@@ -149,13 +147,13 @@ public:
 	int message_by_id(int id);//returns index of message in message list.
 	vector<int> inventory_has(string target);
 	bool tile_has(string target, Position pos);
-	void create_item(ItemSys::Item item_type, Position pos);
+	void create_item(string item_type, Position pos);
 	void pick_up_item(int item_id, Position pos);
-	void delete_item(int item_id, Position pos);
+	void delete_item(int item_id, Position pos, int index);
 	
 	//find_all could be further reduced in terms of time by checking for all people at once, so the number of iterations is simply the largest search rather than searching for every person separately
-	vector<vector<Position>> find_all(vector<string> potential_targets); //instead of calling find for a single use and having to search the map multiple times, this function searches the map for all use cases and returns the results to be accessed instead.
-	bool find_check(Position pos, string target);//checks a single tile to determine if it contains the target being sought
+	void find_all(); //instead of calling find for a single use and having to search the map multiple times, this function searches the map for all use cases and saves the results in Person p.search_results to be accessed instead.
+
 
 	bool search_for_new_campsite();
 	bool set_up_camp();
@@ -164,7 +162,6 @@ public:
 	bool eating();
 	bool searching_for_food();
 	bool gathering_food();
-	bool processing_food();//grinding, milling, cooking, boiling, etc
 	void speak(string message_text);
 	bool give_food();
 	bool reproduce();
@@ -174,6 +171,15 @@ public:
 	//void drop_infant();
 	bool craft_mortar_pestle();
 	Position empty_adjacent_tile();
+
+	bool craft(string product);
+	bool drop_item(int index);
+	void general_search_walk();
+	void check_tile_messages(Position pos);
+
+	bool mate_check(int pers_id);
+
+	bool acquire(string target);
 };
 
 #endif

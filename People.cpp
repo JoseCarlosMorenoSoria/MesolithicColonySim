@@ -164,6 +164,8 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
     if (!pl[p].sex && !pl[p].adopt_spouse_campsite && pl[p].spouse_id != -1) {
         pl[p].campsite_pos = pl[p_by_id(pl[p].spouse_id)].campsite_pos;
     }
+
+    pl[p].search_active = false;//resets for next tick
 }
 
 bool People::valid_position(Position pos) {
@@ -255,14 +257,17 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
         return false;
     }
     pl[p].current_state = "reproduce";
-    vector<Position> &pos_list = pl[p].all_found[pl[p].target_index["mate"]];//note: using reference (&) reduces copying
+    vector<Position> &pos_list1 = pl[p].all_found[pl[p].target_index["people"]];//note: using reference (&) reduces copying
     int p2 = -1;
+    for (int i = 0; i < pos_list1.size(); i++) {//filter out valid mates from people found list
+        int pers_id = p_by_id(Environment::Map[pos_list1[0].y][pos_list1[0].x].person_id);
+        if (mate_check(pers_id)) {
+            p2 = pers_id;
+            break;
+        }
+    }
     bool mate_willing = false;
-    if (!pos_list.empty()) {
-            p2 = p_by_id(Environment::Map[pos_list[0].y][pos_list[0].x].person_id);
-            if (p2 == -1) {
-                return true;//person not found, end function
-            }
+    if (p2!=-1) {
             if (pl[p2].reproduction_cooldown > 100 && pl[p2].sex != pl[p].sex) {
                 mate_willing = true;
             }
@@ -311,8 +316,8 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
     return true;//in progress
 }
 
-//if quantity parameter is < 0 (usually -1), then returns all results.
-vector<vector<People::Position>> People::find_all(vector<string> potential_targets) {//All potential targets are searched for
+
+void People::find_all() {//returns all things (items, people, messages, etc) found, sorted according into Position lists for each thing type
     int radius_options[2] = {//all radius options
         pl[p].sightline_radius, pl[p].audioline_radius
     };
@@ -326,37 +331,23 @@ vector<vector<People::Position>> People::find_all(vector<string> potential_targe
             }
         }
     }
-    //int quantity; // still need to adjust find_check and handle quantity limits for some targets
+    map<string, vector<Position>> search_results;
     Position o = pl[p].pos;//origin
-    vector<vector<Position>> pos_list;
     vector<int> target_quantity_current;
-    //int quantity_found = 0;       Need to implement a quantity limit for each potential target to cut down on iterations
     for (int radius = 0; radius <= pl[p].radiusmax; radius++) { //this function checks tilemap in outward rings by checking top/bottom and left/right ring boundaries
         if (radius == 0) {//avoids double checking origin
-            for (int i = 0; i < potential_targets.size(); i++) {
-                target_quantity_current.push_back(0);//initialize all to 0
-                vector<Position> emptylist;
-                pos_list.push_back(emptylist);//initialize all target lists as empty vectors
-                if (potential_targets[i] == "food" || potential_targets[i] == "people" || potential_targets[i] == "mate" || potential_targets[i] == "no campsite") {
-                    if (radius > pl[p].sightline_radius) {
-                        continue;
-                    }
+            if (radius <= pl[p].sightline_radius) {
+                if (Environment::Map[o.y][o.x].item_id != -1) {
+                    search_results.insert({ ItemSys::item_list[ItemSys::item_by_id(Environment::Map[o.y][o.x].item_id)].item_name,{o}});
                 }
-                else if (potential_targets[i] == "messages") {
-                    if (radius > pl[p].audioline_radius) {
-                        continue;
-                    }
+                else {//creates list of tiles without any item, for use when placing an item on the map
+                    search_results.insert({ "no item",{o} });
                 }
-                if (find_check({ o.x,o.y }, potential_targets[i])) {
-                    pos_list[i].push_back({o.x,o.y});
-                    target_quantity_current[i]++;
-                    /*
-                    quantity_found++;
-                    if (quantity_found == quantity) {//returns list of positions found once desired quantity is found
-                        return pos_list;
-                    }
-                    */
-                }
+                //don't check if person is on origin tile, because that person is self
+            }
+            if (radius <= pl[p].audioline_radius) {
+                //check for messages
+                check_tile_messages(o);
             }
         }
         int xmin = o.x - radius;
@@ -365,131 +356,167 @@ vector<vector<People::Position>> People::find_all(vector<string> potential_targe
         int ymax = o.y + radius - 1;
         for (int x = xmin, y = ymin; x <= xmax; x++, y++) {
             for (int sign = -1; sign<=1; sign+=2) {//sign == -1, then sign == 1
-                for (int i = 0; i < potential_targets.size(); i++) {
-                    //handle which targets to check or not check
-                    if (!pl[p].target_chosen[i]) {
-                        continue;
-                    }
-                    //handles quantity limits
-                    if (target_quantity_current[i] >= pl[p].target_quantity_limit[i]) {
-                        continue;
-                    }
-                    //Handle differing radius limits for different potential targets
-                    if (potential_targets[i]=="food" || potential_targets[i]=="people") {
-                        if (radius > pl[p].sightline_radius) {
-                            continue;
-                        }
-                    }
-                    else if (potential_targets[i] == "messages") {
-                        if (radius > pl[p].audioline_radius) {
-                            continue;
-                        }
-                    }
-                    if (find_check({ x, o.y + (sign * radius) }, potential_targets[i])) {
-                        pos_list[i].push_back({ x, o.y + (sign * radius) });
-                        target_quantity_current[i]++;
-                        /*
-                        quantity_found++;
-                        if (quantity_found == quantity) {//returns list of positions found once desired quantity is found
-                            return pos_list;
-                        }
-                        */
-                    }
-                    if (y <= ymax) {
-                            if (find_check({ o.x + (sign * radius), y }, potential_targets[i])) {
-                                pos_list[i].push_back({ o.x + (sign * radius), y });
-                                target_quantity_current[i]++;
-                                /*
-                                quantity_found++;
-                                if (quantity_found == quantity) {//returns list of positions found once desired quantity is found
-                                    return pos_list;
-                                }
-                                */
-                            }
-                    }
-                }
-            }
-        }
-    }
-    return pos_list;
-}
-
-bool People::find_check(Position pos, string target) {
-    bool found = false;
-    if (valid_position({ pos.x,pos.y })) {
-        if (target == "food") {
-            if (tile_has("food",pos)) {
-                found = true;
-            }
-        }
-        else if (target == "no campsite") {//find location without a campsite
-            if (!tile_has("tent", pos)) {
-                found = true;
-            }
-        }
-        else if (target == "rock") {
-            if (tile_has("rock", pos)) {
-                found = true;
-            }
-        }
-        else if (target == "people" || target == "mate") {
-            int pers_id = Environment::Map[pos.y][pos.x].person_id;
-            if (pers_id != -1 && pers_id != pl[p].id) {
-                found = true;
-                if (target == "mate") {
-                    int pid = p_by_id(pers_id);
-                    if (pl[pid].sex != pl[p].sex && pl[pid].age > 10) {
-                        bool is_my_child = false;
-                        for (int i = 0; i < pl[p].children_id.size(); i++) {
-                            if (pl[p].children_id[i] == pl[pid].id) {
-                                is_my_child = true;
-                                break;
-                            }
-                        }
-                        if (!is_my_child) {
-                            if (pl[pid].spouse_id == -1 && pl[p].spouse_id == -1) {//if both unmarried
-                                found = true;
-                            }
-                            else if (pl[pid].spouse_id == pl[p].id && pl[p].spouse_id == pl[pid].id) {//if married to each other
-                                found = true;
-                            }
-                            else {
-                                found = false;//need to clean this code up to not have so many nested if-else
-                            }
+                Position pos1 = { x,o.y + (sign * radius) };
+                Position pos2 = { o.x + (sign * radius), y };
+                //check for people
+                if (valid_position(pos1)) {
+                    if (Environment::Map[pos1.y][pos1.x].person_id != -1) {
+                        if (search_results.find("people") != search_results.end()) {//check if key exists
+                            //key found
+                            search_results["people"].push_back(pos1);
                         }
                         else {
-                            found = false;
+                            //key not found
+                            search_results.insert({ "people",{pos1} });
                         }
                     }
-                    else {
-                        found = false;
+                    else {//creates list of tiles without any people, for use when placing an item on the map
+                        if (search_results.find("no people") != search_results.end()) {//check if key exists
+                            //key found
+                            search_results["no people"].push_back({ pos1 });
+                        }
+                        else {
+                            //key not found
+                            search_results.insert({ "no people",{pos1} });
+                        }
+                    }
+                }
+                if (y <= ymax) {
+                    if (valid_position(pos2)) {
+                        if (Environment::Map[pos2.y][pos2.x].person_id != -1) {
+                            if (search_results.find("people") != search_results.end()) {//check if key exists
+                                //key found
+                                search_results["people"].push_back(pos2);
+                            }
+                            else {
+                                //key not found
+                                search_results.insert({ "people",{pos2} });
+                            }
+                        }
+                        else {//creates list of tiles without any people, for use when placing an item on the map
+                            if (search_results.find("no people") != search_results.end()) {//check if key exists
+                                //key found
+                                search_results["no people"].push_back({ pos2 });
+                            }
+                            else {
+                                //key not found
+                                search_results.insert({ "no people",{pos2} });
+                            }
+                        }
+                    }
+                }
+                //check for items
+                if (valid_position(pos1)) {
+                    if (Environment::Map[pos1.y][pos1.x].item_id != -1) {
+                        string item_name = ItemSys::item_list[ItemSys::item_by_id(Environment::Map[pos1.y][pos1.x].item_id)].item_name;
+                        if (search_results.find(item_name) != search_results.end()) {//check if key exists
+                            //key found
+                            search_results[item_name].push_back({ pos1 });
+                        }
+                        else {
+                            //key not found
+                            search_results.insert({ item_name,{pos1} });
+                        }
+                    }
+                    else {//creates list of tiles without any item, for use when placing an item on the map
+                        if (search_results.find("no item") != search_results.end()) {//check if key exists
+                            //key found
+                            search_results["no item"].push_back({ pos1 });
+                        }
+                        else {
+                            //key not found
+                            search_results.insert({ "no item",{pos1} });
+                        }
+                    }
+                }
+                if (y <= ymax) {
+                    if (valid_position(pos2)) {
+                        if (Environment::Map[pos2.y][pos2.x].item_id != -1) {
+                            string item_name = ItemSys::item_list[ItemSys::item_by_id(Environment::Map[pos2.y][pos2.x].item_id)].item_name;
+                            if (search_results.find(item_name) != search_results.end()) {//check if key exists
+                                //key found
+                                search_results[item_name].push_back({ pos2 });
+                            }
+                            else {
+                                //key not found
+                                search_results.insert({ item_name,{pos2} });
+                            }
+                        }
+                        else {//creates list of tiles without any item, for use when placing an item on the map
+                            if (search_results.find("no item") != search_results.end()) {//check if key exists
+                                //key found
+                                search_results["no item"].push_back({ pos2 });
+                            }
+                            else {
+                                //key not found
+                                search_results.insert({ "no item",{pos2} });
+                            }
+                        }
+                    }
+                }
+                //check for messages
+                if (valid_position(pos1)) {
+                    check_tile_messages(pos1);
+                }
+                if (y <= ymax) {
+                    if (valid_position(pos2)) {
+                        check_tile_messages(pos2);
                     }
                 }
             }
-        }
-        else if (target == "messages") {//might also serve as a generic for reacting to sounds
-            for (int m_id : Message_Map[pos.y][pos.x]) {//check all messages in this tile
-                if (!pl[p].found_messages.empty()) {
-                    bool repeated_message = false;
-                    for (int m1_id : pl[p].found_messages) {
-                        if (m_id==m1_id) {//avoids copying messages that differ only in their location
-                            repeated_message = true;
-                            break;
-                        }
-                    }
-                    if (!repeated_message && message_list[message_by_id(m_id)].sender_id != pl[p].id) {
-                        pl[p].found_messages.push_back(m_id);
-                    }
-                }
-                else if (message_list[message_by_id(m_id)].sender_id != pl[p].id) {
-                    pl[p].found_messages.push_back(m_id);
-                }
-            }
-            //messages currently don't need to return what tile they were found at, therefore return false even if found messages as the messages are stored in pl[p].found_messages
-            return false;
         }
     }
-    return found;
+    pl[p].search_results=search_results;
+}
+
+void People::check_tile_messages(Position pos) {
+    //might also serve as a generic for reacting to sounds
+    for (int m_id : Message_Map[pos.y][pos.x]) {//check all messages in this tile
+        if (!pl[p].found_messages.empty()) {
+            bool repeated_message = false;
+            for (int m1_id : pl[p].found_messages) {
+                if (m_id == m1_id) {//avoids copying messages that differ only in their location
+                    repeated_message = true;
+                    break;
+                }
+            }
+            if (!repeated_message && message_list[message_by_id(m_id)].sender_id != pl[p].id) {
+                pl[p].found_messages.push_back(m_id);
+            }
+        }
+        else if (message_list[message_by_id(m_id)].sender_id != pl[p].id) {
+            pl[p].found_messages.push_back(m_id);
+        }
+    }
+}
+
+bool People::mate_check(int pers_id) {//holds old find_check for mate, given changes to find_check, is now a separate function for now
+        int pid = p_by_id(pers_id);
+        if (pl[pid].sex != pl[p].sex && pl[pid].age > 10) {
+            bool is_my_child = false;
+            for (int i = 0; i < pl[p].children_id.size(); i++) {
+                if (pl[p].children_id[i] == pl[pid].id) {
+                    is_my_child = true;
+                    return false;
+                }
+            }
+            if (!is_my_child) {
+                if (pl[pid].spouse_id == -1 && pl[p].spouse_id == -1) {//if both unmarried
+                    return true;
+                }
+                else if (pl[pid].spouse_id == pl[p].id && pl[p].spouse_id == pl[pid].id) {//if married to each other
+                    return true;
+                }
+                else {
+                    return false;//need to clean this code up to not have so many nested if-else
+                }
+            }
+            else {
+                return false;
+            }
+        }
+            return false;
+        
 }
 
 //can this function also be folded into the find_all function somehow to further reduce for loops searching on the map?
@@ -1064,8 +1091,8 @@ vector<int> People::inventory_has(string target) {//return list of indexes of ma
     return indexes;
 }
 
-void People::create_item(ItemSys::Item item_type, Position pos) {
-    ItemSys::Item new_item = item_type;
+void People::create_item(string item_type, Position pos) {
+    ItemSys::Item new_item = it2.presets[item_type];
     new_item.item_id = ItemSys::new_item_id();
     ItemSys::item_list.push_back(new_item);
     if (pos.x == -1) {
@@ -1084,7 +1111,7 @@ void People::pick_up_item(int item_id, Position pos) {
     Environment::Map[pos.y][pos.x].item_id = -1; //remove item from map
 }
 
-void People::delete_item(int item_id, Position pos) {
+void People::delete_item(int item_id, Position pos, int index) {
     if (item_id == -1) {//don't know what's causing this issue but need this check to work
         return;
     }
@@ -1092,6 +1119,9 @@ void People::delete_item(int item_id, Position pos) {
     ItemSys::item_list.erase(ItemSys::item_list.begin() + item_index);//remove item from global item_list
     if (pos.x != -1) {//if pos.x == -1, then the item was not on the map and was probably in a Person's inventory from which it was deleted separately
         Environment::Map[pos.y][pos.x].item_id = -1; //removes item from map
+    }
+    if (index != -1) {
+        pl[p].item_inventory.erase(pl[p].item_inventory.begin() + index);//delete item from inventory
     }
 }
 
@@ -1118,38 +1148,9 @@ bool People::feed_own_infants() {//fix this: need a better version of this funct
 }
 
 
-bool People::processing_food() {//could instead be used as a crafting generic, fix this
-    bool start = !inventory_has("needs processing").empty(); 
 
-    if (!start) {//function trigger
-        return false;
-    }
 
-    
-    if (inventory_has("mortar_pestle").empty()) {//should this be in utility function or should function chains be internal to relevant functions?
-        craft_mortar_pestle();//this should be turned into a generic, meaning the crafted item must have its ingredients included in its struct, fix this
-        //need to have option to search instead of craft in case already made one and dropped it near camp
-        return true;//in progress
-    }
-    
-
-    pl[p].current_state = "processing food";
-    if (pl[p].processing_food_prog.progress == 0) {
-        pl[p].current_image = "human_crafting";
-    }
-    if (pl[p].processing_food_prog.progress_func()) {//currently if function is interrupted, the progress is saved and coninued/finished when the function is called again. This may be an issue if ingredient is no longer in inventory. fix this
-        int index = inventory_has("needs processing")[0];
-        int food_ingredient_id = pl[p].item_inventory[index];
-        pl[p].item_inventory.erase(pl[p].item_inventory.begin() + index);//delete ingredient from inventory
-        delete_item(food_ingredient_id, { -1,-1 });//delete ingredient from game
-        Position new_pos = empty_adjacent_tile();
-        create_item(it2.bread, new_pos);//creates bread item. Currently places on map to see resulting item. Can change later to inserting directly to inventory by using {-1,-1} instead of new_pos
-        pl[p].clean_image = true; //when this function ends, return to default image on next update
-        return true;//done
-    }
-    return true;//in progress
-}
-
+//rename this function drop_item(), fix this
 People::Position People::empty_adjacent_tile() {//should add option between if tile has no item or no person?
     Position test_pos;
     for (int y = -1;y < 2;y++) {
@@ -1163,41 +1164,79 @@ People::Position People::empty_adjacent_tile() {//should add option between if t
     }
 }
 
-bool People::craft_mortar_pestle() {//sometimes works fine, sometimes causes person to be stuck either not moving or moving to the same spot unless move_to_bed and sleep take priority, don't know why, need to fix
-    if (!inventory_has("rock").empty()) {
-        pl[p].current_state = "crafting mortar and pestle";
-        if (pl[p].crafting.progress == 0) {
-            pl[p].current_image = "human_crafting";
+bool People::drop_item(int index) {
+
+}
+
+bool People::craft(string product) {//later add station requirements such as campfire/stove/oven/furnace
+    pl[p].current_state = "crafting " + product;
+    //if inventory has product.ingredients then craft product (consumes non tool ingredients) and place in inventory
+    int num_of_ingredients = it2.presets[product].ingredients.size();
+    vector<string> missing_ingredients;//fix this, this should be a single string given that every update rechecks if it can craft the item and only 1 ingredient is sought per tick. Unless a more detailed method is implemented such as checking if any missing ingredient is craftable rather than doing them strictly in order.
+    vector<int> temp;
+    for (int i = 0; i < num_of_ingredients; i++) {
+        temp = inventory_has(it2.presets[product].ingredients[i]);
+        if (temp.empty()) {
+            missing_ingredients.push_back(it2.presets[product].ingredients[i]);
         }
-        if (pl[p].crafting.progress_func()) {//currently if function is interrupted, the progress is saved and coninued/finished when the function is called again. This may be an issue if ingredient is no longer in inventory. fix this
-            int index = inventory_has("rock")[0];
-            int ingredient_id = pl[p].item_inventory[index];
-            pl[p].item_inventory.erase(pl[p].item_inventory.begin() + index);//delete ingredient from inventory
-            delete_item(ingredient_id, { -1,-1 });//delete ingredient from game
-            Position new_pos = empty_adjacent_tile();
-            create_item(it2.mortar_pestle, {-1,-1});//creates bread item. Currently places on map to see resulting item. Can change later to inserting directly to inventory by using {-1,-1} instead of new_pos
+    }
+    if (missing_ingredients.empty()) {//have all items, therefore craft product
+        pl[p].current_image = "human_crafting";
+        pl[p].crafting.insert({ product,{4} });//4 is the number of ticks/frames crafting image/animation lasts
+        if (pl[p].crafting[product].progress_func()) {//animation/time delay    currently, progress is saved if interrupted which might not make sense in some contexts
+            for (int i = 0; i < num_of_ingredients; i++) {//later implement tool degradation here as well
+                if (it2.presets[it2.presets[product].ingredients[i]].consumable_ingredient) {
+                    int consume_index = inventory_has(it2.presets[product].ingredients[i])[0];
+                    delete_item(pl[p].item_inventory[consume_index], {-1,-1},consume_index);
+                }
+            }
+            create_item(product, { -1,-1 });
+            pl[p].crafting.erase(product);
             pl[p].clean_image = true; //when this function ends, return to default image on next update
             return true;//done
         }
-        return true;//in progress
+        return false;//in progress
     }
-    else {
-        pl[p].current_state = "searching for rock";
-        //walk to search
-        if (pl[p].rock_search.x == -1 || move_to(pl[p].rock_search)) {//initialize function object or reinitialize if reached destination
-            pl[p].rock_search = walk_search_random_dest();
-            return true;//in progress
-        }//the move_to function triggers in the conditional
-        //look around for rock
-        if (!pl[p].all_found[pl[p].target_index["rock"]].empty()) {
-            Position rpos = pl[p].all_found[pl[p].target_index["rock"]][0];
-            if (move_to(rpos)) {//if found, move to item, once reached, place in inventory
-                int item_id = Environment::Map[rpos.y][rpos.x].item_id;
-                pick_up_item(item_id, rpos);
-                return true;//subtask done
+    else {//else search for ingredients, if an ingredient is craftable, craft it but if in the process of crafting the ingredient is found, abort crafting the ingredient
+        if (!it2.presets[missing_ingredients[0]].ingredients.empty()) {//if first missing ingredient is craftable, craft
+            if (craft(missing_ingredients[0])) {
+                return false;//if crafting ingredient was successful, try crafting the product again next update
             }
-            return true;//in progress
         }
+        //should this section below can be pulled out into its own search function?
+        //if crafting ingredient not yet successful or ingredient is not craftable, look around self for ingredient
+        if (pl[p].search_results.find(missing_ingredients[0]) != pl[p].search_results.end()) {//if key exists then at least 1 was found
+            //found
+            //if ingredient is found, move to it and pick it up
+            Position pos = pl[p].search_results[missing_ingredients[0]][0];
+            int item_id = Environment::Map[pos.y][pos.x].item_id;
+            if (move_to(pos)) {
+                pick_up_item(item_id, pos);
+                return false;//once picked up ingredient, try crafting product next update
+            }
+            return false;//if still moving towards ingredient, return until function is called again            
+        }
+        //if ingredient is not nearby, move in search pattern. Search pattern is shared, to reduce erratic movement from various instances of search patterns
+        general_search_walk();
+        return false;//searching
     }
-    return false;//?
+}
+
+bool acquire(string target) {
+    //if craftable, craft
+
+    //else search map
+}
+
+void People::general_search_walk() {
+    if (pl[p].search_active) {//prevents function getting called more than once per update
+        return;
+    }
+
+    pl[p].current_state = "searching";
+    //walk to search
+    if (pl[p].general_search_dest.x == -1 || move_to(pl[p].general_search_dest)) {//initialize function object or reinitialize if reached destination
+        pl[p].general_search_dest = walk_search_random_dest();
+    }//the move_to function triggers in the conditional
+    pl[p].search_active = true;
 }
