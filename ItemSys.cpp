@@ -5,8 +5,12 @@ vector<ItemSys::Item> ItemSys::item_list;
 int ItemSys::item_id_iterator = 0; 
 
 ItemSys::ItemSys() {
-    food = { -1, "food", "pics/berrybush.png" };
     tent = { -1, "tent", "pics/house.png" };
+    berrybush = { -1, "berrybush", "pics/berrybush.png", {"food"}};
+    grain = { -1, "grain", "grain" , {"food", "needs processing"}};
+    bread = { -1, "bread", "bread" , {"food"} };
+    rock = { -1, "rock", "rock" };
+    mortar_pestle = { -1, "mortar_pestle", "mortar and pestle" , {"tool"} };
 }
 
 int ItemSys::item_by_id(int id) {//uses binary search to find and return index to item in item list

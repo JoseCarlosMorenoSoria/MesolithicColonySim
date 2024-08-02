@@ -1,9 +1,5 @@
 #include "People.hpp"
 using namespace std;
-//currently works as expected, with the exception of a random unkown crash that crashes the whole computer. Maybe related to death but unsure, haven't tested death state.
-
-//To Do Now: 
-
 
 vector<People::Person> People::pl; //pl, using the name pl because of the frequency of use, used to store all Person instances
 vector<People::Message> People::message_list;
@@ -12,11 +8,11 @@ int p = -1;//index for accessing current person. Using index to access instead o
 ItemSys it2;//used to access member functions and variables of ItemSys
 
 People::People() {
-    Person p1 = { new_person_id(), {5,5}, true};
+    Person p1 = { new_person_id(), {50,25}, true};
     p1.age = 11;
     pl.push_back(p1);
     Environment::Map[p1.pos.y][p1.pos.x].person_id = p1.id;
-    Person p2 = { new_person_id(), {8,8}, false};
+    Person p2 = { new_person_id(), {51,26}, false};
     p2.age = 11;
     pl.push_back(p2);
     Environment::Map[p2.pos.y][p2.pos.x].person_id = p2.id;
@@ -92,6 +88,11 @@ bool People::check_death() {
             pl[p_by_id(pl[p].spouse_id)].spouse_id = -1;//unlink from spouse
         }
 
+        //set these to -1 to prevent others referencing them
+        pl[p].hunger_level = -1;
+        pl[p].hungry_time = -1;
+        pl[p].reproduction_cooldown = -1;
+
         if(!pl[p].printed){
             //print record of function history for debugging
             cout << "\n______\n"<<pl[p].id<<" ~ ";
@@ -132,6 +133,7 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
         //if (pl[p].function_record.size() >= 5) {
         //    pl[p].function_record.erase(pl[p].function_record.begin(), pl[p].function_record.end() - 5);//once a day, erases all function records except the last 5
         //}
+        pl[p].age++;
     }
 
     if (pl[p].age < 5) {//is infant. Currently that means it doesn't do anything except get hungry and needs to be fed
@@ -141,8 +143,10 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
         if (pl[p].being_carried) {//if being carried, then position is the position of the carrier offset by 1
             pl[p].pos = pl[p_by_id(pl[p].carried_by_id)].pos;
             pl[p].pos.x += 1;
-            cout << "am carried";
+            //cout << "am carried";
         }
+
+        eating();
         return;
     }
 
@@ -155,6 +159,11 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
 
     utility_function();
     pl[p].found_messages.clear();
+
+    //check to ensure that spouses share campsite
+    if (!pl[p].sex && !pl[p].adopt_spouse_campsite && pl[p].spouse_id != -1) {
+        pl[p].campsite_pos = pl[p_by_id(pl[p].spouse_id)].campsite_pos;
+    }
 }
 
 bool People::valid_position(Position pos) {
@@ -195,6 +204,18 @@ bool People::move_to(Position dest) {//need to add speed of moving from one tile
     }
     else {
         pl[p].pos = old_pos;//NEED TO FIX: need to handle case where someone else is blocking path or occuppying destination
+        //move to a random adjacent tile. Temporary fix
+        Position test_pos;
+        for (int y = -1;y <= 1;y++) {
+            for (int x = -1;x <= 1;x++) {
+                test_pos.x = old_pos.x + x;
+                test_pos.y = old_pos.y + y;
+                if (valid_position(test_pos) && test_pos != pl[p].pos && Environment::Map[test_pos.y][test_pos.x].person_id == -1) {
+                    pl[p].pos = test_pos;
+                    break;//need to handle if no adjacent tile is empty
+                }
+            }
+        }
     }
     
     return reached;
@@ -273,6 +294,8 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
                         pl[p].spouse_id = pl[p2].id;
                         pl[p2].spouse_id = pl[p].id;
                     }
+                    //remove campsite and adopt male's campsite as own.
+                    pl[p].adopt_spouse_campsite = true;
                     return true;//male will simply no longer call reproduce() given the cooldown==0, so only female needs to return true
                 }
                 else {
@@ -395,7 +418,17 @@ bool People::find_check(Position pos, string target) {
     bool found = false;
     if (valid_position({ pos.x,pos.y })) {
         if (target == "food") {
-            if (tile_has("food",pos)) {//check if tile contains food, currently is simply tied directly to tile rather than being an item
+            if (tile_has("food",pos)) {
+                found = true;
+            }
+        }
+        else if (target == "no campsite") {//find location without a campsite
+            if (!tile_has("tent", pos)) {
+                found = true;
+            }
+        }
+        else if (target == "rock") {
+            if (tile_has("rock", pos)) {
                 found = true;
             }
         }
@@ -432,11 +465,6 @@ bool People::find_check(Position pos, string target) {
                         found = false;
                     }
                 }
-            }
-        }
-        else if (target == "no campsite") {//find nearest location without a campsite
-            if (!tile_has("tent",pos)) {
-                found = true;
             }
         }
         else if (target == "messages") {//might also serve as a generic for reacting to sounds
@@ -519,9 +547,10 @@ void People::utility_function() {//is currently actually just a behavior tree no
 
         if (give_food()) {}
         else if (moving_to_bed()) {}
-        else if (searching_for_food()){if (gathering_food()) {}}
+        else if (searching_for_food()) { if (gathering_food()) {} }
         else if (search_for_new_campsite()) {if (set_up_camp()) {}}
-        else if (reproduce()) {}
+        else if (processing_food()) {}
+        //else if (reproduce()) {} avoid execution of this function to focus on other features without worrying about population size
         else {idle();}
     }
     else if(is_idle){ idle(); }
@@ -570,9 +599,6 @@ bool People::give_food() {
     Person& p2 = pl[p2_index];
     if (distance(p2.pos,pl[p].pos)==1 || move_to(p2.pos)) {//move to adjacent tile
         int index = inventory_has("food")[0];
-        if (pl[p].item_inventory[index] == -1) {
-            cout << "line 573 ish error";
-        }
         p2.item_inventory.push_back(pl[p].item_inventory[index]); //give food id from inventory
         pl[p].item_inventory.erase(pl[p].item_inventory.begin() + index);//remove from own inventory
         pl[p].current_image = "pics/human.png";//reset image to default
@@ -586,6 +612,9 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
     //check for nearby food
     if (pl[p].start_set_up_camp) {
         return true;//continue to next function in function chain
+    }
+    if (!pl[p].sex && pl[p].spouse_id!=-1 && pl[p].campsite_pos == pl[p_by_id(pl[p].spouse_id)].campsite_pos) {
+        return false;//prevent searching for a new campsite if married, only for females
     }
     
     vector<Position> food_pos_list = pl[p].all_found[pl[p].target_index["food"]]; //gets results, assigns 1 result to food_pos
@@ -604,7 +633,7 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
     bool cond2 = pl[p].campsite_pos.x == -1 || pl[p].hungry_time >= 3;//AND: have no campsite OR have been hungry too long
     bool cond3 = pl[p].campsite_age > 10;//AND: campsite is old enough to move again. Unsure if this might have an issue if the null campsite has an age
 
-    bool start = cond1 && cond2 && cond3;
+    bool start = (cond1 && cond2 && cond3) || pl[p].adopt_spouse_campsite;
 
     //currently only creates a campsite after having been hungry 3 days. Still need to figure out when and when not to create a campsite, such as for trips away from home or extreme high mobility nomad
     //function trigger
@@ -619,6 +648,11 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
             delete_item(item_id, pl[p].campsite_pos);
             pl[p].campsite_pos = { -1,-1 };
             pl[p].campsite_age = -1;
+            if (pl[p].adopt_spouse_campsite) {
+                pl[p].campsite_pos = pl[p_by_id(pl[p].spouse_id)].campsite_pos;
+                pl[p].adopt_spouse_campsite = false;//reset for if spouse dies later
+                return true;//in progress
+            }
         }
         else {
             return true;//in progress
@@ -719,6 +753,14 @@ People::Position People::walk_search_random_dest() {
             max_y = pl[p].campsite_pos.y + campsite_distance_search;
             min_y = pl[p].campsite_pos.y - campsite_distance_search;
         }
+        else if(!pl[p].sex && pl[p].spouse_id!=-1) {//keeps near spouse if searching for new campsite, currently just has female follow male, otherwise both don't go far because they pull in different directions
+            int spouse_distance_limit = 10;
+            int spouse_index = p_by_id(pl[p].spouse_id);
+            max_x = pl[spouse_index].pos.x + spouse_distance_limit;
+            min_x = pl[spouse_index].pos.x - spouse_distance_limit;
+            max_y = pl[spouse_index].pos.y + spouse_distance_limit;
+            min_y = pl[spouse_index].pos.y - spouse_distance_limit;
+        }
         dest.x = (rand() % (max_x - min_x)) + min_x;
         dest.y = (rand() % (max_y - min_y)) + min_y;
         dest = make_position_valid(dest, max_x, min_x, max_y, min_y);
@@ -764,7 +806,7 @@ bool People::idle(){
 bool People::sleeping(){
     bool tired = pl[p].tired_level > 50;
     bool very_tired = pl[p].tired_level > 100;//might need to cap sleep such that a person can't ever have a tired_level over x_level as well as under y_level
-    bool cond1 = tired && (pl[p].pos == pl[p].campsite_pos || pl[p].campsite_pos.x != -1);//if tired AND either at campsite or have no campsite
+    bool cond1 = tired && (pl[p].pos == pl[p].campsite_pos || pl[p].campsite_pos.x == -1);//if tired AND either at campsite or have no campsite
     if (!(!pl[p].awake || cond1 || very_tired)) {//function trigger
         return false;
     }
@@ -783,17 +825,45 @@ bool People::sleeping(){
 
 bool People::eating(){
     bool hungry = pl[p].hunger_level > 50;
-    if (!(hungry && !inventory_has("food").empty())) {//function trigger
+    bool cond1 = false;
+    vector<int> food_indexes1 = inventory_has("food");
+    vector<int> food_indexes2 = inventory_has("needs processing");
+    if (!food_indexes1.empty()) {//fix this. This should be part of the inventory_has() by passing a vector<string> instead of a single string
+        if (food_indexes2.empty()) {
+            cond1 = true;
+            pl[p].eating_food_index = food_indexes1[0];
+        }
+        else {
+            bool found = true;
+            for (int i = 0; i < food_indexes1.size(); i++) {
+                found = true;
+                for (int j = 0; j < food_indexes2.size(); j++) {
+                    if (food_indexes1[i] == food_indexes2[j]) {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found) {
+                    cond1 = true;
+                    pl[p].eating_food_index = food_indexes1[0];
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!(hungry && cond1)) {//function trigger
         return false;
     }
     pl[p].current_state = "eating";
-    if (pl[p].fo3.progress == 0) {
+    if (pl[p].eating_progress.progress == 0) {
         pl[p].current_image = "pics/human_eating.png";
     }
-    pl[p].fo3.progress++;
-    if (pl[p].fo3.progress == pl[p].fo3.progress_done) {//makes eating take more than 1 frame
-        pl[p].fo3.progress = 0;//reset
-        int index = inventory_has("food")[0];
+    if (pl[p].age < 5) {
+        pl[p].current_image = "human_infant";
+    }
+    if (pl[p].eating_progress.progress_func()) {//makes eating take more than 1 frame
+        int index = pl[p].eating_food_index;
         int food_id = pl[p].item_inventory[index];
         pl[p].item_inventory.erase(pl[p].item_inventory.begin() + index);//delete item from inventory
         delete_item(food_id, {-1,-1});//delete food from game
@@ -806,7 +876,7 @@ bool People::eating(){
 }
 
 //fix this: make this and gathering_food() generics for any item
-bool People::searching_for_food(){ //this function is far too similar to gathering_food() and should be consolidated or call gathering_food()
+bool People::searching_for_food(){
     bool hungry = pl[p].hunger_level > 50;
     if (!((hungry || pl[p].child_is_hungry) && inventory_has("food").empty())) {//function trigger
         return false;
@@ -815,6 +885,7 @@ bool People::searching_for_food(){ //this function is far too similar to gatheri
         return true;//go to next function in function chain
     }
     pl[p].current_state = "searching for food";
+
     bool someone_is_giving_food = false;
     if (!pl[p].found_messages.empty()) {
         for (int m_id : pl[p].found_messages) {
@@ -878,7 +949,6 @@ bool People::searching_for_food(){ //this function is far too similar to gatheri
                         pl[kid_index].carried_by_id = pl[p].id;
                         Environment::Map[pl[kid_index].pos.y][pl[kid_index].pos.x].person_id = -1;
                         pl[kid_index].pos = { -1,-1 };
-                        cout << "carrying kid";
                     }
                 }
             }
@@ -886,7 +956,7 @@ bool People::searching_for_food(){ //this function is far too similar to gatheri
     }
     
     //reset function if it was interrupted by another function
-    if (pl[p].function_record.back() != "searching for food") {
+    if (!pl[p].function_record.empty() && pl[p].function_record.back() != "searching for food") {
         pl[p].fo2.pos = { -1,-1 }; //reset function object
     }
     if (pl[p].fo2.pos.x == -1 || move_to(pl[p].fo2.pos)) {//initialize function object or reinitialize if reached destination
@@ -925,6 +995,7 @@ bool People::gathering_food(){
         pl[p].function_done = true;
         pl[p].start_gathering_food = false;
         pl[p].fo2.pos = { -1,-1 };//belongs to searching_for_food()
+        pl[p].clean_image = true;
         return true;//done. food that had been found by searching_for_food() is no longer there, restart search
     }
     pl[p].current_state = "gathering food";
@@ -938,13 +1009,12 @@ bool People::gathering_food(){
         if (inventory_has("food").size() < inventory_max) {
             vector<Position> food_pos_list = pl[p].all_found[pl[p].target_index["food"]];
             if (food_pos_list.size() > 1) {//if there are additional food found
-                for (int i = 1; i <= inventory_max-1 && inventory_has("food").size() <= inventory_max && i< food_pos_list.size(); i++) {//only gather enough to to fill inventory to 4 items
+                for (int i = 0; inventory_has("food").size() < inventory_max && i< food_pos_list.size(); i++) {//only gather enough to to fill inventory to 4 items
                     if (distance(food_pos_list[i], pl[p].pos) == 1) {//limit gather distance to 1 tile away from player
-                        if (Environment::Map[food_pos_list[i].y][food_pos_list[i].x].item_id == -1) {
-                            cout << "line 920ish error";
+                        if (Environment::Map[food_pos_list[i].y][food_pos_list[i].x].item_id != -1) {
+                            pl[p].item_inventory.push_back(Environment::Map[food_pos_list[i].y][food_pos_list[i].x].item_id); //add food's item_id to inventory
+                            Environment::Map[food_pos_list[i].y][food_pos_list[i].x].item_id = -1; //remove food from map
                         }
-                        pl[p].item_inventory.push_back(Environment::Map[food_pos_list[i].y][food_pos_list[i].x].item_id); //add food's item_id to inventory
-                        Environment::Map[food_pos_list[i].y][food_pos_list[i].x].item_id = -1; //remove food from map
                     }
                 }
             }
@@ -952,50 +1022,60 @@ bool People::gathering_food(){
         pl[p].fo2.pos = { -1,-1 };//belongs to searching_for_food()
         pl[p].function_done = true;
         pl[p].start_gathering_food = false; //resets function trigger to false when function ends
+        pl[p].clean_image = true;
         return true;//done
     }
     return true;//in progress
-}
-
-bool People::sharing_food(){//Already handled with request and give food
-    /*sharing food
-    start:
-    - if have food and someone else asks for food, give food, keep track of group/family members and who is hungriest, distribute food according to need such that 
-      everyone's hunger level is equalized
-    end:
-    - if no longer have food or no one is asking for food
-*/
-
-    return false;
 }
 
 bool People::tile_has(string target, Position pos) {//should this be moved to the Environment class? Only for checking Item
     if (Environment::Map[pos.y][pos.x].item_id == -1) {
         return false;
     }
-    if (ItemSys::item_list[ItemSys::item_by_id(Environment::Map[pos.y][pos.x].item_id)].item_name == target) {
+    int item_index = ItemSys::item_by_id(Environment::Map[pos.y][pos.x].item_id);
+    if (ItemSys::item_list[item_index].item_name == target) {
         return true;
+    }
+    for (int i = 0; i < ItemSys::item_list[item_index].tags.size(); i++) {
+        if (ItemSys::item_list[item_index].tags[i] == target) {
+            return true;
+        }
     }
     return false;
 }
+
 vector<int> People::inventory_has(string target) {//return list of indexes of matching items in inventory if found, empty list if not found
     vector<int> indexes;
     if (pl[p].item_inventory.empty()) {
         return indexes;
     }
     for (int i = 0; i < pl[p].item_inventory.size(); i++) {
-        if (ItemSys::item_list[ItemSys::item_by_id(pl[p].item_inventory[i])].item_name == target) {
+        int item_index = ItemSys::item_by_id(pl[p].item_inventory[i]);
+        if (ItemSys::item_list[item_index].item_name == target) {
             indexes.push_back(i);
+        }
+        for (int j = 0; j < ItemSys::item_list[item_index].tags.size(); j++) {
+            if (ItemSys::item_list[item_index].tags[j] == target) {
+                indexes.push_back(i);
+                break;
+            }
         }
     }
     return indexes;
 }
+
 void People::create_item(ItemSys::Item item_type, Position pos) {
     ItemSys::Item new_item = item_type;
     new_item.item_id = ItemSys::new_item_id();
     ItemSys::item_list.push_back(new_item);
-    Environment::Map[pos.y][pos.x].item_id = new_item.item_id;//create item, then place on map and global item list
+    if (pos.x == -1) {
+        pl[p].item_inventory.push_back(new_item.item_id);
+    }
+    else {
+        Environment::Map[pos.y][pos.x].item_id = new_item.item_id;//create item, then place on map and global item list
+    }
 }
+
 void People::pick_up_item(int item_id, Position pos) {
     if (Environment::Map[pos.y][pos.x].item_id == -1) {
         cout << "pick up item error";
@@ -1003,7 +1083,11 @@ void People::pick_up_item(int item_id, Position pos) {
     pl[p].item_inventory.push_back(Environment::Map[pos.y][pos.x].item_id); //add item's item_id to inventory
     Environment::Map[pos.y][pos.x].item_id = -1; //remove item from map
 }
+
 void People::delete_item(int item_id, Position pos) {
+    if (item_id == -1) {//don't know what's causing this issue but need this check to work
+        return;
+    }
     int item_index = ItemSys::item_by_id(item_id);
     ItemSys::item_list.erase(ItemSys::item_list.begin() + item_index);//remove item from global item_list
     if (pos.x != -1) {//if pos.x == -1, then the item was not on the map and was probably in a Person's inventory from which it was deleted separately
@@ -1033,3 +1117,87 @@ bool People::feed_own_infants() {//fix this: need a better version of this funct
     return false;//done, flag triggers searching_for_food, gathering_food, and give_food. returns false because it only sets child_is_hungry flag, not a full function in its own right
 }
 
+
+bool People::processing_food() {//could instead be used as a crafting generic, fix this
+    bool start = !inventory_has("needs processing").empty(); 
+
+    if (!start) {//function trigger
+        return false;
+    }
+
+    
+    if (inventory_has("mortar_pestle").empty()) {//should this be in utility function or should function chains be internal to relevant functions?
+        craft_mortar_pestle();//this should be turned into a generic, meaning the crafted item must have its ingredients included in its struct, fix this
+        //need to have option to search instead of craft in case already made one and dropped it near camp
+        return true;//in progress
+    }
+    
+
+    pl[p].current_state = "processing food";
+    if (pl[p].processing_food_prog.progress == 0) {
+        pl[p].current_image = "human_crafting";
+    }
+    if (pl[p].processing_food_prog.progress_func()) {//currently if function is interrupted, the progress is saved and coninued/finished when the function is called again. This may be an issue if ingredient is no longer in inventory. fix this
+        int index = inventory_has("needs processing")[0];
+        int food_ingredient_id = pl[p].item_inventory[index];
+        pl[p].item_inventory.erase(pl[p].item_inventory.begin() + index);//delete ingredient from inventory
+        delete_item(food_ingredient_id, { -1,-1 });//delete ingredient from game
+        Position new_pos = empty_adjacent_tile();
+        create_item(it2.bread, new_pos);//creates bread item. Currently places on map to see resulting item. Can change later to inserting directly to inventory by using {-1,-1} instead of new_pos
+        pl[p].clean_image = true; //when this function ends, return to default image on next update
+        return true;//done
+    }
+    return true;//in progress
+}
+
+People::Position People::empty_adjacent_tile() {//should add option between if tile has no item or no person?
+    Position test_pos;
+    for (int y = -1;y < 2;y++) {
+        for (int x = -1;x < 2;x++) {
+            test_pos.x = pl[p].pos.x + x;
+            test_pos.y = pl[p].pos.y + y;
+            if (valid_position(test_pos) && test_pos != pl[p].pos && Environment::Map[test_pos.y][test_pos.x].item_id == -1) {
+                return test_pos;//need to handle if no adjacent tile is empty
+            }
+        }
+    }
+}
+
+bool People::craft_mortar_pestle() {//sometimes works fine, sometimes causes person to be stuck either not moving or moving to the same spot unless move_to_bed and sleep take priority, don't know why, need to fix
+    if (!inventory_has("rock").empty()) {
+        pl[p].current_state = "crafting mortar and pestle";
+        if (pl[p].crafting.progress == 0) {
+            pl[p].current_image = "human_crafting";
+        }
+        if (pl[p].crafting.progress_func()) {//currently if function is interrupted, the progress is saved and coninued/finished when the function is called again. This may be an issue if ingredient is no longer in inventory. fix this
+            int index = inventory_has("rock")[0];
+            int ingredient_id = pl[p].item_inventory[index];
+            pl[p].item_inventory.erase(pl[p].item_inventory.begin() + index);//delete ingredient from inventory
+            delete_item(ingredient_id, { -1,-1 });//delete ingredient from game
+            Position new_pos = empty_adjacent_tile();
+            create_item(it2.mortar_pestle, {-1,-1});//creates bread item. Currently places on map to see resulting item. Can change later to inserting directly to inventory by using {-1,-1} instead of new_pos
+            pl[p].clean_image = true; //when this function ends, return to default image on next update
+            return true;//done
+        }
+        return true;//in progress
+    }
+    else {
+        pl[p].current_state = "searching for rock";
+        //walk to search
+        if (pl[p].rock_search.x == -1 || move_to(pl[p].rock_search)) {//initialize function object or reinitialize if reached destination
+            pl[p].rock_search = walk_search_random_dest();
+            return true;//in progress
+        }//the move_to function triggers in the conditional
+        //look around for rock
+        if (!pl[p].all_found[pl[p].target_index["rock"]].empty()) {
+            Position rpos = pl[p].all_found[pl[p].target_index["rock"]][0];
+            if (move_to(rpos)) {//if found, move to item, once reached, place in inventory
+                int item_id = Environment::Map[rpos.y][rpos.x].item_id;
+                pick_up_item(item_id, rpos);
+                return true;//subtask done
+            }
+            return true;//in progress
+        }
+    }
+    return false;//?
+}

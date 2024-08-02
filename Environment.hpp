@@ -10,11 +10,9 @@
 using namespace std;
 
 //TO DO NOW:
-// TO DO NOW NOW: implement behavior for feeding one's infants and moving them to current campsite or carry them while searching for new campsite
-//remember close family to avoid mating with siblings/parents/etc. Children exclusion done.
-//implement an age system to slow down person multiplication, add simple behavior for infants and children
-//add a restriction for family to stay together most of the time rather than wander apart, especially spouse and kids
-//add seasonal varieties of berrybushes (to create nomadism or cyclical camp movement) and have them respawn so that a certain area only has food during x days and people have to move following the food seasons. Unsure if need to add a way to remember past locations that had food or if random searching is good enough for now.
+//remember close family to avoid mating with parents/etc. Children exclusion done.
+//Unsure if need to add a way to remember past locations that had food or if random searching is good enough for now in order to create cyclical seasonal camp movement
+
 //include grain and a method to process it, as well as a way to compare value and pick either berries or grain according to calorie count and work/time cost
 //then implement a crafting system and a tool requirement for processing grain (instead of just bringing it back to camp to perform an animation)
 //consolidate functions into generics such as acquire(x) which is composed of search_for(x) and move_to(x) and pick_up(x), or if craft(x) is chosen then acquire(ingredients/tools)
@@ -49,7 +47,11 @@ public:
 	static Tile Map[map_y_max][map_x_max];
 	static vector<sky_tile> Sky; //strip of sky above map
 	Environment(int hours_in_day);
-	static void update(int hours_in_day, int hour_count);
+	static void update(int hours_in_day, int hour_count, int day_count);
+
+	static void add_berrybush(int x, int y);//temp function to make things easier
+	static void add_grain(int x, int y);
+	static void add_rock(int x, int y);
 };
 
 #endif

@@ -20,10 +20,15 @@ public:
 		int item_id = -1;
 		string item_name = "";
 		string image = "";
+		vector<string> tags;//include tags such as "food", "tool", "building", etc
 	};
 	//presets
-	Item food;
 	Item tent;
+	Item grain;
+	Item bread;
+	Item berrybush;
+	Item rock;
+	Item mortar_pestle;
 
 	static vector<Item> item_list;//global list
 	static int item_by_id(int id);

@@ -34,9 +34,17 @@ class People {
 	struct fo_searching_for_food {
 		Position pos = { -1,-1 }; //current destination for search
 	};
-	struct fo_eating {//could probably be better as a generic time delay or animation delay so as to be used in other functions. 
+	struct progress_state { 
+		int progress_done = -1;
 		int progress = 0;
-		int progress_done = 4;
+		bool progress_func() {
+			if (progress == progress_done) {
+				progress = 0;
+				return true;
+			}
+			progress++;
+			return false;
+		}
 	};
 
 	struct Message {//need to tie Messages to tiles in map instead of current Message list
@@ -74,8 +82,13 @@ class People {
 		//objects for tracking function states
 		fo_search_for_new_campsite fo1; //unsure if these should be kept or if it makes more sense to have a single shared variable, cuurent_dest
 		fo_searching_for_food fo2;
-		fo_eating fo3;
+		progress_state eating_progress = {4};//4 is the number of ticks/frames until progress is done
+		int eating_food_index = -1;//this and eating_progress should be encapsulated in a function object
 		Position fo4;
+		progress_state processing_food_prog = { 4 };
+		progress_state crafting = { 4 };
+		Position rock_search;
+
 		bool child_is_hungry = false;//currently a flag to communicate between feed_own_children and searching_for_food and gathering_food. I need to rethink how functions communicate with each other and facilitate direct calls by one to another. Fix this.
 		int hungry_child_index = -1;
 		//these bools need to preserve their state outside each execution of the utility_function
@@ -91,15 +104,17 @@ class People {
 
 		vector<int> found_messages;//message id's
 		vector<vector<Position>> all_found;//for results of function find_all()
-		vector<string> potential_targets = { "food", "people", "mate", "no campsite", "messages" };//these should be class members not object members?
-		map<string, int> target_index = { {"food", 0}, {"people", 1}, {"mate", 2}, {"no campsite", 3}, {"messages", 4} };
-		vector<int> target_quantity_limit = {10, 1, 1, 1, -1};
-		vector<bool> target_chosen = { true, true, true, true, true };
+		vector<string> potential_targets = { "food", "people", "mate", "no campsite", "messages", "rock"};//these should be class members not object members?
+		map<string, int> target_index = { {"food", 0}, {"people", 1}, {"mate", 2}, {"no campsite", 3}, {"messages", 4}, {"rock",5} };
+		vector<int> target_quantity_limit = {10, 1, 1, 1, -1, 1};
+		vector<bool> target_chosen = { true, true, true, true, true , true};
 		//targets above might make more sense as a single list of a struct for targets as a type rather than multiple separate lists
 	
 		bool message_clear_flag = false;//unsure if thise should be in Person or as part of the class
 
 		bool printed = true;//for function record printing. set to true to prevent execution
+
+		bool adopt_spouse_campsite = false;
 	};
 
 	
@@ -140,8 +155,7 @@ public:
 	
 	//find_all could be further reduced in terms of time by checking for all people at once, so the number of iterations is simply the largest search rather than searching for every person separately
 	vector<vector<Position>> find_all(vector<string> potential_targets); //instead of calling find for a single use and having to search the map multiple times, this function searches the map for all use cases and returns the results to be accessed instead.
-	//Result categories: [0]: ? Unsure whether categories (food, people, mate, messages, etc) should have a fixed index or not, maybe not.
-	bool find_check(Position pos, string target);//evaluates a single tile to determine if it contains the target being sought
+	bool find_check(Position pos, string target);//checks a single tile to determine if it contains the target being sought
 
 	bool search_for_new_campsite();
 	bool set_up_camp();
@@ -150,7 +164,7 @@ public:
 	bool eating();
 	bool searching_for_food();
 	bool gathering_food();
-	bool sharing_food();
+	bool processing_food();//grinding, milling, cooking, boiling, etc
 	void speak(string message_text);
 	bool give_food();
 	bool reproduce();
@@ -158,6 +172,8 @@ public:
 	bool feed_own_infants();
 	//void carry_infant();
 	//void drop_infant();
+	bool craft_mortar_pestle();
+	Position empty_adjacent_tile();
 };
 
 #endif

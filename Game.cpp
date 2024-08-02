@@ -72,6 +72,11 @@ void Game::initGameState() {
 	{"pics/human_giving_food.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_giving_food.png"))},
 	{"human_infant", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_infant.png"))},
 	{"human_infant_dead", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_infant_dead.png"))},
+	{"grain", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/grain.png"))},
+	{"bread", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/bread.png"))},
+	{"human_crafting", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_crafting.png"))},
+	{"rock", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rock.png"))},
+	{"mortar and pestle", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/mortar_pestle.png"))}
 	};
 }
 
@@ -96,7 +101,7 @@ void Game::update() {
 		day_count++;
 	}
 
-	Environment::update(hours_in_day, hour_count);
+	Environment::update(hours_in_day, hour_count, day_count);
 	peep.update_all(day_count, hour_count, hours_in_day);
 
 }
