@@ -7,6 +7,7 @@
 #include <iostream>
 #include <string>
 #include <map>
+#include <cmath>
 
 #include "People.hpp"
 #include "Environment.hpp"
@@ -51,20 +52,40 @@ public:
 	//animation - move to another class
 	void animation_testing();
 	
+
+	static int scale;
 	struct bone {
 		string image;
-		float x;
-		float y;
-		float h;
-		float w;
-		int r;//rotation angle
-		SDL_Point c;//center
+		int length;//this can lengthen or shorten as needed.
+		int r=0;//rotation angle
+		int x=0;
+		int y=0;
+
+		//keep these constant
+		int w = scale/10;//keep this constant for creating rig
+		SDL_Point c= { 10 / 2,0 } ;//center. Keep this constant as well
 
 		void render_bone() {
-			SDL_Rect rect = {this->x,this->y,this->h,this->w};
+			if (w < 1) { w = 1; }
+			SDL_Rect rect = {this->x,this->y,this->w,this->length};//length==height
 			textureManager(this->image, rect, this->r, this->c);
 		}
 	};
+
+	bone join(bone b1, bone b2);//returns b2 attached to end of b1
+
+	struct skeleton2 {
+		vector<bone> bones;
+
+		void render_skeleton() {
+			for (auto b : bones) {
+				b.render_bone();
+			}
+		}
+	};
+
+
+
 
 	struct skeleton {//a better but more complex method would be to set and render points with distance and rotation constraints, then adding lines and images from one point to another. Do much later.
 		int scale;
@@ -121,7 +142,7 @@ public:
 				current_pose[b.first].y += this->center.y;
 				current_pose[b.first].x *= this->scale;
 				current_pose[b.first].y *= this->scale;
-				current_pose[b.first].h *= this->scale;
+				current_pose[b.first].length *= this->scale;
 				current_pose[b.first].w *= this->scale;
 
 			}

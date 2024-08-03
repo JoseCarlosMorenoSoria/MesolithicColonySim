@@ -632,3 +632,12 @@ vector<string> Player::view_craftable() {//this function is very inefficient, ma
 	return craftable;
 }
 
+
+
+
+
+//To do today:
+//refactor code to make it cleaner, compact, readable and modifiable/modular. Such as making People and Animal children of a parent Creature class, or rather make the shared functions more like components rather than inherited. As well as a utility class that contains things like Position which is used by every class.
+//need to implement zoom levels, as these will determine the necessary detail in sprites. 
+//need to make sprites and animations
+//then start adding more items/weather/terrain/etc variety, keep new behavior/code light

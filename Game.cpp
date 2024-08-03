@@ -74,7 +74,14 @@ void Game::initGameState() {
 
 	texture_map = {
 	{"pics/dirt.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/dirt.png"))},
-	{"pics/human.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human.png"))},
+	{"pics/human.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/improved images/16x16 size/human/human_standing.png"))},
+	{"human_walk_right", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/improved images/16x16 size/human/human_walking_right.png"))},
+	{"human_walk_left", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/improved images/16x16 size/human/human_walking_left.png"))},
+	{"human_walk_up", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/improved images/16x16 size/human/human_walking_up.png"))},
+	{"human_walk_down", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/improved images/16x16 size/human/human_walking_down.png"))},
+
+
+
 	{"pics/human_idle.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_idle.png"))},
 	{"pics/human_eating.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_eating.png"))},
 	{"pics/human_gathering.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_gathering.png"))},
@@ -127,6 +134,7 @@ void Game::initGameState() {
 	{"a", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/text/a.png"))},
 	{"b", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/text/b.png"))},
 	{"c", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/text/c.png"))},
+	{"blacksq", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/blacksq.png"))},
 
 	{"menu_color", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/menu_background.png"))},
 	{"player", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/player/player.png"))},
@@ -235,7 +243,7 @@ void Game::handleEvents() { //this handles user inputs such as keyboard and mous
 void Game::update() {
 	
 
-
+	
 	if (!pause_game) {
 		hour_count++;
 		if (hour_count == hours_in_day) {
@@ -248,6 +256,7 @@ void Game::update() {
 		anim.update_all(day_count, hour_count, hours_in_day);
 		player.update();
 	}
+	
 }
 
 
@@ -306,6 +315,8 @@ void Game::render() {
 	destR.h = sqdim;
 	//animation_testing();
 
+
+	
 	SDL_Rect mouseR;
 	mouseR.x = -1;
 	string item_name_moused;
@@ -509,14 +520,9 @@ void Game::render() {
 			int x = 16;
 			int y = 12;
 			textManager("Menu 6: ", 24, x* sqdim, y* sqdim);
-
-
 		}
-
-		
-
-		
 	}
+	
 
 
 	/* For when I want to use my own custom font
@@ -566,15 +572,18 @@ bool Game::running() {
 	return isRunning;
 }
 
+/*
 void Game::create_human() {//animation should be moved to its own class, fix this
-	/* for testing new poses
+	// for testing new poses
 	bone h = { "head", 0,0, 1,1, 0, {-1,0} };
 	bone ra = { "stick", 0.5,0.8,	1,1, 35, {0,32 / 2} };
 	bone rl = { "stick", 0.5,1.5,	1,1, 55, {0,32 / 2} };
 	bone t = { "stick", 0,1, 1,1, 90, {-1,0} };
 	bone la = { "stick", 0.5,0.8,	1,1, 145, {0,32 / 2} };
 	bone ll = { "stick", 0.5,1.5,	1,1, 125, {0,32 / 2} };
-	*/
+	
+
+
 	skeleton human = { 32, {15,5} };//scale and center point x,y
 	//NEED TO FIX the model/animation breaks at any scale other than 32
 	
@@ -616,26 +625,84 @@ void Game::create_human() {//animation should be moved to its own class, fix thi
 
 	models.push_back(human);
 }
+*/
+
+int Game::scale=100;
+
+Game::bone Game::join(bone b1, bone b2) {
+	double t = (M_PI / 180) * b1.r;
+	int xp = cos(t) - b1.length * sin(t);
+	int yp = sin(t) + b1.length * cos(t);
+	xp += b1.x;
+	yp += b1.y;
+	bone ret = { b2.image,b2.length,b1.r+b2.r,xp,yp };
+	return ret;
+}
 
 //float offset = 0.5;
 int rd = 1;
 int ld = 1;
 bool flip = false;
+
+int r2 = 0;
+int anchor_x = 40 * sqdim;
+int anchor_y = 15 * sqdim;
 void Game::animation_testing() {
 
-	models[0].render_skeleton();
+	//	2nd attempt at 2d rigging. Closer but it breaks below scale=50, which is a total height of 150
+	scale = 16*4;
 
-	if (flip) {
-		if (models[0].pose_transform(models[0].pose_walk_sideways2, 2)) {
-			flip = !flip;
-		}
-	}
-	else {
-		if (models[0].pose_transform(models[0].pose_walk_sideways1, 2)) {
-			flip = !flip;
-		}
+	SDL_Rect head;
+	bone head_bone = { "blacksq",scale,r2,anchor_x,anchor_y};
+	head.w = scale;
+	head.h = scale;
+	head.x = head_bone.x - (head.w / 2);//attach head to b1, centered
+	head.y = head_bone.y;
+	
+	bone torso_bone = { "blacksq",scale,0};
+	torso_bone = join(head_bone, torso_bone);
 
-	}
+	bone right_arm_bone = { "blacksq",scale,0};
+	right_arm_bone = join(head_bone, right_arm_bone);
+	right_arm_bone.r -=45;
+
+	bone left_arm_bone = { "blacksq",scale,0 };
+	left_arm_bone = join(head_bone, left_arm_bone);
+	left_arm_bone.r += 45;
+
+	bone right_leg_bone = { "blacksq",scale,0 };
+	right_leg_bone = join(torso_bone, right_leg_bone);
+	right_leg_bone.r -= 45;
+
+	bone left_leg_bone = { "blacksq",scale,0 };
+	left_leg_bone = join(torso_bone, left_leg_bone);
+	left_leg_bone.r += 45;
+	
+	skeleton2 skelly = { {head_bone,torso_bone,right_arm_bone,left_arm_bone,right_leg_bone,left_leg_bone} };
+	skelly.render_skeleton();
+	//r2+=5;
+	textureManager("head", head);
+
+	
+
+
+
+
+
+
+
+	//models[0].render_skeleton();
+
+	//if (flip) {
+	//	if (models[0].pose_transform(models[0].pose_walk_sideways2, 2)) {
+	//		flip = !flip;
+	//	}
+	//}
+	//else {
+	//	if (models[0].pose_transform(models[0].pose_walk_sideways1, 2)) {
+	//		flip = !flip;
+	//	}
+	//}
 
 	//human.current_pose["right_arm"].r += 6;
 	//human.current_pose["left_arm"].r -= 6;
