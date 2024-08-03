@@ -21,7 +21,7 @@ People::People(int initint) {
     pl.push_back(p1);
     Environment::Map[p1.pos.y][p1.pos.x].person_id = p1.id;
 
-    /*
+    
     Person p2 = { new_person_id(), {51,26}, false};
     p2.age = 11;
     pl.push_back(p2);
@@ -43,7 +43,7 @@ People::People(int initint) {
     p6.age = 11;
     pl.push_back(p6);
     Environment::Map[p6.pos.y][p6.pos.x].person_id = p6.id;
-    */
+    
 }
 
 int People::new_person_id() {//unsure if this function is redundant with how int++ works or if there's a better method
@@ -306,6 +306,7 @@ bool People::move_to(Position dest, string caller) {//need to add speed of movin
 
         pl[p].move_already = true;
         pl[p].dest = new_pos;
+        Environment::Map[new_pos.y][new_pos.x].person_id = -2;//reserve tile so that no other person tries to enter it
     }
 
     
@@ -313,7 +314,6 @@ bool People::move_to(Position dest, string caller) {//need to add speed of movin
     new_pos = pl[p].dest;
     int sqdim1 = 17;
     int spd = 4;
-    pl[p].current_direction = { old_pos.x - new_pos.x, old_pos.y - new_pos.y };
 
     if (old_pos.x<new_pos.x) {//fix this, later need to modify to tie to new tile when it hits the midway point between 2 tiles
         pl[p].px_x += 1 * spd;
@@ -500,7 +500,7 @@ void People::find_all_helper(Position pos, string type) {
             throw std::invalid_argument("my error");
         }
         pl[p].lastpos = pos;
-        if (Environment::Map[pos.y][pos.x].person_id != -1) {key = "people";}
+        if (Environment::Map[pos.y][pos.x].person_id > -1) {key = "people";}//the id must be >-1 because -2 is a reserved marker for move to a tile in move_to()
         else {key = "no people";}}
     else if (type == "item") {
         if (Environment::Map[pos.y][pos.x].item_id != -1) {key = ItemSys::item_list[ItemSys::item_by_id(Environment::Map[pos.y][pos.x].item_id)].item_name;}

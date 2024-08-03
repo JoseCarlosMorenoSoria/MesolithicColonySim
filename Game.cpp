@@ -1,7 +1,7 @@
 #include "Game.hpp"
 
 using namespace std; 
-
+SDL_Renderer* Game::renderer;
 Game::Game() {
 	isRunning = false;
 }
@@ -98,8 +98,13 @@ void Game::initGameState() {
 	{"pics/shallow_water.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/shallow_water.png"))},
 	{"tree", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/tree.png"))},
 	{"wood", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/wood.png"))},
-	{"monument", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/monument.png"))}
+	{"monument", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/monument.png"))},
+	{"stick", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/stick.png"))},
+	{"head", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/head.png"))}
 	};
+
+
+	create_human();
 }
 
 void Game::handleEvents() { //this handles user inputs such as keyboard and mouse
@@ -165,10 +170,10 @@ void Game::update() {
 		day_count++;
 	}
 
-	Environment::update(hours_in_day, hour_count, day_count);
-	peep.update_all(day_count, hour_count, hours_in_day);
-	anim.update_all(day_count, hour_count, hours_in_day);
-	player.update();
+	//Environment::update(hours_in_day, hour_count, day_count);
+	//peep.update_all(day_count, hour_count, hours_in_day);
+	//anim.update_all(day_count, hour_count, hours_in_day);
+	//player.update();
 }
 
 
@@ -179,23 +184,73 @@ void Game::update() {
 //SDL_Surface* tmpSurface;
 //SDL_Texture* tmpTex;
 //vector<SDL_Texture*> tmpTex_list;
-void Game::textureManager(string texture, SDL_Rect destRect) {//textureManager feels like an unclear name, rename this function, this function takes in the image file and the location and size (destRect) to draw it on and adds it to the game's canvass (renderer)
+const SDL_Point *c;
+void Game::textureManager(string texture, SDL_Rect destRect, int angle, SDL_Point center) {//textureManager feels like an unclear name, rename this function, this function takes in the image file and the location and size (destRect) to draw it on and adds it to the game's canvass (renderer)
 	//tmpSurface = IMG_Load(texture.c_str());
 	//tmpTex = SDL_CreateTextureFromSurface(renderer, tmpSurface);//would it be better to store these in an array and access them from there?
 	//SDL_FreeSurface(tmpSurface); //this might not be necessary, maybe move to the game.clean() function
 	
+	if (center.x == -1) {
+		c = NULL;
+	}
+	else{
+		c = &center;
+	}
 	
-	//SDL_RenderCopy(renderer, tmpTex, NULL, &destRect);
-	SDL_RenderCopy(renderer, texture_map[texture], NULL, &destRect);
-	//SDL_DestroyTexture(tmpTex); //this might not be necessary, maybe move to the game.clean() function
+	SDL_RenderCopyEx(renderer, texture_map[texture], NULL, &destRect, angle, c, SDL_FLIP_NONE);
+	//(if the parameter for center (c) is NULL, rotation will be done around dstrect.w / 2, dstrect.h / 2).
+
+	//r += 10;
+	//r = 90;
+			//SDL_RenderCopy(renderer, tmpTex, NULL, &destRect);
+	//SDL_RenderCopy(renderer, texture_map[texture], NULL, &destRect);
+			//SDL_DestroyTexture(tmpTex); //this might not be necessary, maybe move to the game.clean() function
 }
 
+
+
+//float offset = 0.5;
+
+
+
+
+
+int rd = 1;
+int ld = 1;
+bool flip = false;
 void Game::render() {
 	SDL_RenderClear(renderer);
 	//resets destR for printing environment
 	destR.x = 0;
 	destR.y = 0;
 
+	models[0].render_skeleton();
+	
+	if (flip) {
+		if (models[0].pose_transform(models[0].pose_walk_sideways2,2)) {
+			flip = !flip;
+		}
+	}
+	else {
+		if (models[0].pose_transform(models[0].pose_walk_sideways1,2)) {
+			flip = !flip;
+		}
+
+	}
+
+	//human.current_pose["right_arm"].r += 6;
+	//human.current_pose["left_arm"].r -= 6;
+	//human.current_pose["right_leg"].r += 6;
+	//human.current_pose["left_leg"].r -= 6;
+
+
+	//human.current_pose["right_arm"].x -= 0.1;
+	//if (human.current_pose["right_arm"].x < human.resting_pose["right_arm"].x - 2*32) {
+	//	human.current_pose["right_arm"].x = human.resting_pose["right_arm"].x;
+	//}
+
+
+	/*
 	for (int x = 0; x < hours_in_day/2; x++) {
 		destR.x = x * sqdim;
 		destR.y = 0;
@@ -251,6 +306,8 @@ void Game::render() {
 		destR.y += People::pl[i].px_y;
 		textureManager(People::pl[i].current_image, destR);
 	}
+	*/
+
 
 	SDL_RenderPresent(renderer);
 }
@@ -267,3 +324,53 @@ bool Game::running() {
 	return isRunning;
 }
 
+void Game::create_human() {//animation should be moved to its own class, fix this
+	/* for testing new poses
+	bone h = { "head", 0,0, 1,1, 0, {-1,0} };
+	bone ra = { "stick", 0.5,0.8,	1,1, 35, {0,32 / 2} };
+	bone rl = { "stick", 0.5,1.5,	1,1, 55, {0,32 / 2} };
+	bone t = { "stick", 0,1, 1,1, 90, {-1,0} };
+	bone la = { "stick", 0.5,0.8,	1,1, 145, {0,32 / 2} };
+	bone ll = { "stick", 0.5,1.5,	1,1, 125, {0,32 / 2} };
+	*/
+	skeleton human = { 32, {10,10} };//scale and center point x,y
+
+	
+
+	//resting pose
+	
+	bone h = { "head", 0,0, 1,1, 0, {-1,0} };
+	bone ra = { "stick", 0.5,0.8,	1,1, 45, {0,32 / 2} };
+	bone rl = { "stick", 0.5,1.5,	1,1, 75, {0,32 / 2} };
+	bone t = { "stick", 0,1, 1,1, 90, {-1,0} };
+	bone la = { "stick", 0.5,0.8,	1,1, 135, {0,32 / 2} };
+	bone ll = { "stick", 0.5,1.5,	1,1, 105, {0,32 / 2} };
+	
+	human.resting_pose = { {"head", h}, {"right_arm",ra}, {"right_leg",rl}, {"torso",t}, {"left_arm",la}, {"left_leg",ll} };
+
+	
+	//walk_sideways1
+	 h = { "head", 0,0, 1,1, 0, {-1,0} };
+	 ra = { "stick", 0.5,0.8,	1,1, 45, {0,32 / 2} };
+	 rl = { "stick", 0.5,1.5,	1,1, 55, {0,32 / 2} };
+	 t = { "stick", 0,1, 1,1, 90, {-1,0} };
+	 la = { "stick", 0.5,0.8,	1,1, 135, {0,32 / 2} };
+	 ll = { "stick", 0.5,1.5,	1,1, 125, {0,32 / 2} };
+	
+
+	human.pose_walk_sideways1 = { {"head", h}, {"right_arm",ra}, {"right_leg",rl}, {"torso",t}, {"left_arm",la}, {"left_leg",ll} };
+
+	
+	//walk_sideways2
+	 h = { "head", 0,0, 1,1, 0, {-1,0} };
+	 ra = { "stick", 0.5,0.8,	1,1, 135, {0,32 / 2} };
+	 rl = { "stick", 0.5,1.5,	1,1, 125, {0,32 / 2} };
+	 t = { "stick", 0,1, 1,1, 90, {-1,0} };
+	 la = { "stick", 0.5,0.8,	1,1, 45, {0,32 / 2} };
+	 ll = { "stick", 0.5,1.5,	1,1, 55, {0,32 / 2} };
+	
+	human.pose_walk_sideways2 = { {"head", h}, {"right_arm",ra}, {"right_leg",rl}, {"torso",t}, {"left_arm",la}, {"left_leg",ll} };
+
+
+	models.push_back(human);
+}
