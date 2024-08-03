@@ -11,7 +11,7 @@ int main(int argc, const char* argv[]) {
 	srand((unsigned int)time(NULL));//set seed for rand()
 
 	//frame rate variables
-	const int FPS = 20; //normally 60 FPS, currently less for testing. use 12FPS?
+	const int FPS = 12; //normally 60 FPS, currently less for testing. use 12FPS?
 	const int frameDelay = 1000 / FPS;
 	Uint32 frameStart;
 	int frameTime;

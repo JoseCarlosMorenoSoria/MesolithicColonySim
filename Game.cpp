@@ -51,13 +51,14 @@ Animal anim;
 Player player;
 //Environment envir;
 SDL_Rect srcR, destR;
-int sqdim = 16;
 
 map<string, SDL_Texture*> texture_map;
 
 int day_count = 0; //temporary measure for counting days passed
 int hour_count = 0; //temporary measure for tracking when a new day starts, 20 updates == 1 day
 int hours_in_day = 24*4;
+
+int sqdim = 16;
 
 int initint = 1;
 void Game::initGameState() {
@@ -74,15 +75,15 @@ void Game::initGameState() {
 
 	texture_map = {
 	{"pics/dirt.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/dirt.png"))},
-	{"pics/human.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/improved images/16x16 size/human/human_standing.png"))},
-	{"human_walk_right", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/improved images/16x16 size/human/human_walking_right.png"))},
-	{"human_walk_left", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/improved images/16x16 size/human/human_walking_left.png"))},
-	{"human_walk_up", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/improved images/16x16 size/human/human_walking_up.png"))},
-	{"human_walk_down", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/improved images/16x16 size/human/human_walking_down.png"))},
+	{"pics/human.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/new_pics/human standing.png"))},
 
+	{"human_walking_right1", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/new_pics/human walking_right1.png"))},
+	{"human_walking_right2", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/new_pics/human walking_right2.png"))},
+	{"human_walking_left1", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/new_pics/human walking_left1.png"))},
+	{"human_walking_left2", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/new_pics/human walking_left2.png"))},
+	{"human_socializing", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/new_pics/human_socializing.png"))},
 
-
-	{"pics/human_idle.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_idle.png"))},
+	{"pics/human_idle.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/new_pics/human proportions_3.png"))},
 	{"pics/human_eating.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_eating.png"))},
 	{"pics/human_gathering.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_gathering.png"))},
 	{"pics/human_sleeping.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_sleeping.png"))},
@@ -200,6 +201,10 @@ void Game::handleEvents() { //this handles user inputs such as keyboard and mous
 		case SDLK_f:
 			player.fight_mode = !player.fight_mode;
 			break;
+		case SDLK_m:
+			zoom_level++;
+			zoom_level %= 3;//3 zoom levels currently
+			break;
 		default:
 			break;
 		}
@@ -241,7 +246,7 @@ void Game::handleEvents() { //this handles user inputs such as keyboard and mous
 
 
 void Game::update() {
-	
+	People::TILE_PIXEL_SIZE = sqdim;//affects npc speed given that movement between tiles is on a per pixel basis
 
 	
 	if (!pause_game) {
@@ -307,6 +312,18 @@ bool Game::mouse_in_rect(SDL_Rect posR) {
 }
 
 void Game::render() {
+	if (zoom_level == 0) {
+		sqdim = 16;
+	}
+	else if (zoom_level == 1) {
+		sqdim = 32;
+	}
+	else if (zoom_level == 2) {
+		sqdim = 64;
+	}
+
+	//peep.TILE_PIXEL_SIZE = sqdim;//this doesn't seem to be working. I don't know why changing this variable causes npc's and player to go off map
+
 	SDL_RenderClear(renderer);
 	//resets destR for printing environment
 	destR.x = 0;
@@ -315,13 +332,109 @@ void Game::render() {
 	destR.h = sqdim;
 	//animation_testing();
 
+	//Need to break up render() into more smaller functions or simplify
+
+	//game rendering
+	
+	SDL_Rect mouseR = {-1,-1,-1,-1};
+	string item_name_moused;
+
+	int screen_width;
+	int screen_height;
+	SDL_GetRendererOutputSize(renderer, &screen_width, &screen_height);
+	int max_x_screen_tiles = screen_width / sqdim;
+	int max_y_screen_tiles = screen_height / sqdim;
+
+	int center_x;
+	int center_y;
+	if (player.pcindex == -1) {
+		center_x = Environment::map_x_max/2;
+		center_y = Environment::map_y_max/2;
+	}
+	else {
+		if (People::Position::distance({0, player.pl[player.pcindex].pos.y }, { 0,Environment::map_y_max - 1 }) < (max_y_screen_tiles / 2)) {
+			center_y = Environment::map_y_max - (max_y_screen_tiles / 2);
+		}
+		else if (player.pl[player.pcindex].pos.y < (max_y_screen_tiles / 2)) {
+			center_y = max_y_screen_tiles / 2;
+		}
+		else {
+			center_y = player.pl[player.pcindex].pos.y;
+		}
+		if (People::Position::distance({ player.pl[player.pcindex].pos.x,0 }, { Environment::map_x_max - 1,0 }) < (max_x_screen_tiles / 2)) {
+			center_x = Environment::map_x_max - (max_x_screen_tiles / 2);
+		}
+		else if (player.pl[player.pcindex].pos.x < (max_x_screen_tiles / 2)) {
+			center_x = max_x_screen_tiles / 2;
+		}
+		else {
+			center_x = player.pl[player.pcindex].pos.x;
+		}
+	}
+
+	int max_x = center_x + (max_x_screen_tiles / 2);
+	int min_x = center_x - (max_x_screen_tiles / 2);
+	int max_y = center_y + (max_y_screen_tiles / 2);
+	int min_y = center_y - (max_y_screen_tiles / 2);
+	
+	if (max_y > Environment::map_y_max) { max_y = Environment::map_y_max; }
+	if (max_x > Environment::map_x_max) { max_x = Environment::map_x_max; }
+	if (min_y < 0) { min_y = 0; }
+	if (min_x < 0) { min_x = 0; }
+
+	bool keep_player_centered_x = min_x != 0 && max_x != Environment::map_x_max;
+	bool keep_player_centered_y = min_y != 0 && max_y != Environment::map_y_max;
+	
+
+	render_map(mouseR, item_name_moused, min_x, max_x, min_y, max_y, keep_player_centered_x, keep_player_centered_y);
+	
+	render_entities(min_x, max_x, min_y, max_y, keep_player_centered_x, keep_player_centered_y);
+
+
+	if (mouseR.x != -1) {
+		textManager(item_name_moused, 8, mouseR.x, mouseR.y);
+	}
+	
+	render_menus();
+	
+	
+	//frame around the map, currently used to hide issue I need to fix regarding map rendering and camera movement at the map edges
+	SDL_Rect frame = { 0,sqdim,screen_width,sqdim / 2 };
+	textureManager("blacksq", frame);
+	frame.y = screen_height - (sqdim / 2);
+	textureManager("blacksq", frame);
+	frame = { 0,sqdim,sqdim / 2,screen_height };
+	textureManager("blacksq", frame);
+	frame.x = screen_width - (sqdim / 2);
+	textureManager("blacksq", frame);
+
+	//sky is rendered last for the same reason as the black frame
+	render_sky();
 
 	
-	SDL_Rect mouseR;
-	mouseR.x = -1;
-	string item_name_moused;
-	
-	for (int x = 0; x < hours_in_day/2; x++) {
+
+
+
+	/* For when I want to use my own custom font
+	string test = "abccba";
+
+	destR.x = 50 * sqdim;
+	destR.y = 25 * sqdim;
+	for (auto &c : test) {
+		string s(1,c);
+		textureManager(s, destR);
+		destR.x/=sqdim;
+		destR.x++;
+		destR.x *= sqdim;
+	}
+	*/
+
+	SDL_RenderPresent(renderer);
+}
+
+
+void Game::render_sky(){
+	for (int x = 0; x < hours_in_day / 2; x++) {//need to adjust according to screen zoom such that the whole sky is always visible
 		destR.x = x * sqdim;
 		destR.y = 0;
 		if (Environment::Sky[x].has_sun) {
@@ -331,7 +444,7 @@ void Game::render() {
 			textureManager("pics/moon.png", destR);
 		}
 		else {
-			if (hour_count < hours_in_day/2) {
+			if (hour_count < hours_in_day / 2) {
 				textureManager("pics/sky_day.png", destR);
 			}
 			else {
@@ -339,16 +452,29 @@ void Game::render() {
 			}
 		}
 	}
+}
+void Game::render_map(SDL_Rect mouseR, string item_name_moused, int min_x, int max_x, int min_y, int max_y, bool keep_player_centered_x, bool keep_player_centered_y){
+	for (int y = min_y, sy = 0; y < max_y; y++, sy++) {
+		for (int x = min_x, sx = 0; x < max_x; x++, sx++) {
 
-	for (int y = 0; y < Environment::map_y_max; y++) {
-		for (int x = 0; x < Environment::map_x_max; x++) {
-			destR.x = x * sqdim;
-			destR.y = (y+1) * sqdim;
+			if (keep_player_centered_x) {
+				destR.x = (sx)*sqdim - player.pl[player.pcindex].px_x;
+			}
+			else {
+				destR.x = (sx)*sqdim;
+			}
+			if (keep_player_centered_y) {
+				destR.y = (sy + 1) * sqdim - player.pl[player.pcindex].px_y;
+			}
+			else {
+				destR.y = (sy + 1) * sqdim;
+			}
 
-			if (!pause_game && mousedown_left && mouse_in_tile(x,y)) {
+
+
+			if (!pause_game && mousedown_left && mouse_in_rect(destR)) {
 				player.move_to_pc({ x,y });
 				mousedown_left = false;
-				cout << x;
 			}
 
 			bool no_item = false;
@@ -359,7 +485,7 @@ void Game::render() {
 			if (!no_item) {
 				ItemSys::Item& item = ItemSys::item_list[ItemSys::item_by_id(item_id)];
 				textureManager(item.image, destR);
-				if (!pause_game && mouse_in_tile(x,y)) {
+				if (!pause_game && mouse_in_rect(destR)) {
 					mouseR = destR;
 					mouseR.y = y * sqdim;
 					item_name_moused = item.item_name;
@@ -395,47 +521,82 @@ void Game::render() {
 					}
 				}
 			}
+
+
+			//end Map rendering
 		}
 	}
+}
+void Game::render_entities(int min_x, int max_x, int min_y, int max_y, bool keep_player_centered_x, bool keep_player_centered_y){
+	for (int y = min_y, sy = 0; y < max_y; y++, sy++) {
+		for (int x = min_x, sx = 0; x < max_x; x++, sx++) {
 
-	for (int i = 0; i < Animal::al.size(); i++) {
-		destR.x = Animal::al[i].pos.x * sqdim;
-		destR.y = (Animal::al[i].pos.y + 1) * sqdim;
-		textureManager(Animal::al[i].current_image, destR);
-	}
-
-	for (int i = 0; i < People::pl.size(); i++) {
-		destR.x = People::pl[i].pos.x * sqdim;
-		destR.y = (People::pl[i].pos.y + 1) * sqdim;
-		destR.x += People::pl[i].px_x;
-		destR.y += People::pl[i].px_y;
-
-		if (mousedown_right && mouse_in_rect(destR)) {
-			if (player.fight_mode) {
-				player.attack_person(People::pl[i].id);
+			if (keep_player_centered_x) {
+				destR.x = (sx)*sqdim - player.pl[player.pcindex].px_x;
 			}
 			else {
-				player.chat_pc(People::pl[i].id);
+				destR.x = (sx)*sqdim;
 			}
-			
-			mousedown_right = false;
-		}
+			if (keep_player_centered_y) {
+				destR.y = (sy + 1) * sqdim - player.pl[player.pcindex].px_y;
+			}
+			else {
+				destR.y = (sy + 1) * sqdim;
+			}
 
-		//temp adjustment, should be kept inside People class
-		if (People::pl[i].current_image == "pics/human.png" && People::pl[i].sex==false) {
-			People::pl[i].current_image = "human_female";
-		}
+			//people and animals need to be drawn after whole map is drawn given that people and later animals move between tiles, and if drawn with tiles then that means other tiles will be drawn over the people/animals
+			if (Environment::Map[y][x].animal_id != -1) {
+				Animal::animal& a = Animal::al[anim.a_by_id(Environment::Map[y][x].animal_id)];
+				textureManager(a.current_image, destR);
+			}
+			if (Environment::Map[y][x].person_id > -1) {
+				People::Person& p = People::pl[peep.p_by_id(Environment::Map[y][x].person_id)];
 
-		textureManager(People::pl[i].current_image, destR);
+				if (player.pl[player.pcindex].id != p.id) {
+					destR.x += p.px_x;
+					destR.y += p.px_y;
+				}
+				else {
+					if (!keep_player_centered_x) {
+						destR.x += p.px_x;
+					}
+					else {
+						destR.x = (sx)*sqdim;
+					}
+					if (!keep_player_centered_y) {
+						destR.y += p.px_y;
+					}
+					else {
+						destR.y = (sy + 1) * sqdim;
+					}
+				}
 
-		if (People::pl[i].current_image == "human_female") {
-			People::pl[i].current_image = "pics/human.png";
+				if (mousedown_right && mouse_in_rect(destR)) {
+					if (player.fight_mode) {
+						player.attack_person(p.id);
+					}
+					else {
+						player.chat_pc(p.id);
+					}
+
+					mousedown_right = false;
+				}
+
+				//temp adjustment, should be kept inside People class
+				if (p.current_image == "pics/human.png" && p.sex == false) {
+					p.current_image = "human_female";
+				}
+
+				textureManager(p.current_image, destR);
+
+				if (p.current_image == "human_female") {
+					p.current_image = "pics/human.png";
+				}
+			}
 		}
 	}
-	if (mouseR.x != -1) {
-		textManager(item_name_moused, 8, mouseR.x, mouseR.y);
-	}
-	
+}
+void Game::render_menus(){
 	if (pause_game) {
 		destR.x = 10 * sqdim;
 		destR.y = 10 * sqdim;
@@ -458,11 +619,11 @@ void Game::render() {
 			vector<string> inventory = player.view_inventory();//should menus be moved inside of Player class?
 			int x = 16;
 			int y = 12;
-			textManager("Player Inventory: ", 24, x* sqdim, y* sqdim);
+			textManager("Player Inventory: ", 24, x * sqdim, y * sqdim);
 			y++;
 			for (int inv_i = 0; inv_i < inventory.size(); inv_i++) {
 				y++;
-				SDL_Rect text_box = textManager(inventory[inv_i], 12, x* sqdim, y* sqdim);
+				SDL_Rect text_box = textManager(inventory[inv_i], 12, x * sqdim, y * sqdim);
 				if (mousedown_left && mouse_in_rect(text_box)) {//y-1 becuase it is screen position and so must ignore Sky offset
 					player.drop_item_pc(inv_i);//pass index of item
 					mousedown_left = false;
@@ -505,7 +666,7 @@ void Game::render() {
 			vector<string> craftable = player.view_craftable();//should menus be moved inside of Player class?
 			int x = 16;
 			int y = 12;
-			textManager("Craftable Items: ", 24, x* sqdim, y* sqdim);
+			textManager("Craftable Items: ", 24, x * sqdim, y * sqdim);
 			y++;
 			for (int inv_i = 0; inv_i < craftable.size(); inv_i++) {
 				y++;
@@ -519,28 +680,14 @@ void Game::render() {
 		else if (menu_num == 5) {
 			int x = 16;
 			int y = 12;
-			textManager("Menu 6: ", 24, x* sqdim, y* sqdim);
+			textManager("Menu 6: ", 24, x * sqdim, y * sqdim);
 		}
 	}
-	
-
-
-	/* For when I want to use my own custom font
-	string test = "abccba";
-
-	destR.x = 50 * sqdim;
-	destR.y = 25 * sqdim;
-	for (auto &c : test) {
-		string s(1,c);
-		textureManager(s, destR);
-		destR.x/=sqdim;
-		destR.x++;
-		destR.x *= sqdim;
-	}
-	*/
-
-	SDL_RenderPresent(renderer);
 }
+
+
+
+
 
 //fix this: need to cache text constants such as menu titles, labels, etc and only update variable text such as numbers and names, etc.
 SDL_Rect Game::textManager(string text, int size, int x, int y) {
@@ -650,7 +797,10 @@ int anchor_y = 15 * sqdim;
 void Game::animation_testing() {
 
 	//	2nd attempt at 2d rigging. Closer but it breaks below scale=50, which is a total height of 150
-	scale = 16*4;
+	scale = 32;
+
+	SDL_Rect scale_sq = { 0,0,32,32 };
+	textureManager("blacksq", scale_sq);
 
 	SDL_Rect head;
 	bone head_bone = { "blacksq",scale,r2,anchor_x,anchor_y};
@@ -715,3 +865,5 @@ void Game::animation_testing() {
 	//	human.current_pose["right_arm"].x = human.resting_pose["right_arm"].x;
 	//}
 }
+
+

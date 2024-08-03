@@ -41,10 +41,17 @@ public:
 	TTF_Font* gFont = NULL;
 	SDL_Texture* mTexture;
 
+	void render_sky();
+	void render_map(SDL_Rect mouseR, string item_name_moused, int min_x, int max_x, int min_y, int max_y, bool keep_player_centered_x, bool keep_player_centered_y);
+	void render_entities(int min_x, int max_x, int min_y, int max_y, bool keep_player_centered_x, bool keep_player_centered_y);
+	void render_menus();
+
 	int mouse_x=-1;
 	int mouse_y=-1;
 	bool mousedown_left = false;
 	bool mousedown_right = false;
+
+	int zoom_level = 0;
 
 	bool mouse_in_tile(int x, int y);
 	bool mouse_in_rect(SDL_Rect posR);

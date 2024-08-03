@@ -1,0 +1,3 @@
+item_name,item_id,item_stat1,ingredients,,,,,bool1,image
+foo,123,9001,eggs,flour,sugar,lies,candle,FALSE,pics/shit.png
+foo2,321,420,broken heart,Evil - 99% proof,chant in tongues,spellbook of the sorcerer macguffin,,TRUE,pics/piss.png

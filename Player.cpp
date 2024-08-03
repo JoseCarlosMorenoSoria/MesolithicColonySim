@@ -220,6 +220,12 @@ void Player::toggle_speed_pc() {//not sure if working properly
 void Player::move_to_pc(Position dest) {
 	p = pcindex;
 	pc = &pl[p];
+
+	if (!valid_position(dest)) {
+		continue_func = -1;
+		return;
+	}
+
 	mouse_click_dest = dest;
 	continue_func = 2;
 	pl[p].move_already = false;

@@ -16,9 +16,7 @@
 //ensure natural methods for cliques not to become too stable so that groups are always changing, being formed, dissappearing, splitting, merging
 //add more clique based behavior such as fighting over land if hungry, blood feuds, defend each other, raid each other, etc
 	//?
-//add tracking for hunting, so animals leave footprints or blood or feces by chance and over time (and these disappear over time) which trigger Person either to set traps or follow trail to animal to hunt
 //add projectiles for when throwing rock/spear/dart, etc
-//add temperature to affect clothing use and creation
 //add terrain feritility and distribute using a noise function to create areas of varying amount of plants and therefore animals and food
 //add more animals and plants and rock/soil types, more aesthetic variation, more tools, weapons, armor, clothing, tents/house types, human visual variation, etc
 //add cultural activities, actions, rituals, etc. 

@@ -7,6 +7,9 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <iterator>
+#include <fstream>
+#include <sstream>
 using namespace std;
 
 class ItemSys {//Item System
@@ -41,6 +44,18 @@ public:
 	static int new_item_id();
 	void fill_tag_lookup();
 	void fill_ingredients_lookup();
+
+	struct test_struct {
+		string item_name;
+		int item_id;
+		int item_stat1;
+		vector<string> ingredients;
+		bool bool1;
+		string image;
+	};
+	vector<test_struct> testlist;
+	void test_read();
+
 };
 
 #endif
