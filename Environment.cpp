@@ -28,6 +28,10 @@ int range4_maxx = Environment::map_x_max;
 int range4_maxy = Environment::map_y_max;
 
 void Environment::add_item_to_map(string item, int x, int y) {
+	if (x < 0 || y < 0 || x >= map_x_max || y >= map_y_max) {
+		return;//invalid position, should make this function a bool to return false
+	}
+
 	if (item == "berrybush" || item == "grain") {
 		//return;
 	}
@@ -39,7 +43,9 @@ void Environment::add_item_to_map(string item, int x, int y) {
 }
 
 Environment::Environment(int hours_in_day) {
-	
+	//for testing fire spread
+	//Map[25][50].has_fire = true;
+
 	for (int y = 0; y < map_y_max; y++) {
 		for (int x = 0; x < map_x_max; x++) { //z controls the percent chance of tile having food
 			if (Map[y][x].terrain != "water") {
@@ -142,6 +148,9 @@ void Environment::update(int hours_in_day, int hour_count, int day_count) {
 		}
 	}
 	
+	//rain(); needs trigger
+	fire_spread(); //needs triggers
+
 	if (season == 0) {
 		int spawn_chance = rand() % 100;
 		if (spawn_chance < 20) {
@@ -209,8 +218,43 @@ void Environment::update(int hours_in_day, int hour_count, int day_count) {
 
 }
 
+void Environment::fire_spread() {//FIX THIS. this function is inefficient. Fire should also burn out after a while when it runs out of flammable material and should leave behind either burned versions of items or ash and delete the items it burned. 
+	for (int y = 0; y < map_y_max; y++) {
+		for (int x = 0; x < map_x_max; x++) {
+			if (Map[y][x].has_fire) {
+				int rx = rand() % 3 - 1;
+				int ry = rand() % 3 - 1;
+				int chance = rand() % 100;
+				if (chance<10 && !(x < 0 || y < 0 || x >= map_x_max || y >= map_y_max)) {
+					Map[y + ry][x + rx].has_fire = true;
+				}
+			}
+		}
+	}
+}
 
-
-
-
+bool rain_flip = false;
+void Environment::rain() {
+	for (int y = 0; y < map_y_max; y++) {
+		for (int x = 0; x < map_x_max; x++) {
+			if (rain_flip) {
+				if (y % 2 == 0) {
+					Map[y][x].has_rain = true;
+				}
+				else {
+					Map[y][x].has_rain = false;
+				}
+			}
+			else {
+				if (y % 2 != 0) {
+					Map[y][x].has_rain = true;
+				}
+				else {
+					Map[y][x].has_rain = false;
+				}
+			}
+		}
+	}
+	rain_flip = !rain_flip;
+}
 

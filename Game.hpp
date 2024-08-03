@@ -29,13 +29,19 @@ public:
 	bool running();
 
 	static void textureManager(string texture, SDL_Rect destRect, int angle, SDL_Point center);
+	static void textureManager(string texture, SDL_Rect destRect);
 
 	bool isRunning;
 	SDL_Window* window; //window and renderer have to(?) be pointers because they aren't instanced until the Game::init function runs.
 	static SDL_Renderer* renderer; //should this be made static and public?
 
 
+
+
+
 	//animation - move to another class
+	void animation_testing();
+	
 	struct bone {
 		string image;
 		float x;

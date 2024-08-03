@@ -108,15 +108,15 @@ void People::update_all(int day_count, int hour_count, int hours_in_day) {
 }
 
 bool People::check_death() {
-    bool starvation = pl[p].hunger_level > 1000;
-    bool dehydration = pl[p].thirst_level > 1000;
-    bool old_age = pl[p].age > 50;
+    bool starvation = pl[p].hunger_level > STARVATION_LEVEL;
+    bool dehydration = pl[p].thirst_level > DEHYDRATION_LEVEL;
+    bool old_age = pl[p].age > MAX_AGE;
     bool death = !pl[p].is_alive || starvation || dehydration || old_age;
     if (death) {
         pl[p].is_alive = false;
         add_func_record("dead");
         pl[p].current_image = "pics/human_dead.png";
-        if (pl[p].age < 5) {
+        if (pl[p].age < MAX_INFANT_AGE) {
             pl[p].current_image = "human_infant_dead";
         }
         //if have spouse, free spouse to remarry, need a more realistic way to handle this rather than instant long distance unlinking
@@ -157,7 +157,7 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
         return;
     }
 	if (hour_count == 0) { //once a day check
-		if (pl[p].hunger_level > 50) { //tracks for continuous hungry days at the start of every day
+		if (pl[p].hunger_level > HUNGRY_LEVEL) { //tracks for continuous hungry days at the start of every day
 			pl[p].hungry_time++;
 		}
 		else {
@@ -168,10 +168,10 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
         //}
         pl[p].age++;
     }
-    if (pl[p].age < 5) {//is infant. Currently that means it doesn't do anything except get hungry and needs to be fed
+    if (pl[p].age < MAX_INFANT_AGE) {//is infant. Currently that means it doesn't do anything except get hungry and needs to be fed
         pl[p].current_image = "human_infant";
         pl[p].hunger_level++;
-        if (pl[p].hunger_level > 50) {
+        if (pl[p].hunger_level > HUNGRY_LEVEL) {
             speak("requesting food",-1);
         }
         if (pl[p].being_carried) {//if being carried, then position is the position of the carrier offset by 1
@@ -259,7 +259,7 @@ bool People::move_to(Position dest, string caller) {//need to add speed of movin
             pl[p].general_search_called = false;
         }
 
-        if (pl[p].downed || pl[p].immobile || pl[p].move_already || pl[p].age < 5) {//the image check shouldn't be necessary but I don't know why it still moves while having crafting image
+        if (pl[p].downed || pl[p].immobile || pl[p].move_already || pl[p].age < MAX_INFANT_AGE) {//the image check shouldn't be necessary but I don't know why it still moves while having crafting image
             if (pl[p].pos == dest) {
                 return true;
             }
@@ -312,14 +312,13 @@ bool People::move_to(Position dest, string caller) {//need to add speed of movin
     
     old_pos = pl[p].pos;
     new_pos = pl[p].dest;
-    int sqdim1 = 17;
-    int spd = 4;
 
+    //fix this, need to adjust such that A. the change in px position adjusts to any changes in zoom level to maintain same movement rate and B. if speed is larger than 16, then speed must also affect movement of tiles per tick but ensuring collisions in the path are still taken into account
     if (old_pos.x<new_pos.x) {//fix this, later need to modify to tie to new tile when it hits the midway point between 2 tiles
-        pl[p].px_x += 1 * spd;
+        pl[p].px_x += 1 * pl[p].speed;
         
         pl[p].mov = true;
-        if (pl[p].px_x == 16) {
+        if (pl[p].px_x == (sqdim1-1)) {
             pl[p].mov = false;
             pl[p].px_x += 1;
             pl[p].pos.x++;
@@ -328,10 +327,10 @@ bool People::move_to(Position dest, string caller) {//need to add speed of movin
         }
     }
     else if (old_pos.x > new_pos.x) {
-        pl[p].px_x -= 1 * spd;
+        pl[p].px_x -= 1 * pl[p].speed;
         
         pl[p].mov = true;
-        if (pl[p].px_x == -16) {
+        if (pl[p].px_x == -1*(sqdim1 - 1)) {
             pl[p].mov = false;
             pl[p].px_x -= 1;
             pl[p].pos.x--;
@@ -340,10 +339,10 @@ bool People::move_to(Position dest, string caller) {//need to add speed of movin
         }
     }
     if (old_pos.y > new_pos.y) {
-        pl[p].px_y -= 1 * spd;
+        pl[p].px_y -= 1 * pl[p].speed;
         
         pl[p].mov = true;
-        if (pl[p].px_y == -16) {
+        if (pl[p].px_y == -1* (sqdim1 - 1)) {
             pl[p].mov = false;
             pl[p].pos.y--;
             pl[p].px_y -= 1;
@@ -352,10 +351,10 @@ bool People::move_to(Position dest, string caller) {//need to add speed of movin
         }
     }
     else if (old_pos.y < new_pos.y) {
-        pl[p].px_y += 1 * spd;
+        pl[p].px_y += 1 * pl[p].speed;
        
         pl[p].mov = true;
-        if (pl[p].px_y == 16) {
+        if (pl[p].px_y == (sqdim1 - 1)) {
             pl[p].mov = false;
             pl[p].pos.y++;
             pl[p].px_y += 1;
@@ -368,13 +367,6 @@ bool People::move_to(Position dest, string caller) {//need to add speed of movin
         Environment::Map[old_pos.y][old_pos.x].person_id = -1;//remove person from Map
         Environment::Map[pl[p].pos.y][pl[p].pos.x].person_id = pl[p].id;//add person back to Map at new location
     }
-    
-
-
-
-    //pl[p].pos = new_pos;
-   // Environment::Map[pl[p].pos.y][pl[p].pos.x].person_id = -1;//remove person from Map
-    //Environment::Map[new_pos.y][new_pos.x].person_id = pl[p].id;//add person back to Map at new location
     reached = pl[p].pos == dest;
     return reached;
 }
@@ -437,7 +429,7 @@ bool People::child_birth() {
 }
 
 bool People::reproduce() {//later, add marriage ceremony/customs, options for polygamy, infidelity, premarital sex, widow status, age and family restrictions on potential mates, family size limits, divorce, etc
-    if (!(pl[p].reproduction_cooldown > 100)) {//function trigger
+    if (!(pl[p].reproduction_cooldown > REPRODUCTION_TRIGGER)) {//function trigger
         return false;
     }
     add_func_record("reproduce");
@@ -446,7 +438,7 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
     for (int i = 0; i < pos_list1.size(); i++) {//filter out valid mates from people found list
         int pers_id = Environment::Map[pos_list1[i].y][pos_list1[i].x].person_id;
         int pid = p_by_id(pers_id);
-        if (pl[pid].sex != pl[p].sex && pl[pid].age > 10) {
+        if (pl[pid].sex != pl[p].sex && pl[pid].age > MIN_ADULT_AGE) {
             bool is_my_child = false;
             for (int i = 0; i < pl[p].children_id.size(); i++) {
                 if (pl[p].children_id[i] == pl[pid].id) {
@@ -462,7 +454,7 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
     }
     bool mate_willing = false;
     if (p2!=-1) {
-        if (pl[p2].reproduction_cooldown > 100 && pl[p2].sex != pl[p].sex) {
+        if (pl[p2].reproduction_cooldown > REPRODUCTION_TRIGGER && pl[p2].sex != pl[p].sex) {
             mate_willing = true;
         }
         if (mate_willing && (Position::distance(pl[p].pos, pl[p2].pos)==1 || move_to(pl[p2].pos,"going to mate"))) {//go to tile adjacent to p2
@@ -491,36 +483,40 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
 }
 
 Animal anim1;
-//for cleaner code
-void People::find_all_helper(Position pos, string type) {
-    if (!valid_position(pos)) {return;}
-    string key;
-    if (type == "people") {
-        if (pl[p].lastpos == pos) {
-            throw std::invalid_argument("my error");
-        }
-        pl[p].lastpos = pos;
-        if (Environment::Map[pos.y][pos.x].person_id > -1) {key = "people";}//the id must be >-1 because -2 is a reserved marker for move to a tile in move_to()
-        else {key = "no people";}}
-    else if (type == "item") {
-        if (Environment::Map[pos.y][pos.x].item_id != -1) {key = ItemSys::item_list[ItemSys::item_by_id(Environment::Map[pos.y][pos.x].item_id)].item_name;}
-        else {key = "no item";}}
-    else if (type == "animal") {
-        if (Environment::Map[pos.y][pos.x].animal_id != -1) {key = Animal::al[anim1.a_by_id(Environment::Map[pos.y][pos.x].animal_id)].species;}
-        else {key = "no animal";}}
-    else if (type == "terrain") {key = Environment::Map[pos.y][pos.x].terrain;}
-    
-    if (pl[p].search_results.find(key) != pl[p].search_results.end()) {//check if key exists
-        pl[p].search_results[key].push_back(pos);}//key found
-    else {pl[p].search_results.insert({ key,{pos} });}//key not found
-}
-
 void People::find_all() {//returns all things (items, people, messages, etc) found, sorted according into Position lists for each thing type
-    int radius_options[2] = {//all radius options
+    auto find_all_helper = [&](Position pos, string type) {//lamda function to avoid having helper functions in the general People scope
+        if (!valid_position(pos)) { return; }
+        string key;
+        if (type == "people") {
+            if (pl[p].lastpos == pos) {
+                throw std::invalid_argument("my error");
+            }
+            pl[p].lastpos = pos;
+            if (Environment::Map[pos.y][pos.x].person_id > -1) { key = "people"; }//the id must be >-1 because -2 is a reserved marker for move to a tile in move_to()
+            else { key = "no people"; }
+        }
+        else if (type == "item") {
+            if (Environment::Map[pos.y][pos.x].item_id != -1) { key = ItemSys::item_list[ItemSys::item_by_id(Environment::Map[pos.y][pos.x].item_id)].item_name; }
+            else { key = "no item"; }
+        }
+        else if (type == "animal") {
+            if (Environment::Map[pos.y][pos.x].animal_id != -1) { key = Animal::al[anim1.a_by_id(Environment::Map[pos.y][pos.x].animal_id)].species; }
+            else { key = "no animal"; }
+        }
+        else if (type == "terrain") { key = Environment::Map[pos.y][pos.x].terrain; }
+
+        if (pl[p].search_results.find(key) != pl[p].search_results.end()) {//check if key exists
+            pl[p].search_results[key].push_back(pos);
+        }//key found
+        else { pl[p].search_results.insert({ key,{pos} }); }//key not found
+    };
+    
+    const int NUM_OF_RADII = 2;//why not use a vector instead of an array and just get size()?
+    int radius_options[NUM_OF_RADII] = {//all radius options
         pl[p].sightline_radius, pl[p].audioline_radius
     };
     if(pl[p].radiusmax == -1){//used to store result instead of calling every time, only resets if one of the radius options changes such as damaged eyesight, etc
-        for (int i = 0; i < 2; i++) {//selects largest radius
+        for (int i = 0; i < NUM_OF_RADII; i++) {//selects largest radius
             if (i == 0) {
                 pl[p].radiusmax = radius_options[i];
             }
@@ -640,7 +636,6 @@ People::Position People::walk_search_random_dest() {
             min_y = pl[p].campsite_pos.y - campsite_distance_search;
         }
         else if (!pl[p].sex && pl[p].spouse_id != -1) {//keeps near spouse if searching for new campsite, currently just has female follow male, otherwise both don't go far because they pull in different directions
-            int spouse_distance_limit = 10;
             int spouse_index = p_by_id(pl[p].spouse_id);
             max_x = pl[spouse_index].pos.x + spouse_distance_limit;
             min_x = pl[spouse_index].pos.x - spouse_distance_limit;
@@ -677,6 +672,7 @@ People::Position People::make_position_valid(Position dest, int ux, int lx, int 
     return dest;
 }
 
+//fix this, this function has magic numbers but they are random percents, need to decide how to handle them
 bool People::idle() {
     add_func_record("idle");
     int option = rand() % 100;
@@ -870,11 +866,11 @@ bool People::answer_item_request() {
         int sid = request_messages[i].sender_id;
         change_disposition(sid, 0, "check exists");
         if (pl[p].submissive_to.find(sid) == pl[p].submissive_to.end()) { pl[p].submissive_to.insert({ sid,{0,false} }); }//should have a first contact function to populate these lists instead of checking if exists every time the list is used. Fix this
-        if (pl[p].dispositions[sid] < -25 && !pl[p].submissive_to[sid].submissive_to) {//don't answer requests from disliked people unless you are submissive to them
+        if (pl[p].dispositions[sid] < DISLIKE_THRESHOLD && !pl[p].submissive_to[sid].submissive_to) {//don't answer requests from disliked people unless you are submissive to them
             request_messages.erase(request_messages.begin() + i);
             items_requested.erase(items_requested.begin() + i);
         }
-        if (pl[p].dispositions[sid] > 75 || pl[p].submissive_to[sid].submissive_to) {
+        if (pl[p].dispositions[sid] > LOVED_THRESHOLD || pl[p].submissive_to[sid].submissive_to) {
             acquire_to_give = true;
             service = i;
             break;//force answer this request
@@ -1094,8 +1090,8 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
         return false;//prevent searching for a new campsite if married, only for females
     }
     
-    bool cond2 = pl[p].campsite_pos.x == -1 || pl[p].hungry_time >= 3;//AND: have no campsite OR have been hungry too long
-    bool cond3 = pl[p].campsite_age > 10;//AND: campsite is old enough to move again. Unsure if this might have an issue if the null campsite has an age
+    bool cond2 = pl[p].campsite_pos.x == -1 || pl[p].hungry_time >= DAYS_HUNGRY_MOVE_CAMP;//AND: have no campsite OR have been hungry too long
+    bool cond3 = pl[p].campsite_age > NEW_CAMP_PROBATION_TIME;//AND: campsite is old enough to move again. Unsure if this might have an issue if the null campsite has an age
     bool start = (cond2 && cond3) || pl[p].adopt_spouse_campsite;
     //currently only creates a campsite after having been hungry 3 days. Still need to figure out when and when not to create a campsite, such as for trips away from home or extreme high mobility nomad
     //function trigger
@@ -1153,9 +1149,9 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
 
     if (pl[p].friend_camp_check) {//encourages campsite congregation between people who like each other (forgot to check if other person likes self, fix this)
         for (auto const& i : pl[p].dispositions) {
-            if (i.second > 75) {
+            if (i.second > LOVED_THRESHOLD) {
                 if (pl[p_by_id(i.first)].campsite_pos.x != -1) {//if have a friend with a campsite and am finding a new campsite, move to within 10 tiles of friend to search for campsite location there
-                    if (Position::distance(pl[p].pos, pl[p_by_id(i.first)].campsite_pos) < 10 || move_to(pl[p_by_id(i.first)].campsite_pos, "to friend's campsite")) {
+                    if (Position::distance(pl[p].pos, pl[p_by_id(i.first)].campsite_pos) < NEW_CAMP_CLOSE_TO_FRIEND || move_to(pl[p_by_id(i.first)].campsite_pos, "to friend's campsite")) {
                         pl[p].friend_camp_check = false;
                     }
                     else {
@@ -1215,8 +1211,8 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
 }
 
 bool People::sleeping(){
-    bool tired = pl[p].tired_level > 50;
-    bool start_moving_to_bed = tired && pl[p].campsite_pos.x != -1 && pl[p].hunger_level<50 && pl[p].thirst_level<50;
+    bool tired = pl[p].tired_level > SLEEP_TRIGGER;
+    bool start_moving_to_bed = tired && pl[p].campsite_pos.x != -1 && pl[p].hunger_level<HUNGRY_LEVEL && pl[p].thirst_level<THIRSTY_LEVEL;
     if (start_moving_to_bed) {
         add_func_record("moving to bed");
         if(move_to(pl[p].campsite_pos,"to bed")) { //go to campsite.
@@ -1226,7 +1222,7 @@ bool People::sleeping(){
             return true;//done and in progress
         }
     }
-    bool very_tired = pl[p].tired_level > 100;//might need to cap sleep such that a person can't ever have a tired_level over x_level as well as under y_level
+    bool very_tired = pl[p].tired_level > FORCE_SLEEP_LEVEL;//might need to cap sleep such that a person can't ever have a tired_level over x_level as well as under y_level
     bool cond1 = tired && (pl[p].pos == pl[p].campsite_pos || pl[p].campsite_pos.x == -1);//if tired AND either at campsite or have no campsite
     if (!(!pl[p].awake || cond1 || very_tired)) {//function trigger
         return false;
@@ -1234,7 +1230,7 @@ bool People::sleeping(){
     add_func_record("sleeping");
     pl[p].current_image = "pics/human_sleeping.png";
     pl[p].awake = false;
-    pl[p].tired_level-=11; //every call to this function reduces tired by 11, this means need 5 hours/updates to stop sleeping and sleep every 50 hours/updates. Is -11 so as to do -10 per hour and also -1 to negate the +1 tired in the regular update function
+    pl[p].tired_level-=SLEEP_REST_RATE; //every call to this function reduces tired by 11, this means need 5 hours/updates to stop sleeping and sleep every 50 hours/updates. Is -11 so as to do -10 per hour and also -1 to negate the +1 tired in the regular update function
     if (pl[p].tired_level <= 0) {//fix this, need to cap at 0, also need cap for upper limit?
         pl[p].current_image = "pics/human.png";
         pl[p].awake = true;
@@ -1244,11 +1240,11 @@ bool People::sleeping(){
 }
 
 bool People::eating(){
-    if (pl[p].hungry_time > 3 && pl[p].campsite_pos.x != 1 && pl[p].campsite_age>15) {//allows search for campsite to trigger but not before new camp is at least a few ticks old
+    if (pl[p].hungry_time > DAYS_HUNGRY_MOVE_CAMP && pl[p].campsite_pos.x != 1 && pl[p].campsite_age>NEW_CAMP_PROBATION_TIME) {//allows search for campsite to trigger but not before new camp is at least a few ticks old
         return false;
     }
 
-    bool hungry = pl[p].hunger_level > 50;
+    bool hungry = pl[p].hunger_level > HUNGRY_LEVEL;
     bool has_food = false;
     vector<int> food_indexes1 = inventory_has("ready food");//should these return sets instead? would remove the need for converting to sets when set operations are needed. Duplicate indexes are never relevant.
     if (!food_indexes1.empty()) {
@@ -1257,7 +1253,7 @@ bool People::eating(){
         pl[p].eating_food_index = food_indexes1[0];
     }
 
-    if ((hungry && !has_food) || food_indexes1.size() < 2) {//ensures that person has 2 food items in inventory for self or to share
+    if ((hungry && !has_food) || food_indexes1.size() < MIN_EXTRA_FOOD_IN_INVENTORY) {//ensures that person has 2 food items in inventory for self or to share
         if (acquire("ready food")) {
             add_func_record("acquired ready food");
             //done
@@ -1275,14 +1271,14 @@ bool People::eating(){
     if (pl[p].eating_progress.progress == 0) {
         pl[p].current_image = "pics/human_eating.png";
     }
-    if (pl[p].age < 5) {
+    if (pl[p].age < MAX_INFANT_AGE) {
         pl[p].current_image = "human_infant";
     }
     if (pl[p].eating_progress.progress_func()) {//makes eating take more than 1 frame
         int index = pl[p].eating_food_index;
         int food_id = pl[p].item_inventory[index];
         delete_item(food_id, {-1,-1}, index);//delete food from game
-        pl[p].hunger_level -= 50; //reduce hungry level by 10, therefore need 2 meals a day to stay at 0 hunger_level average
+        pl[p].hunger_level -= HUNGER_REDUCTION_RATE; //reduce hungry level by 10, therefore need 2 meals a day to stay at 0 hunger_level average
         pl[p].clean_image = true; //when this function ends, return to default image on next update
         return true;//done eating
     }
@@ -1377,12 +1373,12 @@ bool People::hunting(string species) {
 }
 
 bool People::drinking() {
-    if (pl[p].thirst_level < 50) {
+    if (pl[p].thirst_level < THIRSTY_LEVEL) {
         return false;
     }
     if (pl[p].search_results.find("water") != pl[p].search_results.end()) {
         if (move_to(pl[p].search_results["water"][0],"to water")) {
-            pl[p].thirst_level -= 25;
+            pl[p].thirst_level -= THIRST_REDUCTION_RATE;
             return true;//done
         }
     }
@@ -1415,6 +1411,7 @@ bool People::cut_down_tree() {
     }
 }
 
+//this might count as magic numbers but it might make sense to leave them here as it's a simple -100 to 100 range cap
 void People::change_disposition(int p_id, int amount, string reason) {
     if (p_id == 0) {
         throw std::invalid_argument("pid is 0");
@@ -1437,6 +1434,7 @@ void People::change_disposition(int p_id, int amount, string reason) {
     }
 }
 
+//same magic number issue of percent chances, fix this
 void People::chat() {//if make this a speak() action, can affect dispositions of more than 1 person with 1 comment, fix this?
     if (pl[p].search_results.find("people") != pl[p].search_results.end()) {
     int topic = rand() % 100;
@@ -1480,6 +1478,7 @@ void People::chat() {//if make this a speak() action, can affect dispositions of
     }
 }
 
+//has a magic number but unsure if it needs to be pulled out as it's only relevant here and might not need to be balanced against other numbers.
 void People::authority_calc() {
     int num_people_liked_by = 0;
     int amount_liked = 0;
@@ -1553,7 +1552,7 @@ vector<int> People::remove_dup(vector<int> v) {
     return v2;
 }
 
-
+//has percent magic numbers
 //need to implement being downed if lost a personal fight and how to recover, as well as in what cases might be killed or can kill (maybe a percent chance?)
 //need to add weapons and armor that affect dice rolls, and triggers for acquiring them
 bool People::fight() {//Order of execution for people here might necessitate having an extra tick to resolve results of combat dice rolls, otherwise people who update first will always attack and the latter always defend?
@@ -1565,7 +1564,7 @@ bool People::fight() {//Order of execution for people here might necessitate hav
         //go through every person have disposition towards. If hate someone, chance to trigger fight. //not yet implemented: If fight triggered, chance to invite friends and family to join fight. 
         vector<int> hated;
         for (auto const& i : pl[p].dispositions) {
-            if (i.second < -75) {
+            if (i.second < HATED_THRESHOLD) {
                 hated.push_back(i.first);//get id's
             }
         }
@@ -1708,6 +1707,8 @@ bool People::fight() {//Order of execution for people here might necessitate hav
     return false;//no fight. is this check redundant?
 }
 
+
+//fix this, has magic numbers?
 void People::share_disposition(int p2_ind) {
     if (pl[p].dispositions.empty()) {
         return;

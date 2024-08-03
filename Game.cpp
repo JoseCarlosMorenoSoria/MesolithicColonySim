@@ -100,11 +100,14 @@ void Game::initGameState() {
 	{"wood", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/wood.png"))},
 	{"monument", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/monument.png"))},
 	{"stick", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/stick.png"))},
-	{"head", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/head.png"))}
+	{"head", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/head.png"))},
+	{"human_female", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_female.png"))},
+	{"fire", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/fire.png"))},
+	{"rain", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rain1.png"))}
 	};
 
 
-	create_human();
+	//create_human();
 }
 
 void Game::handleEvents() { //this handles user inputs such as keyboard and mouse
@@ -170,26 +173,19 @@ void Game::update() {
 		day_count++;
 	}
 
-	//Environment::update(hours_in_day, hour_count, day_count);
-	//peep.update_all(day_count, hour_count, hours_in_day);
-	//anim.update_all(day_count, hour_count, hours_in_day);
-	//player.update();
+	Environment::update(hours_in_day, hour_count, day_count);
+	peep.update_all(day_count, hour_count, hours_in_day);
+	anim.update_all(day_count, hour_count, hours_in_day);
+	player.update();
 }
 
 
 
 
 
-//this function seems inefficient, don't know if there's a better way than creating and destroying per texture every tick
-//SDL_Surface* tmpSurface;
-//SDL_Texture* tmpTex;
-//vector<SDL_Texture*> tmpTex_list;
+
 const SDL_Point *c;
-void Game::textureManager(string texture, SDL_Rect destRect, int angle, SDL_Point center) {//textureManager feels like an unclear name, rename this function, this function takes in the image file and the location and size (destRect) to draw it on and adds it to the game's canvass (renderer)
-	//tmpSurface = IMG_Load(texture.c_str());
-	//tmpTex = SDL_CreateTextureFromSurface(renderer, tmpSurface);//would it be better to store these in an array and access them from there?
-	//SDL_FreeSurface(tmpSurface); //this might not be necessary, maybe move to the game.clean() function
-	
+void Game::textureManager(string texture, SDL_Rect destRect, int angle, SDL_Point center) {
 	if (center.x == -1) {
 		c = NULL;
 	}
@@ -199,58 +195,30 @@ void Game::textureManager(string texture, SDL_Rect destRect, int angle, SDL_Poin
 	
 	SDL_RenderCopyEx(renderer, texture_map[texture], NULL, &destRect, angle, c, SDL_FLIP_NONE);
 	//(if the parameter for center (c) is NULL, rotation will be done around dstrect.w / 2, dstrect.h / 2).
+}
 
-	//r += 10;
-	//r = 90;
+//this function seems inefficient, don't know if there's a better way than creating and destroying per texture every tick
+//SDL_Surface* tmpSurface;
+//SDL_Texture* tmpTex;
+//vector<SDL_Texture*> tmpTex_list;
+void Game::textureManager(string texture, SDL_Rect destRect) {//textureManager feels like an unclear name, rename this function, this function takes in the image file and the location and size (destRect) to draw it on and adds it to the game's canvass (renderer)
+	//tmpSurface = IMG_Load(texture.c_str());
+	//tmpTex = SDL_CreateTextureFromSurface(renderer, tmpSurface);//would it be better to store these in an array and access them from there?
+	//SDL_FreeSurface(tmpSurface); //this might not be necessary, maybe move to the game.clean() function
+
 			//SDL_RenderCopy(renderer, tmpTex, NULL, &destRect);
-	//SDL_RenderCopy(renderer, texture_map[texture], NULL, &destRect);
+	SDL_RenderCopy(renderer, texture_map[texture], NULL, &destRect);
 			//SDL_DestroyTexture(tmpTex); //this might not be necessary, maybe move to the game.clean() function
 }
 
 
-
-//float offset = 0.5;
-
-
-
-
-
-int rd = 1;
-int ld = 1;
-bool flip = false;
 void Game::render() {
 	SDL_RenderClear(renderer);
 	//resets destR for printing environment
 	destR.x = 0;
 	destR.y = 0;
+	//animation_testing();
 
-	models[0].render_skeleton();
-	
-	if (flip) {
-		if (models[0].pose_transform(models[0].pose_walk_sideways2,2)) {
-			flip = !flip;
-		}
-	}
-	else {
-		if (models[0].pose_transform(models[0].pose_walk_sideways1,2)) {
-			flip = !flip;
-		}
-
-	}
-
-	//human.current_pose["right_arm"].r += 6;
-	//human.current_pose["left_arm"].r -= 6;
-	//human.current_pose["right_leg"].r += 6;
-	//human.current_pose["left_leg"].r -= 6;
-
-
-	//human.current_pose["right_arm"].x -= 0.1;
-	//if (human.current_pose["right_arm"].x < human.resting_pose["right_arm"].x - 2*32) {
-	//	human.current_pose["right_arm"].x = human.resting_pose["right_arm"].x;
-	//}
-
-
-	/*
 	for (int x = 0; x < hours_in_day/2; x++) {
 		destR.x = x * sqdim;
 		destR.y = 0;
@@ -290,6 +258,12 @@ void Game::render() {
 					textureManager("pics/shallow_water.png", destR);
 				}
 			}
+			if (Environment::Map[y][x].has_fire) {//fire should be last thing drawn, needs to be moved to the end of render() FIX THIS
+				textureManager("fire", destR);
+			}
+			if (Environment::Map[y][x].has_rain) {//same issue regarding draw order as fire, fix this
+				textureManager("rain", destR);
+			}
 		}
 	}
 
@@ -304,11 +278,19 @@ void Game::render() {
 		destR.y = (People::pl[i].pos.y + 1) * sqdim;
 		destR.x += People::pl[i].px_x;
 		destR.y += People::pl[i].px_y;
+
+		//temp adjustment, should be kept inside People class
+		if (People::pl[i].current_image == "pics/human.png" && People::pl[i].sex==false) {
+			People::pl[i].current_image = "human_female";
+		}
+
 		textureManager(People::pl[i].current_image, destR);
+
+		if (People::pl[i].current_image == "human_female") {
+			People::pl[i].current_image = "pics/human.png";
+		}
 	}
-	*/
-
-
+	
 	SDL_RenderPresent(renderer);
 }
 
@@ -333,8 +315,8 @@ void Game::create_human() {//animation should be moved to its own class, fix thi
 	bone la = { "stick", 0.5,0.8,	1,1, 145, {0,32 / 2} };
 	bone ll = { "stick", 0.5,1.5,	1,1, 125, {0,32 / 2} };
 	*/
-	skeleton human = { 32, {10,10} };//scale and center point x,y
-
+	skeleton human = { 32, {15,5} };//scale and center point x,y
+	//NEED TO FIX the model/animation breaks at any scale other than 32
 	
 
 	//resting pose
@@ -373,4 +355,36 @@ void Game::create_human() {//animation should be moved to its own class, fix thi
 
 
 	models.push_back(human);
+}
+
+//float offset = 0.5;
+int rd = 1;
+int ld = 1;
+bool flip = false;
+void Game::animation_testing() {
+
+	models[0].render_skeleton();
+
+	if (flip) {
+		if (models[0].pose_transform(models[0].pose_walk_sideways2, 2)) {
+			flip = !flip;
+		}
+	}
+	else {
+		if (models[0].pose_transform(models[0].pose_walk_sideways1, 2)) {
+			flip = !flip;
+		}
+
+	}
+
+	//human.current_pose["right_arm"].r += 6;
+	//human.current_pose["left_arm"].r -= 6;
+	//human.current_pose["right_leg"].r += 6;
+	//human.current_pose["left_leg"].r -= 6;
+
+
+	//human.current_pose["right_arm"].x -= 0.1;
+	//if (human.current_pose["right_arm"].x < human.resting_pose["right_arm"].x - 2*32) {
+	//	human.current_pose["right_arm"].x = human.resting_pose["right_arm"].x;
+	//}
 }

@@ -34,6 +34,8 @@ class Environment {
 		//tent/house/campsite is currently implemented as an item, not a building, implement buildings later
 		int item_id=-1;//holds the id's of item on tile, currently restricted to one per tile, later on add a method to handle stacking items up to a limit, including of different item types
 		string terrain;
+		bool has_fire = false;
+		bool has_rain = true;
 	};
 
 	struct sky_tile {
@@ -50,6 +52,9 @@ public:
 	static void update(int hours_in_day, int hour_count, int day_count);
 
 	static void add_item_to_map(string item, int x, int y);
+
+	static void fire_spread();
+	static void rain();
 };
 
 #endif

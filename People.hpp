@@ -89,6 +89,7 @@ public:
 		Position pos;
 		bool sex; //true==male, false==female
 
+		string name;
 		string current_image = "pics/human.png";
 		//string current_state = "idle"; //state/action
 		int sightline_radius = 5; //how far around self can see objects
@@ -97,8 +98,10 @@ public:
 		int hungry_time = 0;
 		int thirst_level = 0;
 		bool awake = true;
-		int tired_level = 0;
+		int tired_level = 0;//need to add exertion and tie somehow to hunger rate, such that someone who is sedentary gets tired and hungry slower than someone running and fighting and mining, etc
 		vector<int> item_inventory; //holds id's of items in inventory
+
+		int speed = 4;
 		
 		Position current_direction;//based on last tile moved from. Rotations and direction only used for circumnavigating obstacles for now.
 		vector<Position> rotations = { {0,-1},{1,-1},{1,0} ,{1,1} ,{0,1} ,{-1,1} ,{-1,0} ,{-1,-1} };//includes diagonals
@@ -200,7 +203,6 @@ public:
 	static vector<Message> message_list;
 	static vector<int> Message_Map[Environment::map_y_max][Environment::map_x_max];//a map layer that holds messages by id according to their tile location. Makes clearing the map easier by being a separate layer. Each tile can have multiple messages.
 	bool message_clear_flag = false;
-	int campsite_distance_search = 5;
 
 	static int p;
 
@@ -211,7 +213,6 @@ public:
 	void update(int day_count, int hour_count, int hours_in_day);
 	void utility_function();
 	void find_all();
-	void find_all_helper(Position pos, string type);
 	bool move_to(Position pos, string caller);//string is the intended action calling move_to, such as hunting deer
 	Position walk_search_random_dest(); //returns a random destination for a random walk
 	vector<int> remove_dup(vector<int> v);//to remove duplicates from vector but preserve original order
@@ -265,9 +266,42 @@ public:
 	bool hostile_detection();//detects if someone nearby is hostile to self
 	//might make sense to create a relationship struct to hold all data regarding one person's relation to another, including dispositions, history of interactions and disp changes, familial ties, formal ties (boss, employee), submission, etc
 	//bool disposition_chance_check(int p2id);//unsure about use cases. checks probability of an action towards someone based on how they're liked. d=100 = always will, d=0= 50/50 chance, d=-100=never will. Could be used as inverse as well for negative actions. So always will do positive actions such as give food to liked people, but also always will do negative action such as insult to disliked people.
+
+
+//balancing numbers. Everything should be relative to the length of a day, so need x calories per day, x water per day, etc.
+//number one consumer of time is getting from A to B. Affected by density and distance of needed resources/people/places
+//second consumer is amount of time in animation (crafting, sleeping, etc)
+//third is number and frequency of tasks
+	int STARVATION_LEVEL = 1000;
+	int DEHYDRATION_LEVEL = 1000;
+	int MAX_AGE = 50;
+	int MAX_INFANT_AGE = 5;
+	int HUNGRY_LEVEL = 50;
+	int sqdim1 = 17;//needs to be tied to the sqdim in the Game class
+	int REPRODUCTION_TRIGGER = 100;
+	int MIN_ADULT_AGE = 10;
+	int spouse_distance_limit = 10;
+	int DISLIKE_THRESHOLD = -25;
+	int LIKE_THRESHOLD = 25;
+	int LOVED_THRESHOLD = 75;
+	int	HATED_THRESHOLD = -75;
+	int DAYS_HUNGRY_MOVE_CAMP = 3;
+	int NEW_CAMP_PROBATION_TIME = 10;
+	int NEW_CAMP_CLOSE_TO_FRIEND = 10;
+	int SLEEP_TRIGGER = 50;
+	int THIRSTY_LEVEL = 50;
+	int FORCE_SLEEP_LEVEL = 100;
+	int SLEEP_REST_RATE = 11;
+	int MIN_EXTRA_FOOD_IN_INVENTORY = 2;
+	int HUNGER_REDUCTION_RATE = 50;
+	int THIRST_REDUCTION_RATE = 25;
+	int campsite_distance_search = 5;//should be half a day's walk from camp, fix this
 };
 
 #endif
+
+//Need to add a way to pull data from a spreadsheet for items, images, stats, etc
+
 
 //DO THIS:
 /*
