@@ -46,13 +46,34 @@ void Game::init(const char* title, int xpos, int ypos, int width, int height, bo
 	}
 }
 
+map<string, SDL_Texture*> texture_map;
+void Game::load_images_from_csv() {
+	//read from csv into a vector of structs
+	fstream fin;// File pointer 
+	fin.open("Images.csv", ios::in);// Open an existing file 
+	vector<string> row;// Read the Data from the file as String Vector 
+	string line, word;
+	bool firstrowdone = false;
+	bool start_count_tags = false;//for counting the max number of tag columns
+	int count_tags = 0;
+	bool start_count_ingredients = false;//for counting the max number of ingredient columns
+	int count_ingredients = 0;
+	while (getline(fin, line)) {// read an entire row and store it in a string variable 'line' 
+		row.clear();
+		stringstream s(line);// used for breaking words 
+		while (getline(s, word, ',')) {// read every column data of a row and store it in a string variable, 'word' 
+			row.push_back(word);// add all the column data of a row to a vector 
+		}
+		texture_map.insert({row[0], SDL_CreateTextureFromSurface(renderer, IMG_Load(row[1].c_str()))});//insert name as key and convert filename into SDL texture
+	}
+	
+}
+
 People peep;
 Animal anim;
 Player player;
 //Environment envir;
 SDL_Rect srcR, destR;
-
-map<string, SDL_Texture*> texture_map;
 
 int day_count = 0; //temporary measure for counting days passed
 int hour_count = 0; //temporary measure for tracking when a new day starts, 20 updates == 1 day
@@ -73,74 +94,7 @@ void Game::initGameState() {
 	ItemSys::ItemSys();
 	Animal::Animal(initint);//to avoid unintended execution of the constructor
 
-	texture_map = {
-	{"pics/dirt.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/dirt.png"))},
-	{"pics/human.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/new_pics/human standing.png"))},
-
-	{"human_walking_right1", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/new_pics/human walking_right1.png"))},
-	{"human_walking_right2", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/new_pics/human walking_right2.png"))},
-	{"human_walking_left1", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/new_pics/human walking_left1.png"))},
-	{"human_walking_left2", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/new_pics/human walking_left2.png"))},
-	{"human_socializing", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/new_pics/human_socializing.png"))},
-
-	{"pics/human_idle.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/new_pics/human proportions_3.png"))},
-	{"pics/human_eating.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_eating.png"))},
-	{"pics/human_gathering.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_gathering.png"))},
-	{"pics/human_sleeping.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_sleeping.png"))},
-	{"pics/human_dead.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_dead.png"))},
-	{"pics/berrybush.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/berrybush.png"))},
-	{"pics/house.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/house.png"))},
-	{"pics/sun.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/sun.png"))},
-	{"pics/moon.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/moon.png"))},
-	{"pics/sky_day.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/sky_day.png"))},
-	{"pics/sky_night.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/sky_night.png"))},
-	{"pics/debug.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/debug.png"))},
-	{"pics/human_giving_food.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_giving_food.png"))},
-	{"human_infant", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_infant.png"))},
-	{"human_infant_dead", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_infant_dead.png"))},
-	{"grain", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/grain.png"))},
-	{"bread", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/bread.png"))},
-	{"human_crafting", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_crafting.png"))},
-	{"rock", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rock.png"))},
-	{"mortar and pestle", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/mortar_pestle.png"))},
-	{"deer", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer.png"))},
-	{"deer_resting", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer_resting.png"))},
-	{"deer_sleeping", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer_sleeping.png"))},
-	{"deer_dead", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer_dead.png"))},
-	{"deer_eating", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer/deer_eating.png"))},
-	{"rabbit", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit/rabbit.png"))},
-	{"rabbit_eating", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit/rabbit_eating.png"))},
-	{"rabbit_dead", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit/rabbit_dead.png"))},
-	{"rabbit_sleeping", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit/rabbit_sleeping.png"))},
-	{"rabbit_resting", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit/rabbit_resting.png"))},
-	{"trap", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/trap.png"))},
-	{"deer_meat", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/deer_meat.png"))},
-	{"rabbit_meat", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rabbit_meat.png"))},
-	{"pics/shallow_water.png", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/shallow_water.png"))},
-	{"tree", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/tree.png"))},
-	{"wood", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/wood.png"))},
-	{"monument", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/monument.png"))},
-	{"stick", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/stick.png"))},
-	{"head", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/head.png"))},
-	{"human_female", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_female.png"))},
-	{"fire", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/fire.png"))},
-	{"rain", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rain1.png"))},
-	{"tracks", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/tracks.png"))},
-	{"playing_trumpet", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_playing_trumpet.png"))},
-	{"bathing", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_bathing.png"))},
-	{"fighting", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_fighting.png"))},
-	{"darkness", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/darkness_filter.png"))},
-
-
-	{"a", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/text/a.png"))},
-	{"b", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/text/b.png"))},
-	{"c", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/text/c.png"))},
-	{"blacksq", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/blacksq.png"))},
-
-	{"menu_color", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/menu_background.png"))},
-	{"player", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/player/player.png"))},
-	};
-
+	load_images_from_csv();
 
 	//create_human();
 }
@@ -239,16 +193,10 @@ void Game::handleEvents() { //this handles user inputs such as keyboard and mous
 		player.move("S");
 	}
 	*/
-
-
 }
-
-
 
 void Game::update() {
 	People::TILE_PIXEL_SIZE = sqdim;//affects npc speed given that movement between tiles is on a per pixel basis
-
-	
 	if (!pause_game) {
 		hour_count++;
 		if (hour_count == hours_in_day) {
@@ -260,14 +208,8 @@ void Game::update() {
 		peep.update_all(day_count, hour_count, hours_in_day);
 		anim.update_all(day_count, hour_count, hours_in_day);
 		player.update();
-	}
-	
+	}	
 }
-
-
-
-
-
 
 const SDL_Point *c;
 void Game::textureManager(string texture, SDL_Rect destRect, int angle, SDL_Point center) {
@@ -410,10 +352,6 @@ void Game::render() {
 
 	//sky is rendered last for the same reason as the black frame
 	render_sky();
-
-	
-
-
 
 	/* For when I want to use my own custom font
 	string test = "abccba";

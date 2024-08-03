@@ -32,22 +32,32 @@ public:
 		//as items gain more properties, especially once weapons are added, will need to create separate categories of items rather than all treated as the same Item struct
 		//as well as for clothing, buildings, plants, etc
 
+		//many items have deterioration which is affected by time, temperature and being outdoors
+		//humans and animals should have diets which restrict what they can eat and what they seek out as food, this can be facilitated by using tags to mark an item as fitting a certain diet. Animals should be able to eat corpses raw. Vegetarian, omnivore, carnivore, insectivore, infant animals should drink their mother's milk, egg-ivore?
+		//eggs should be fertilized or unfertilized for certain animals such as chickens.
+		//some food items are products of processing such as bread/soup
+		//both crafted and natural items should have a quality level, such that a certain region might have higher quality stones/metal ore and the skill+chance of person should affect the quality of crafted items including food. Quality should then affect stats such as damage, durability, food poisoning, beauty, etc.
+
+		//need to figure out a better system for the same item to be made from different materials without being classed 100% as a separate item, tags help but don't feel scalable
+		//need to ensure there is a set of tags for how to interact with certain items (cut down trees, mine stone source, extract berries from bush, paint rock wall, etc)
+		//trees and certain plants should lose their leaves either seasonally or according to temperature. FLowering plants can even close their flowers at night. Plants should have needs like animals and reproduce by spawning near each other.
+		//need to include decoration/furniture such as stools, rugs, tapestry, etc.
+		//need to include art and a related beauty mechanic with a need to drive it
+
+		//need to implement walls and buildings larger than 1 tile
+		//need to include crafted herbal remedies for various illnesses/symptoms and their natural ingredients
+
+		//need to include certain bone types such as skulls for animals and humans
+
+		//every crafted item needs a related crafting method, not just a generic crafting act. So wood might be carved, hammered, nailed, burnt, etc. A basket weaved, clothes cut, sewn, tied, tanned, etc.
+		//Need to ensure every item has the right drives to ensure that it actually is sought out successfully and test how often it is done so. For example, if there are item A and item B, but in most or every instance only item A is made/sought, then it needs to be reworked to allow B to also be made/sought
+		//need to add flooring as well
 	};
 	//presets
 	map<string, Item> presets;
 	map<string, vector<string>> tags; //caches all items by name under their associated tags for ease of lookup
 	map<string, vector<string>> ingredients;//same as above tags map<>
 
-	//This system is temporary, later, need to have a better system for handling different types of items instead of just having it all under the Item label, some may need their own classes as well such as plants. 
-	//Item Types:
-	//Plant
-	//Building/structure
-	//Clothing
-	//Weapon
-	//Armor? Or should this be a type of clothing?
-	//Tool
-	//Food (what about plants, they're food. or maybe do it similar to animal:meat division?)
-	//Natural Resource (stone/wood/meat/etc)
 
 
 

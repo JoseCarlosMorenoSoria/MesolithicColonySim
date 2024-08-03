@@ -1238,7 +1238,7 @@ void People::build_monument() {
 }
 
 bool People::inventory_dump() {//later, inventory capacity should also consider if the items are tiny/small/medium/large/huge. Huge items should only be able to be pushed/pulled/carried and may require multiple people or draft animals
-    if (pl[p].item_inventory.size() < 10 || pl[p].campsite_pos.x==-1) {
+    if (pl[p].item_inventory.size() < 6 || pl[p].campsite_pos.x==-1) {
         return false;//don't dump
     }//later, if don't have campsite, then need an alternative to either store items (stockpile near self/choose what to keep and discard/bury or hide items/trade for smaller, lighter items of equal value)
     //if inventory is full and have campsite, go to campsite and dump items

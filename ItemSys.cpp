@@ -1,8 +1,7 @@
 #include "ItemSys.hpp"
 using namespace std;
 
-//TO DO TODAY: Need to add a method to read from a csv file and use it to hold and read data for Items and for Images
-//also need to add exception-throws for if an image/item that doesn't exist is called, to catch what the name asked for is and find the source
+//need to add exception-throws for if an image/item that doesn't exist is called, to catch what the name asked for is and find the source
 
 vector<ItemSys::Item> ItemSys::item_list;
 int ItemSys::item_id_iterator = 0; 
@@ -169,7 +168,7 @@ void ItemSys::ItemPresetsCSVPull() {
             }
             presets.insert({it.item_name, it });
         }
-        if (!firstrowdone) {
+        else {
             for (int i = 2; i < row.size()-3; i++) {
                 if (row[i] == "Tags") { start_count_tags = true; }
                 else if (row[i] == "Ingredients") { start_count_tags = false; }

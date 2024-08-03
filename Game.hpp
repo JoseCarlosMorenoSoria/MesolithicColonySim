@@ -41,6 +41,8 @@ public:
 	TTF_Font* gFont = NULL;
 	SDL_Texture* mTexture;
 
+	void load_images_from_csv();
+
 	void render_sky();
 	void render_map(SDL_Rect mouseR, string item_name_moused, int min_x, int max_x, int min_y, int max_y, bool keep_player_centered_x, bool keep_player_centered_y);
 	void render_entities(int min_x, int max_x, int min_y, int max_y, bool keep_player_centered_x, bool keep_player_centered_y);

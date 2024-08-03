@@ -139,12 +139,9 @@ public:
 		int id; //need to figure out a way to make new id automatic rather than a parameter, currently using an int but not automatic enough
 		Position pos;
 		bool sex; //true==male, false==female
-
 		string name = "no name";
 		string current_image = "pics/human.png";
-
 		equipped_items equipped;
-
 		//string current_state = "idle"; //state/action
 		int sightline_radius = 5; //how far around self can see objects
 		int audioline_radius = 5; //how far around self can hear and be heard
@@ -286,6 +283,48 @@ public:
 
 		bool dumping_not_done = false;
 	};
+	//need to implement a parasite, disease and injury system withy types, triggers effects on NPC, and methods of healing. Should consider skill of "doctor", severity, cleanliness of patient/wound and of doctor/his hands and the environment.
+	//can include treatments such as brain panning, leeches, skin eating maggots, alcohol, tourniquets, etc. 
+	//childbirth should involve risks of maternal mortality and infants/children/elderly should be at higher risks of disease deaths.
+	//diseases/injuries should have varying degrees of both severity and time to death and chance of dying. Need to add hereditary immunity chances and disease mutations to create cycles of epidemics and health.
+	//some conditions should be chronic or from birth, such as asthma, blindness, etc.
+	//if someone is sick or injured, they should first try self treatment, then ask for help, and if severity increases seek out bed rest before being bedridden.
+	/*
+	* Need to add:
+have mood
+have comfort (temp/sitting/standing/aesthetics/stink/cramped/etc)
+pawns can be arrested and imprisoned, enslaved, recruited and converted
+have their own sleep spots and rooms
+have a schedule
+can have restrictions on allowed areas, allowed work, allowed food/clothes type
+have skills
+have health and capacities
+have unique appearances
+have traits
+have basic relationships
+have basic work passions
+have bonded pets - pets and farm animals must be cared for such as feeding, temp, etc just like a human child.
+
+
+Actions:
+Firefighting: NPCs should stomp or hit with blankets on burning items, use buckets to throw soil/water on fire, create firebreaks, flee from fire or bug out (collect family and belongings before fleeing) either far from fire or into water
+Doctoring: should be an extension of treating self injuries and disease to treating others
+Guarding: guard an area, item or person either protecting or imprisoning. May be responsible for feeding, etc.
+Coerce: intimidate, punish, threaten, etc a person into compliance with a request, is used for managing slaves, tributaries, subordinates, bullying, parenting, governance, etc. 
+Rescue: person, animal, item, remove them from danger and to a safe place or provide aid, overlaps with doctoring?
+Animal handling: tame wild animals, train animals such as dogs, the rest should be handled by simply treating animals as a child (feeding/protecting) and collecting resources they provide (including slaughtering them).
+Cooking is just a variation of crafting involving butchering, milling, mixing, brewing, boiling, etc.
+Smithing, tailoring, etc are also just variations on crafting.
+Construction is a variation on crafting but done by emplacing something on a tile with the resources adjacent to that tile or self rather than in one's inventory.
+Repair/Maintenance: need to include ownership of items, animals, buildings. A person will maintain items such as sharpening knives, or refuelling a campfire/hearth, or repair such as fixing a broken cuirass, patching a hole in the roof or wall, sewing a hole in clothing, etc. Some things cannot be repaired such as if something is too rusted/worn/broken/infested (in the case of a building)/etc and must be thrown out as trash or burned and replaced.
+Planting: harvesting plants should use the same mechanic for harvesting wild ones, the planting behavior should be learned and be wild horticulture first, then crops in various plots of various types. Over time includes weeding, surface scattering, sowing, tilling, watering, irrigation, etc.
+Mining is the same as cutting down a tree
+Need to add a carry and drop function for items and people.
+Need to add cleaning and include organizing in it (such that not only is trash thrown in a midden or stockpiled to be thrown away later, but also any belongings that aren't in a container/shelf/etc are placed in the corresponding place. 
+Research: most tech/knowledge advancements are context driven and probabalistic such that boat tech is advanced by living near bodies of water and the type of craft according to the type of body of water (coast/river/lake) or better clothing techniques or tools by gaining a certain level of experience making clothes, etc. 
+//studying a particular subject is available for some tech/knowledge but requires a lot of time investment by the same person or people sharing study progress and then that knowledge must be shared and taught to others in order to actually use it. It's not a global tech tree that is unlocked but the accumulation of individual knowledge that is shared and preserved.
+*/
+
 
 //=====================================================================================================================
 	//People.cpp Functions:
