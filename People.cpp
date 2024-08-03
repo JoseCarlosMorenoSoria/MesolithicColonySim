@@ -13,15 +13,16 @@ int People::phour_count;
 int People::people_id_iterator = 0;
 Animal anim1;//to access Animal class functions
 
-//Currently, an npc wins the game on average in 750 ticks. Might be less such as 600 or more such as 950. Only ran 3 tests to check tick amount.
+//Need to unit test every function and also test the frequency that each function executes, average value for all variables, and different scenarios (resource/people density, size, environment, etc)
+
+//Currently, an npc wins the game on average in 750 ticks, nearly 8 days. Might be less such as 600 or more such as 950. Only ran 3 tests to check tick amount.
 
 //note: readability might be increased by creating null constants for things like int (-1) and Position (-1,-1), etc.
 //could also maybe just overload and use the operator! as a return true or false if null function
 
 //TO DO TODAY
 //update Animal class with current People class plus the unique Animal variables/functions
-//run game until some person wins the game, if no one wins the game then need to fix so that it is both winnable by an npc and also winnable in a reasonable amount of time
-//if game is winnable, implement player functionality and UI
+//implement player functionality and UI
 //then implement more simple programmer art, animations and items/terrain/cosmetics (like weather), etc.
 
 

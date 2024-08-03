@@ -12,28 +12,28 @@
 
 #include "Player.hpp"
 
-People pfunc;//for access to non static functions
-
 Player::Player(){}
 
 Player::Player(int a) {
-	People::Person newpc = { People::new_person_id(), {0,0}, true };
+	Person newpc = { new_person_id(), {0,0}, true };//unsure if player is actually inserted into index 0, if it doesn't matter then need to fix People's update_all to also update index 0
 	newpc.age = 11;
-	People::pl.push_back(newpc);
+	pl.push_back(newpc);//unsure if need a variable in Person that marks which Person is a Player to prevent update_all from updating it.
 	Environment::Map[newpc.pos.y][newpc.pos.x].person_id = newpc.id;
-	pcindex = pfunc.p_by_id(newpc.id);
+	pcindex = p_by_id(newpc.id);
 	cout << "Player id is " << newpc.id << "\n";//id should be 1 //player should be the first person in list
-
+	
 }
 
 void Player::update() {
-	People::p = pcindex;//this should always be 0 (first in pl list) but for now just in case use function
-	pc = &People::pl[People::p];
+	p = pcindex;//this should always be 0 (first in pl list) but for now just in case use function
+	pc = &pl[p];
 	pc->current_image = "monument";
+
+	check_death();
 }
 
 int sqdim1 = 16;
-int spd = 2;
+int spd = 8;
 void Player::move(string direction) {
 	//People::Position pos = pc->pos;
 	//Environment::Map[pos.y][pos.x].person_id = -1;
@@ -74,4 +74,41 @@ void Player::move(string direction) {
 	//	pc->pos = pos;
 	//}
 }
+
+void Player::move_to() {}//use mouse click
+void Player::set_camp_pc() {}
+void Player::remove_camp_pc() {}
+void Player::chat_pc() {}
+void Player::fight_pc() {}
+void Player::sleep_pc() {}
+void Player::eat_pc() {}
+void Player::reproduce_pc() {}
+void Player::drink_pc() {}
+void Player::equip_pc() {}
+void Player::unequip_pc() {}
+void Player::carry_infant_pc() {}
+void Player::drop_infant_pc() {}
+void Player::speak_pc() {}
+void Player::craft_pc() {}
+void Player::drop_item_pc() {}
+void Player::pick_up_item_pc() {}
+void Player::set_trap_pc() {}
+void Player::toggle_sprint_pc() {}
+void Player::toggle_stealth_pc() {}
+void Player::cut_down_tree_pc() {}
+void Player::play_trumpet() {}//recreation option
+void Player::bathe() {}
+void Player::share_disposition() {}
+
+void Player::mouse_info() {}//show info on whatever is being moused over
+void Player::view_inventory() {}
+void Player::pause_game() {}
+void Player::view_own_data() {}//variables such as sex, tired_level, search_results, found_messages, etc.
+
+
+
+
+
+
+
 
