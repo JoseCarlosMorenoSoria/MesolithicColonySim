@@ -74,3 +74,4 @@ void Player::move(string direction) {
 	//	pc->pos = pos;
 	//}
 }
+

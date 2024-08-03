@@ -84,6 +84,59 @@ public:
 		int fights_lost = 0;//if net fights lost to this person is equal or greater than 3, become submissive to that person
 	};
 
+	struct equipped_items {//item id's
+		map<string, int> equipment = {
+			{"left_hand_holding_eq", -1},//item/shield/bag
+			{"right_hand_holding_eq", -1},//item/weapon/bag
+			{"person_carried_eq", -1},//person id for carrying infants, sick, injured, and prisoners
+			{"head_wearing_eq", -1},//helmet, hat
+			{"eyes_wearing_eq", -1},//glasses
+			{"neck_wearing_eq", -1},//necklace
+			{"shoulders_wearing_eq", -1},//pauldrons, cape
+			{"torso_wearing_eq", -1},//shirt, tunic, poncho, jacket
+			{"arms_wearing_eq", -1},//sleeves
+			{"legs_wearing_eq", -1},//greaves/pants
+			{"feet_wearing_eq", -1}//shoes/sandals
+		};
+		
+
+		bool equip(int item_id) {
+			ItemSys::Item& item = ItemSys::item_list[ItemSys::item_by_id(item_id)];
+			for (string t : item.tags) {
+				if (t.find("_eq") != -1) {//find the tag that relates to where it is worn
+
+					for (auto& i : equipment) {
+						if (i.first == t) {
+							if (i.second == -1) {//slot is already filled
+								return false;//failed to equip
+							}
+							else {
+								i.second = item_id;
+								return true;//item successfully equipped
+							}
+						}
+					}
+
+				}
+			}
+			return false;//item is invalid for equipping
+		}
+
+		int unequip(string slot) {//return item_id
+			for (auto& i : equipment) {
+				if (i.first == slot) {
+					int item_id = i.second;
+					i.second = -1;//item unequipped
+					return item_id;
+				}
+			}
+			return -1;//slot is already empty
+		}
+		
+	};
+
+	//note: when optimizing, convert for loops which are only for lookup into binary search lookups
+
 	struct Person {
 		int id; //need to figure out a way to make new id automatic rather than a parameter, currently using an int but not automatic enough
 		Position pos;
@@ -91,6 +144,9 @@ public:
 
 		string name;
 		string current_image = "pics/human.png";
+
+		equipped_items equipped;
+
 		//string current_state = "idle"; //state/action
 		int sightline_radius = 5; //how far around self can see objects
 		int audioline_radius = 5; //how far around self can hear and be heard
@@ -101,8 +157,17 @@ public:
 		int tired_level = 0;//need to add exertion and tie somehow to hunger rate, such that someone who is sedentary gets tired and hungry slower than someone running and fighting and mining, etc
 		vector<int> item_inventory; //holds id's of items in inventory
 
+		int recreation_level = 0;
+		bool beauty_need_satisfied = false;
+
+		progress_state drinking = { 4 };
+
 		int speed = 4;
-		
+		bool in_stealth = false;//if this is true, animal should have chance of not seeing person. Later, when line of sight and obstructions are implemented, then have person in stealth attempt to go from cover to cover and only when animal is facing away, on approach
+		int sprint_stamina = 0;//for limiting sprint time
+		int animal_id_ambush = -1;//to check if the animal being stalked and chased is no longer in range, to return to regular walk speed. 
+		//DO THIS NOW: Need to implement a method for certain actions/functions to both cache their data such as current target prey, and increase their priority such that ambushing prey can't be interrupted by anything other than being injured/attacked/etc
+
 		Position current_direction;//based on last tile moved from. Rotations and direction only used for circumnavigating obstacles for now.
 		vector<Position> rotations = { {0,-1},{1,-1},{1,0} ,{1,1} ,{0,1} ,{-1,1} ,{-1,0} ,{-1,-1} };//includes diagonals
 		//clockwise rotation
@@ -158,8 +223,7 @@ public:
 		bool move_already = false;//ensures only move once per update
 		bool general_search_called = false;//ensures search is the last move considered
 
-		bool saw_rabbit_recently = false;//resets every 3 days
-		int day_I_saw_rabbit = -1;
+		
 		vector<trap_check> traps_set;
 		Position dropsite;//for trap
 
@@ -190,8 +254,30 @@ public:
 		int px_y = 0;
 		bool mov = false;
 		Position dest;
+
+		Position last_position;//for setting direction of tracks
+
+		int dirtiness;//how dirty one is, increases over time or all at once under certain circumstances such as when walking in mud, etc.
+		progress_state bathing = { 4 };
+
+		int my_temperature=75;
+		int my_preffered_temperature=75;
+
+		int time_waited = 0;
+
+		Position active_fish_hook_pos;
+
+		int sick_time = 0;
+		bool am_sick = false;
+
+		int injured_time = 0;
+		bool am_injured = false;
+
 	};
 
+	bool game_won = false;//for halting updates to check if game is winnable, for debugging
+
+	//need to place all variables in custom data types such that they are gaurunteed to be constrained between a certain range to avoid invalid values?
 	//note: given how the acquire function is structured, berrybush is given priority over bread. Don't know if this is affected by order of which is searched for first or if the depth of the crafting chain has affect on which is chosen. To encourage farming/crafting/etc, need to bias choices towards things like bread. 
 	
 	//vectors use more memory than necessary? Need to check
@@ -229,7 +315,10 @@ public:
 	vector<int> inventory_has(string target);
 	void create_item(string item_type, Position pos);
 	void pick_up_item(int item_id, Position pos);
-	void delete_item(int item_id, Position pos, int index);
+	void delete_item(int item_id, Position pos, int inventory_index);
+	
+	void pickup_infants();//need to improve this function, temporary implementation. 
+	bool drop_infants();//need to merge this with pickup_person?
 
 	bool search_for_new_campsite();
 	bool idle();
@@ -237,6 +326,9 @@ public:
 	bool eating();
 	bool reproduce();
 	bool drinking();
+	bool beauty();
+	bool need_light();
+	bool health();
 	//void carry_infant();		//need generic carry function
 	//void drop_infant();
 
@@ -252,8 +344,11 @@ public:
 	bool answer_item_request();
 	bool hunting(string species);
 	bool cut_down_tree();
-
+	bool recreation();
 	bool child_birth();
+	bool hygiene();
+	bool exposure();
+
 
 	void change_disposition(int p_id, int amount, string reason);//wrapper for changing disposition, might be useful to keep a record of all changes
 	void chat();//random chance to compliment or insult
@@ -266,42 +361,82 @@ public:
 	bool hostile_detection();//detects if someone nearby is hostile to self
 	//might make sense to create a relationship struct to hold all data regarding one person's relation to another, including dispositions, history of interactions and disp changes, familial ties, formal ties (boss, employee), submission, etc
 	//bool disposition_chance_check(int p2id);//unsure about use cases. checks probability of an action towards someone based on how they're liked. d=100 = always will, d=0= 50/50 chance, d=-100=never will. Could be used as inverse as well for negative actions. So always will do positive actions such as give food to liked people, but also always will do negative action such as insult to disliked people.
-
+	void create_tracks(Position pos);
 
 //balancing numbers. Everything should be relative to the length of a day, so need x calories per day, x water per day, etc.
 //number one consumer of time is getting from A to B. Affected by density and distance of needed resources/people/places
 //second consumer is amount of time in animation (crafting, sleeping, etc)
 //third is number and frequency of tasks
-	int STARVATION_LEVEL = 1000;
-	int DEHYDRATION_LEVEL = 1000;
-	int MAX_AGE = 50;
+	//currently there are 40hrs in a day
+	int DAYLENGTH = 24*4;//measured in ticks, this is temporary, it should be set by Game class. Used to make other constants proportional to length of day
+	int HOURLENGTH = DAYLENGTH / 24;
+
+	int HUNGER_REDUCTION_RATE = 50;//per tick for now
+	int HUNGRY_LEVEL = HUNGER_REDUCTION_RATE*DAYLENGTH;//assume only need 1 meal per day
+	int DAYS_HUNGRY_MOVE_CAMP = 3;
+	int STARVATION_LEVEL = HUNGRY_LEVEL*21;//record is 61 days no food, general max is 30 days no food, average is 8 to 21 days no food. For now set to 8
+
+	int THIRST_REDUCTION_RATE = 25;//per tick for now
+	int THIRSTY_LEVEL = THIRST_REDUCTION_RATE*DAYLENGTH;//assume only need one drink per day
+	int DEHYDRATION_LEVEL = THIRSTY_LEVEL*3;//rule of thumb is survive without water for 3 days, not sure about average or max record, set to 3 days for now
+
 	int MAX_INFANT_AGE = 5;
-	int HUNGRY_LEVEL = 50;
-	int sqdim1 = 17;//needs to be tied to the sqdim in the Game class
-	int REPRODUCTION_TRIGGER = 100;
 	int MIN_ADULT_AGE = 10;
+	int MAX_AGE = 50;
+
+	int sqdim1 = 17;//needs to be tied to the sqdim in the Game class
+
+	int REPRODUCTION_TRIGGER = DAYLENGTH*7;//once every 7 days
+
 	int spouse_distance_limit = 10;
+
+	int	HATED_THRESHOLD = -75;
 	int DISLIKE_THRESHOLD = -25;
 	int LIKE_THRESHOLD = 25;
 	int LOVED_THRESHOLD = 75;
-	int	HATED_THRESHOLD = -75;
-	int DAYS_HUNGRY_MOVE_CAMP = 3;
-	int NEW_CAMP_PROBATION_TIME = 10;
-	int NEW_CAMP_CLOSE_TO_FRIEND = 10;
-	int SLEEP_TRIGGER = 50;
-	int THIRSTY_LEVEL = 50;
-	int FORCE_SLEEP_LEVEL = 100;
+
+	int NEW_CAMP_PROBATION_TIME = DAYLENGTH/3;//a third of a day
+	int NEW_CAMP_CLOSE_TO_FRIEND = 10;//max distance to friend's camp
+
 	int SLEEP_REST_RATE = 11;
+	int SLEEP_TRIGGER = SLEEP_REST_RATE*((2*DAYLENGTH)/3);//sleep every 2/3rds of a day
+	int FORCE_SLEEP_LEVEL = SLEEP_TRIGGER*2;//record is 11 days of no sleep, but extreme symptoms start at 36 hours (1.5 days). For now just set at 2x sleep trigger
+
 	int MIN_EXTRA_FOOD_IN_INVENTORY = 2;
-	int HUNGER_REDUCTION_RATE = 50;
-	int THIRST_REDUCTION_RATE = 25;
+
 	int campsite_distance_search = 5;//should be half a day's walk from camp, fix this
+
+	int RECREATION_TRIGGER = 500;
+
+	int HYGIENE_TRIGGER = 500;
+
+	//humidity lowers heat tolerance such that at 100% humidity, humans die at 95F of heat in 6 hours. Need to implement humidity.
+	int HEAT_DEATH_TEMPERATURE = 110;//max heat that can be survived is between 104 and 122 F. For now set at 110F;
+	//need to implement a time component to surviving temperatures. 
+	//40 to 50 degrees can cause death in one to three hours. 32 to 40 degrees can cause death in 30 to 90 minutes. 32 degrees or less can cause death in as little as 15 to 45 minutes.
+	int COLD_DEATH_TEMPERATURE = 50;//measured in F
+
+	int SPRINT_LIMIT = 20;
+
+	int WALK_SPEED = 8;
+	int STEALTH_SPEED = 4;
+	int SPRINT_SPEED = 16;
+	int AMBUSH_DISTANCE = 3;
+	int STEALTH_DISTANCE = 6;//distance from prey at which person enters stealth
+	int ANGLING_WAIT_TIME = 20;
+
+	int SICK_TIME_DEATH = 250;//later replace by specific illness/injury and body part mechanics such as bleeding out and organ failure
+	int INJURED_TIME_DEATH = 250;
 };
 
 #endif
 
 //Need to add a way to pull data from a spreadsheet for items, images, stats, etc
 
+
+//note: is stamina the same as tired level? what about the difference between long distance endurance and ability for short sprints (humans are slower than cheetahs but run far longer)
+
+//note: skills have not been implemented for anything, nor knowledge of how to do something, nor memory to remember events and locations of items, etc.
 
 //DO THIS:
 /*

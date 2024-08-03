@@ -11,6 +11,19 @@ int People::oy = -1;
 int People::pday_count;
 int People::phour_count;
 int People::people_id_iterator = 0;
+Animal anim1;//to access Animal class functions
+
+//Currently, an npc wins the game on average in 750 ticks. Might be less such as 600 or more such as 950. Only ran 3 tests to check tick amount.
+
+//note: readability might be increased by creating null constants for things like int (-1) and Position (-1,-1), etc.
+//could also maybe just overload and use the operator! as a return true or false if null function
+
+//TO DO TODAY
+//update Animal class with current People class plus the unique Animal variables/functions
+//run game until some person wins the game, if no one wins the game then need to fix so that it is both winnable by an npc and also winnable in a reasonable amount of time
+//if game is winnable, implement player functionality and UI
+//then implement more simple programmer art, animations and items/terrain/cosmetics (like weather), etc.
+
 
 People::People(){}
 
@@ -26,7 +39,7 @@ People::People(int initint) {
     p2.age = 11;
     pl.push_back(p2);
     Environment::Map[p2.pos.y][p2.pos.x].person_id = p2.id;
-
+    
     Person p3 = { new_person_id(), {50,24}, true };
     p3.age = 11;
     pl.push_back(p3);
@@ -69,16 +82,35 @@ int People::message_by_id(int id) {//uses binary search to find and return index
     return -1;//not found
 }
 
+int ticks = 0;
 void People::update_all(int day_count, int hour_count, int hours_in_day) {
+    //if (game_won) {//for debugging, checking if game is winnable
+    //    cout << "Number of ticks: " << ticks << "\n";
+    //    return;
+   // }
+
+    //ticks++;
+
     pday_count = day_count;
     phour_count = hour_count;
 
+    Environment::people_in_stealth.clear();//clears every tick for simpler implementation. This needs to be rewritten in a better method instead of using Environment to communicate with Animal
+
+    int top_auth = 0;
     for(int i = 1; i < pl.size(); i++) {//i starts at 1 because for now, the first Person in the list is reserved for player control
         p = i;
         ox = pl[p].pos.x;
         oy = pl[p].pos.y;
         update(day_count, hour_count, hours_in_day);
+        if (pl[p].in_stealth) {
+            Environment::people_in_stealth.push_back(pl[p].id);
+        }
+        if (pl[p].authority > top_auth) {
+            top_auth = pl[p].authority;
+        }
+        //anchor
     }
+    cout << top_auth << "\n";
     //clear global message list every other update. One issue with npcs cooperating or communicating is sequence order, 
     //as in if npc1 updates before npc2, anything npc2 says or does won't be witnessed unless it is still there on the next update, NEED TO FIX
     if (message_clear_flag) {
@@ -95,7 +127,7 @@ void People::update_all(int day_count, int hour_count, int hours_in_day) {
             pip.is_alive = false;
         }
     }
-
+    /*
     if (day_count % 5 == 0 && hour_count==0) {
         for (int i = 0; i < pl.size(); i++) {
             cout << "id: " << pl[i].id << " -- \n";
@@ -105,13 +137,22 @@ void People::update_all(int day_count, int hour_count, int hours_in_day) {
             cout << "----------------------------\n\n\n";
         }
     }
+    */
 }
 
 bool People::check_death() {
+    //for testing winnability, no death at all
+    return false;
+
     bool starvation = pl[p].hunger_level > STARVATION_LEVEL;
     bool dehydration = pl[p].thirst_level > DEHYDRATION_LEVEL;
     bool old_age = pl[p].age > MAX_AGE;
-    bool death = !pl[p].is_alive || starvation || dehydration || old_age;
+    bool freeze_death = pl[p].my_temperature <= COLD_DEATH_TEMPERATURE;
+    bool heat_death = pl[p].my_temperature >= HEAT_DEATH_TEMPERATURE;
+    bool fatal_injury = pl[p].injured_time == INJURED_TIME_DEATH;
+    bool fatal_sickness = pl[p].sick_time == SICK_TIME_DEATH;
+
+    bool death = !pl[p].is_alive || starvation || dehydration || old_age || freeze_death || heat_death || fatal_injury || fatal_sickness;
     if (death) {
         pl[p].is_alive = false;
         add_func_record("dead");
@@ -177,7 +218,6 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
         if (pl[p].being_carried) {//if being carried, then position is the position of the carrier offset by 1
             pl[p].pos = pl[p_by_id(pl[p].carried_by_id)].pos;
             pl[p].pos.x += 1;
-            //cout << "am carried";
         }
         pl[p].immobile = true;
         eating();
@@ -195,6 +235,34 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
     pl[p].campsite_age++;
     pl[p].reproduction_cooldown++; //for when to find mate and create new person
     pl[p].thirst_level++;
+    pl[p].recreation_level++;
+    pl[p].dirtiness++;
+
+    if (pl[p].am_injured) {
+        pl[p].injured_time++;
+    }
+    if (pl[p].am_sick) {
+        pl[p].sick_time++;
+    }
+
+    int insulation_cold = 0;//unsure if insulation from heat makes sense, except from hats and maybe light white clothing? Only insulation from cold used for now.
+    for (auto const& i : pl[p].equipped.equipment) {
+        if (i.second != -1) {
+            insulation_cold += ItemSys::item_list[ItemSys::item_by_id(i.second)].insulation_from_cold;
+        }
+    }
+    if (Environment::Map[pl[p].pos.y][pl[p].pos.x].temperature > pl[p].my_temperature) {//like other needs, having this update every tick is not ideal and should be changed.
+        pl[p].my_temperature++;//fix this, need to make increase/decrease a percent of the difference between my_temp and tile_temp. Such that a large difference causes a large change in my_temp but a small one does not. Do the same for the clothing insulation below.
+        
+    }
+    else if (Environment::Map[pl[p].pos.y][pl[p].pos.x].temperature < pl[p].my_temperature) {
+        if (insulation_cold == 0) {
+            pl[p].my_temperature--; //for now, insulation is essentially a bool that prevents getting colder than already are. Need to implement a more thought out system of person temp change and insulation. Fix.
+        }
+    }
+    
+
+
 
     if (pl[p].clean_image) {
         pl[p].current_image = "pics/human.png";
@@ -206,14 +274,6 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
     utility_function();
     if (!pl[p].move_already && pl[p].general_search_called) {
         general_search_walk("");//ensures this function only executes once per update and also only after all other move_to's have been considered. This prioritizes intentional movement (moving to a target) rather than random movement
-    }
-
-    if (pl[p].search_results.find("rabbit") != pl[p].search_results.end()) {
-        pl[p].saw_rabbit_recently = true;
-        pl[p].day_I_saw_rabbit = day_count;
-    }
-    if (day_count - pl[p].day_I_saw_rabbit > 3) {
-        pl[p].saw_rabbit_recently = false;
     }
 
     pl[p].found_messages.clear();
@@ -252,6 +312,11 @@ bool People::valid_position(Position pos) {
 
 bool People::move_to(Position dest, string caller) {//need to add speed of moving from one tile to another and how many tiles at a time. Also need to add a check to prevent it being called more than once per person per update.
     bool reached = false;
+
+    if (pl[p].pos != pl[p].last_position) {
+        pl[p].last_position = pl[p].pos;
+    }//unsure if this is needed or if old_pos works
+
     Position old_pos;
     Position new_pos;
     if (!pl[p].mov) {
@@ -368,6 +433,25 @@ bool People::move_to(Position dest, string caller) {//need to add speed of movin
         Environment::Map[pl[p].pos.y][pl[p].pos.x].person_id = pl[p].id;//add person back to Map at new location
     }
     reached = pl[p].pos == dest;
+
+    if (pl[p].pos != pl[p].last_position) {
+        int x = 0;
+        int y = 0;
+        if (pl[p].pos.x < pl[p].last_position.x) {
+            x = -1;
+        }
+        else if (pl[p].pos.x > pl[p].last_position.x) {
+            x = 1;
+        }
+        if (pl[p].pos.y < pl[p].last_position.y) {
+            y = -1;
+        }
+        else if (pl[p].pos.y > pl[p].last_position.y) {
+            y = 1;
+        }
+        Position dir = { x,y };
+        create_tracks(dir);
+    }
     return reached;
 }
 
@@ -437,8 +521,12 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
     int p2 = -1;
     for (int i = 0; i < pos_list1.size(); i++) {//filter out valid mates from people found list
         int pers_id = Environment::Map[pos_list1[i].y][pos_list1[i].x].person_id;
+        if (pers_id == -2) {
+            cout << "error: pid==-2\n";//don't know why this is happening, already checked find_all() but it's the only place it could be inserted
+            return true;//try again
+        }
         int pid = p_by_id(pers_id);
-        if (pl[pid].sex != pl[p].sex && pl[pid].age > MIN_ADULT_AGE) {
+        if (pl[pid].sex != pl[p].sex && pl[pid].age > MIN_ADULT_AGE && pl[pid].is_alive) {
             bool is_my_child = false;
             for (int i = 0; i < pl[p].children_id.size(); i++) {
                 if (pl[p].children_id[i] == pl[pid].id) {
@@ -482,17 +570,30 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
     return true;//in progress
 }
 
-Animal anim1;
 void People::find_all() {//returns all things (items, people, messages, etc) found, sorted according into Position lists for each thing type
     auto find_all_helper = [&](Position pos, string type) {//lamda function to avoid having helper functions in the general People scope
         if (!valid_position(pos)) { return; }
         string key;
-        if (type == "people") {
+        if (type == "temperature") {
+            key = to_string(Environment::Map[pos.y][pos.x].temperature);
+        }
+        else if (type == "tracks") {
+            if (Environment::Map[pos.y][pos.x].track.track_age != -1) {
+                if (Environment::Map[pos.y][pos.x].track.creature == "human") {
+                    key = "human tracks";
+                }
+                else {
+                    key = "animal tracks";
+                }
+            }
+        }
+        else if (type == "people") {
             if (pl[p].lastpos == pos) {
                 throw std::invalid_argument("my error");
             }
             pl[p].lastpos = pos;
             if (Environment::Map[pos.y][pos.x].person_id > -1) { key = "people"; }//the id must be >-1 because -2 is a reserved marker for move to a tile in move_to()
+            else if (Environment::Map[pos.y][pos.x].person_id == -2) { key = "reserved for movement"; }
             else { key = "no people"; }
         }
         else if (type == "item") {
@@ -530,7 +631,7 @@ void People::find_all() {//returns all things (items, people, messages, etc) fou
     for (int radius = 0; radius <= pl[p].radiusmax; radius++) { //this function checks tilemap in outward rings by checking top/bottom and left/right ring boundaries
         if (radius == 0) {//avoids double checking origin
             if (radius <= pl[p].sightline_radius) {
-                vector<string> types = { "item","animal","terrain" };
+                vector<string> types = { "item","animal","terrain", "tracks", "temperature"};
                 for (string s : types) {
                     find_all_helper(o, s);
                 }
@@ -559,7 +660,7 @@ void People::find_all() {//returns all things (items, people, messages, etc) fou
                  //   }
 
                 if (radius <= pl[p].sightline_radius) {
-                    vector<string> types = { "people","item","animal","terrain" };
+                    vector<string> types = { "people","item","animal","terrain", "tracks", "temperature"};
                     for (string s : types) {
                         find_all_helper(pos1, s);
                         if (y <= ymax && pos1!=pos2) {//need to figure out why pos1 sometimes == pos2 and rewrite for loops to avoid this
@@ -775,7 +876,7 @@ void People::pick_up_item(int item_id, Position pos) {
     Environment::Map[pos.y][pos.x].item_id = -1; //remove item from map
 }
 
-void People::delete_item(int item_id, Position pos, int index) {
+void People::delete_item(int item_id, Position pos, int inventory_index) {
     if (item_id == -1) {//don't know what's causing this issue but need this check to work
         return;
     }
@@ -784,8 +885,8 @@ void People::delete_item(int item_id, Position pos, int index) {
     if (pos.x != -1) {//if pos.x == -1, then the item was not on the map and was probably in a Person's inventory from which it was deleted separately
         Environment::Map[pos.y][pos.x].item_id = -1; //removes item from map
     }
-    if (index != -1) {
-        pl[p].item_inventory.erase(pl[p].item_inventory.begin() + index);//delete item from inventory
+    if (inventory_index != -1) {
+        pl[p].item_inventory.erase(pl[p].item_inventory.begin() + inventory_index);//delete item from inventory
     }
 }
 
@@ -808,7 +909,6 @@ bool People::craft(string product) {//later add station requirements such as cam
             pl[p].crafting.insert({ product,{4} });//4 is the number of ticks/frames crafting image/animation lasts
         }
         if (pl[p].crafting[product].progress_func()) {//animation/time delay    currently, progress is saved if interrupted which might not make sense in some contexts
-            //cout << "made: " << product << "\n";
             for (int i = 0; i < num_of_ingredients; i++) {//later implement tool degradation here as well
                 if (it2.presets[it2.presets[product].ingredients[i]].consumable_ingredient) {
                     int consume_index = inventory_has(it2.presets[product].ingredients[i])[0];
@@ -981,6 +1081,11 @@ vector<People::Position> People::filter_search_results(string target) {
 }
 
 bool People::acquire(string target) {
+    if (!inventory_has(target).empty()) {
+        //cout << ItemSys::item_list[ItemSys::item_by_id(inventory_has(target)[0])].item_name << "\n";
+        return true;
+    }
+    
     //add_func_record("acquiring " + target);
     //check if target is an item name or item tag
     if (it2.presets.find(target) != it2.presets.end()) {
@@ -1066,32 +1171,291 @@ bool People::acquire(string target) {
 void People::utility_function() {//is currently actually just a behavior tree not a utility function. Selects what action to take this tick.
     //this implementation allows functions to be interrupted by higher priority ones on every update, however this means that a function may not properly reset or preserve as needed for when it gets called again later, need to fix
     //if(func()==false) go to next func(), if(func()==true) executed this func() for both in progress and done cases
+    
+    /*
+    Every goal has a method to satisfy alone or cooperatively or worrying about another person having their goals satisfied such as children.
+
+safety - need to add need and function, related to fight function
+social - other than seeking social status and mood hits from loneliness, this might be unnecessary given other functions, related to chat and idle.socialize and reproduce and child_birth and need to feed infants
+social status - need to add need and function, do this last as it's more complex. Isn't this also a bit redundant with social need?
+health - improve this, need triggers for illness and injury
+    */
+    
+    if (pl[p].animal_id_ambush != -1) {
+        Animal::animal& a = Animal::al[anim1.a_by_id(pl[p].animal_id_ambush)];
+        if (Position::distance({a.pos.x, a.pos.y},pl[p].pos) > pl[p].sightline_radius) {//if lost sight of prey being ambushed, return to regular speed and no stealth
+            pl[p].animal_id_ambush = -1;
+            pl[p].speed = WALK_SPEED;
+            pl[p].in_stealth = false;
+        }
+        else {
+            hunting(a.species);//continue to hunt this type of animal. Need to change to specifically this target, also need to allow interruption by high priority functions such as being attacked/injured/etc
+        }
+    }
+    
+    
+    
     chat();//chance to chat every update
     if (pl[p].mov) {
         move_to(pl[p].dest, "continue");
         return;
     }
-    if(child_birth()){}
-    else if(fight()){}
-    else if (sleeping()) {}
-    else if(drinking()){}
-    else if (eating()) {}//if don't have food, searches for food. Therefore the structure of utility_function is focused on which needs to satsify first (sleep, hunger, campsite, reproduction, etc)
-    else if (search_for_new_campsite()) {}
-    else if (reproduce()) {} //avoid execution of this function to focus on other features without worrying about population size
-    else if(answer_item_request()){}
-    else {idle();}
+    if(need_light()){}
+    else if(child_birth()){}//pregnancy advancement should be moved to update function, not child_birth()
+    else if (fight()) { }
+    else if(health()){}
+    else if(exposure()){  }
+    else if (sleeping()) {  }//need to move collapsing from sleep to update function instead of sleeping()
+    else if(drinking()){  }
+    else if (eating()) { }//if don't have food, searches for food. Therefore the structure of utility_function is focused on which needs to satsify first (sleep, hunger, campsite, reproduction, etc)
+    else if (search_for_new_campsite()) {  }
+    else if (reproduce()) {  } //avoid execution of this function to focus on other features without worrying about population size
+    else if(answer_item_request()){  }
+    else if(hygiene()){  }
+    else if(recreation()){  }
+    else if(beauty()){  }
+    else {idle(); }
     //DO THIS: (this (authority pursuit AI) might be too complex for this version, maybe organic leaders is better and add behavior that makes it likelier for some npcs to get to victory condition?) need to add authority as a need/goal to be pursued. Which means starting and winning fights with new people to increase number of submissives, and gaining favor with more people and increasing favor with existing friends/allies
 }
 
-//fix later
-//much of this function is taken up by carrying or dropping infants, need to create separate functions for that, fix this. Also need to otherwise simplify this function.
+//continue improving this
+bool People::health() {
+    if (!pl[p].am_injured && !pl[p].am_sick) {//sickness and injury need triggers
+        return false;
+    }
+
+    //if sick, get medicine and rest/sleep
+    if (pl[p].sick_time > 100) {//very sick, go to bed and be bedridden
+        pl[p].tired_level = SLEEP_TRIGGER;
+        sleeping();
+        return true;//bedridden or going to bed
+    }
+    else if (pl[p].sick_time > 20) {//slightly sick, get medicine
+        if (!acquire("medicine")) {
+            return true;//getting medicine
+        }
+        else {
+            //if have medicine, heal self and consume medicine
+            delete_item(inventory_has("medicine")[0], { -1,-1 }, 0);
+            pl[p].am_sick = false;
+            pl[p].sick_time = 0;
+        }
+    }
+
+    //if injured, get bandage and medicine and rest/sleep
+    if (pl[p].injured_time > 100) {//very injured, go to bed and be bedridden
+        pl[p].tired_level = SLEEP_TRIGGER;
+        sleeping();
+        return true;//bedridden or going to bed
+    }
+    else if (pl[p].injured_time > 20) {//slightly injured, get bandage
+        if (!acquire("bandage")) {
+            return true;//getting bandage
+        }
+        else {
+            //if have bandage, heal self and consume bandage
+            delete_item(inventory_has("bandage")[0], { -1,-1 }, 0);
+            pl[p].am_injured = false;
+            pl[p].injured_time = 0;
+        }
+    }
+    //if can't help self, request help
+
+    //need triggers for illness and injury. Both contagious and not. Each symptom or illness should have a different medicine.
+}
+
+//DO THIS later
+bool People::need_light() {
+    return false;
+    //if too dark, either move to light or create or get light source such as candle/torch/campfire
+}
+
+bool People::exposure() {//protection from heat/sun and cold/wind/rain. Only temperature protection for now.
+    if (pl[p].my_temperature == pl[p].my_preffered_temperature) {//fix this, needs to be a distance from ideal temp, not exactly ideal temp
+        return false;//temperature is fine
+    }
+    bool better_temp_found = false;
+    if (pl[p].my_temperature > pl[p].my_preffered_temperature) {//need to add impact on thirst by heat in update function
+        //seek cold, am too hot
+        for (auto const& i : pl[p].search_results) {
+            if (stoi(i.first) < pl[p].my_temperature) {//the only keys that are numbers will be tile temperatures, so find the first tile that has a lower temperature and go there
+                move_to(i.second[0], "towards cold");
+                better_temp_found = true;
+                return true;
+            }
+        }
+        if (!better_temp_found) {
+            //take off clothes //what about sunburn? also add natural tanning mechanic
+            for (auto& i : pl[p].equipped.equipment) {
+                int item_id = pl[p].equipped.unequip(i.first);//remove one item of clothing
+                if (item_id != -1) {
+                    continue;
+                }
+                else {
+                    pl[p].item_inventory.push_back(item_id);//place unequipped item in inventory
+                    return true;
+                }
+            }
+            //implement these 3 later
+            //seek darkness/shade
+            //go in water
+            //move less, be lazy
+        }
+        //if no method to improve temp, search
+        pl[p].general_search_called = true;
+    }
+    else if (pl[p].my_temperature < pl[p].my_preffered_temperature) {
+        //seek heat, am too cold
+        for (auto const& i : pl[p].search_results) {
+            if (stoi(i.first) > pl[p].my_temperature) {//inverse of "towards cold"
+                move_to(i.second[0], "towards heat");
+                better_temp_found = true;
+            }
+        }
+        if (!better_temp_found) {
+            //put on clothes and blankets
+            if (!inventory_has("clothes").empty()) {
+                //add one item of clothing. 
+                for (auto const& i : pl[p].equipped.equipment) {
+                    if (i.second == -1) {
+                        if (!inventory_has(i.first).empty()) {//if inventory has item with a tag saying it can be worn in this slot
+                            pl[p].equipped.equip(inventory_has(i.first)[0]);
+                            return true;
+                        }
+                    }
+                }
+            }
+            //start or find fire
+            if (pl[p].search_results.find("campfire") == pl[p].search_results.end()) {//if there is a campfire, it will warm the area and so is handled by "move to heat"
+                //if there is no campfire nearby
+                if (!acquire("campfire")) {
+                    pl[p].general_search_called= true;//searching for fire
+                }
+                else {
+                    drop_item(inventory_has("campfire")[0]);//place campfire
+                }
+            }
+
+            //implement these 2 later
+            //seek light
+            //move more, be active
+        }
+        //if no method to improve temp, search
+        pl[p].general_search_called = true;
+    }
+    //if am wet or in rain or in strong wind, seek shelter. Need to implement these. Fix this
+    return false;//?
+}
+
+bool People::hygiene() {
+    if (pl[p].dirtiness < HYGIENE_TRIGGER) {
+        return false;
+    }
+    if (pl[p].search_results.find("water") != pl[p].search_results.end()) {//go to water source
+        if (move_to(pl[p].search_results["water"][0], "to water")) {//run bathing animation
+            pl[p].current_image = "bathing";
+            if (pl[p].bathing.progress_func()) {
+                pl[p].dirtiness = 0;
+                pl[p].clean_image = true;
+                return true;//done
+            }
+        }
+    }
+    else {
+        pl[p].general_search_called = true;
+    }
+    return true;//in progress
+}
+
+bool People::beauty() {
+    if (pl[p].beauty_need_satisfied) {
+        return false;
+    }
+    //decorate self and surroundings
+
+    //FIX THIS: need to implement decorative items and bring them to camp or jewelry and craft it
+
+    //temporary implementation, like recreation. Both of these functions are more about polish and content rather than mechanics so do last
+    if (acquire("necklace")) {
+        pl[p].beauty_need_satisfied = true;
+    }
+}
+
+//games/dance/stories/song/instruments/sports/competitions/socializing/exploring/swimming/painting rock walls
+bool People::recreation() {
+    if (!(pl[p].recreation_level > RECREATION_TRIGGER)) {//unsure if this needs a trigger or simply replace idle? and have negative mood if not fulfilled?
+        return false;
+    }
+    //need to add method of choosing what to do to recreate, should desire variety as well
+    string option = "play trumpet";
+    if (option == "play trumpet") {//need to first get instrument, fix this. Also need to create instrument item
+        if (acquire("trumpet")) {
+            pl[p].current_image = "playing trumpet";
+            pl[p].recreation_level -= 50;//each recreation type should have its own reduction value?
+            pl[p].clean_image = true;
+        }
+    }
+}
+
+void People::pickup_infants() {
+    //if have infants, carry them
+    if (!pl[p].children_id.empty()) {//if the game renderer stops running through the whole people list, this breaks because infant is no longer on map. Therefore need to create a better function for carrying and dropping both infants and general items/people. Currently also carries all infants in the same spot, so they overlap. Need to fix this.
+        for (int i = 0; i < pl[p].children_id.size(); i++) {
+            int kid_index = p_by_id(pl[p].children_id[i]);
+            if (pl[kid_index].age < MAX_INFANT_AGE && !pl[kid_index].being_carried) {
+                if (Position::distance(pl[kid_index].pos, pl[p].pos) == 1 || move_to(pl[kid_index].pos, "to infant")) {
+                    pl[kid_index].being_carried = true;
+                    pl[kid_index].carried_by_id = pl[p].id;
+                    Environment::Map[pl[kid_index].pos.y][pl[kid_index].pos.x].person_id = -1;
+                    for (int j = 0; j < pl[p].search_results["people"].size(); j++) {//ensure integrity of search_results (due to possible vector out of bounds error source)
+                        if (pl[p].search_results["people"][j] == pl[kid_index].pos) {
+                            pl[p].search_results["people"].erase(pl[p].search_results["people"].begin() + j);
+                        }
+                    }
+                    pl[kid_index].pos = { -1,-1 };
+                    cout << "carrying kid";
+                }
+            }
+        }
+    }
+}
+
+bool People::drop_infants() {
+    //if have infants, drop them
+    if (!pl[p].children_id.empty()) {
+        for (int i = 0; i < pl[p].children_id.size(); i++) {
+            int kid_index = p_by_id(pl[p].children_id[i]);
+            if (pl[kid_index].being_carried && pl[kid_index].carried_by_id == pl[p].id) {
+
+                Position child_pos;
+                if (pl[p].search_results.find("no people") != pl[p].search_results.end()) {
+                    if (Position::distance(pl[p].search_results["no people"][0], pl[p].pos) == 1) {//if empty adjacent tile
+                        child_pos = pl[p].search_results["no people"][0];
+                    }
+                }
+                if (child_pos.x == -1) {//if no empty adjacent tile found
+                    pl[p].general_search_called = true;
+                    return false;//in progress
+                }
+
+                pl[kid_index].pos = child_pos;
+                Environment::Map[child_pos.y][child_pos.x].person_id = pl[kid_index].id;
+                pl[kid_index].being_carried = false;
+                pl[kid_index].carried_by_id = -1;
+            }
+        }
+    }
+    return true;//done
+}
+
+//need to simplify this function.
 bool People::search_for_new_campsite(){ //need to bias search direction in the direction of wherever there is more food rather than waiting to randomly stumble on a site with enough food for campsite. Also need to add a system of not searching the same tile within too short a time frame.
     if (!pl[p].sex && pl[p].spouse_id!=-1 && pl[p].campsite_pos == pl[p_by_id(pl[p].spouse_id)].campsite_pos) {
         return false;//prevent searching for a new campsite if married, only for females
     }
     
     bool cond2 = pl[p].campsite_pos.x == -1 || pl[p].hungry_time >= DAYS_HUNGRY_MOVE_CAMP;//AND: have no campsite OR have been hungry too long
-    bool cond3 = pl[p].campsite_age > NEW_CAMP_PROBATION_TIME;//AND: campsite is old enough to move again. Unsure if this might have an issue if the null campsite has an age
+    bool cond3 = pl[p].campsite_age > NEW_CAMP_PROBATION_TIME || pl[p].campsite_age==-1;//AND: campsite is old enough to move again. Unsure if this might have an issue if the null campsite has an age
     bool start = (cond2 && cond3) || pl[p].adopt_spouse_campsite;
     //currently only creates a campsite after having been hungry 3 days. Still need to figure out when and when not to create a campsite, such as for trips away from home or extreme high mobility nomad
     //function trigger
@@ -1118,26 +1482,7 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
         }
     }
     //if have infants, carry them
-    if (!pl[p].children_id.empty()) {//if the game renderer stops running through the whole people list, this breaks because infant is no longer on map. Therefore need to create a better function for carrying and dropping both infants and general items/people. Currently also carries all infants in the same spot, so they overlap. Need to fix this.
-        for (int i = 0; i < pl[p].children_id.size(); i++) {
-            int kid_index = p_by_id(pl[p].children_id[i]);
-            if (pl[kid_index].age < 5 && !pl[kid_index].being_carried) {
-                if (Position::distance(pl[kid_index].pos, pl[p].pos) == 1 || move_to(pl[kid_index].pos, "to infant")) {
-                    pl[kid_index].being_carried = true;
-                    pl[kid_index].carried_by_id = pl[p].id;
-                    Environment::Map[pl[kid_index].pos.y][pl[kid_index].pos.x].person_id = -1;
-                    for (int j = 0; j < pl[p].search_results["people"].size(); j++) {//ensure integrity of search_results (due to possible vector out of bounds error source)
-                        if (pl[p].search_results["people"][j] == pl[kid_index].pos) {
-                            pl[p].search_results["people"].erase(pl[p].search_results["people"].begin() + j);
-                        }
-                    }
-                    pl[kid_index].pos = { -1,-1 };
-                    cout << "carrying kid";
-                }
-            }
-        }
-    }
-
+    pickup_infants();
 
     vector<Position> food_pos_list = filter_search_results("food"); //gets results, assigns 1 result to food_pos
     Position food_pos = { -1,-1 };
@@ -1170,30 +1515,12 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
         if (!pos_list.empty()) {
             create_item("tent", pos_list[0]);//create and place tent
             pl[p].campsite_pos = pos_list[0]; //store campsite location
+            
             //if have infants, drop them
-            if (!pl[p].children_id.empty()) {
-                for (int i = 0; i < pl[p].children_id.size(); i++) {
-                    int kid_index = p_by_id(pl[p].children_id[i]);
-                    if (pl[kid_index].being_carried && pl[kid_index].carried_by_id == pl[p].id) {
-
-                        Position child_pos;
-                        if (pl[p].search_results.find("no people") != pl[p].search_results.end()) {
-                            if (Position::distance(pl[p].search_results["no people"][0], pl[p].pos) == 1) {//if empty adjacent tile
-                                child_pos = pl[p].search_results["no people"][0];
-                            }
-                        }
-                        if (child_pos.x == -1) {//if no empty adjacent tile found
-                            pl[p].general_search_called = true;
-                            return true;//in progress
-                        }
-
-                        pl[kid_index].pos = child_pos;
-                        Environment::Map[child_pos.y][child_pos.x].person_id = pl[kid_index].id;
-                        pl[kid_index].being_carried = false;
-                        pl[kid_index].carried_by_id = -1;
-                    }
-                }
+            if (!drop_infants()) {
+                return true;//in progress
             }
+            
             return true; //done. need to add an actual animation/progress to building the tent rather than immediate placement
         }
         else {
@@ -1249,12 +1576,12 @@ bool People::eating(){
     vector<int> food_indexes1 = inventory_has("ready food");//should these return sets instead? would remove the need for converting to sets when set operations are needed. Duplicate indexes are never relevant.
     if (!food_indexes1.empty()) {
         has_food = true;
-        //pl[p].eating_food_index = *food_indexes.begin();
         pl[p].eating_food_index = food_indexes1[0];
     }
 
-    if ((hungry && !has_food) || food_indexes1.size() < MIN_EXTRA_FOOD_IN_INVENTORY) {//ensures that person has 2 food items in inventory for self or to share
+    if ((hungry && !has_food) /* || food_indexes1.size() < MIN_EXTRA_FOOD_IN_INVENTORY*/) {//ensures that person has 2 food items in inventory for self or to share
         if (acquire("ready food")) {
+            cout << food_indexes1.size()<<"\n";
             add_func_record("acquired ready food");
             //done
             return true;
@@ -1285,27 +1612,153 @@ bool People::eating(){
      return true;//in progress
 }
 
-bool People::hunting(string species) {
+
+//continue fixing/improving this
+bool People::hunting(string species) {//need to add a percentage success/fail chance to all hunting
+    /*DO THIS NOW
+        if animal is large then must either get help to carry home, camp next to animal to eat for days, or butcher it and bring home piece by piece
+        pack/group hunting surrounding prey
+    */
+    
+    string hunting_method;
     if (species == "deer") {
-        if (pl[p].search_results.find("deer") != pl[p].search_results.end()) {
-            Animal::animal& a = anim1.al[anim1.a_by_id(Environment::Map[pl[p].search_results["deer"][0].y][pl[p].search_results["deer"][0].x].animal_id)];
-            if (inventory_has("rock").empty()) {
-                acquire("rock");
+        hunting_method = "persistence_and_pick_up";
+    }
+    else if (species == "rabbit") {//need to determine when to use fishing net and when to angle. Maybe according to fish type?
+        hunting_method = "trap";
+
+        //need to also add another type of trap, fishing net, and keep track separately
+        //fix this, need to add age and lifetime to traps so that they are removed after a certain amount of time if they haven't caught anything. If trap contains prey, then reset trap if reusable.
+        if (!pl[p].traps_set.empty()) {//if have traps, check traps
+            for (trap_check& t : pl[p].traps_set) {
+                if ((pday_count - t.last_day_checked) >= 3) {//check each trap once every other day since it was set
+                    if (move_to(t.pos, "to trap")) {
+                        t.last_day_checked = pday_count;
+                    }
+                    break;
+                }
+            }
+        }//checks traps and then continues so as to react if prey is found in trap
+
+    }
+    else if (species == "fish") {
+        hunting_method = "angling";
+    }
+
+    //tracks currently only include footprints, not feces, urine, grazing/hunt remains, sounds, etc.
+    //need to first find animal to hunt, if no animal seen then search for tracks, if tracks found then follow tracks
+    //need to convert this if conditional into a for loop to check all possible animal names in search results
+    if (pl[p].search_results.find(species) == pl[p].search_results.end()) {
+        //if no animal found, check for tracks
+        if (pl[p].search_results.find("animal tracks")!=pl[p].search_results.end()) {
+
+            //if tracks belong to trappable animals, set traps
+            Position track_pos = pl[p].search_results["animal tracks"][0];
+            if (Environment::Map[track_pos.y][track_pos.x].track.creature=="rabbit") {//need to make these species checks tag checks on the species instead
+                if (pl[p].traps_set.size() < 4) {
+                    if (pl[p].search_results.find("no item") != pl[p].search_results.end()) {
+                        if (!acquire("trap")) {
+                            return false; //in progress
+                        }
+                        int trap_ind = inventory_has("trap")[0];
+                        delete_item(pl[p].item_inventory[trap_ind], { -1,-1 }, trap_ind);
+                        create_item("active trap", { -1,-1 });
+                        trap_ind = inventory_has("active trap")[0];
+                        if (!drop_item(trap_ind)) {
+                            pl[p].general_search_called = true;
+                            return false;//in progress
+                        }
+                        pl[p].traps_set.push_back({ pl[p].dropsite, pday_count });
+                        pl[p].dropsite = { -1,-1 };
+                        return false;//in progress
+                    }
+                }
+            }
+
+            //tracks should hold direction info so hunter knows what direction to follow
+            Position dir = { pl[p].search_results["animal tracks"][0].x,pl[p].search_results["animal tracks"][0].y};
+            if (move_to({pl[p].pos.x+dir.x,pl[p].pos.y + dir.y }, "following tracks")) {
+                //do nothing else, simply follow tracks until prey is found
+            }
+            return false;//tracking in progress
+        }
+        else if (hunting_method=="angling") {
+            //continue to angling
+        }
+        else {
+            pl[p].general_search_called = true;
+            return false;//no animals or tracks found, search elsewhere
+        }
+    }
+
+    //FIX THIS. search_results should already be sorted, therefore move sort function to the end of find_all to sort all results
+    vector<Position> pos_list = pl[p].search_results[species];
+    if (!pos_list.empty()) {//second check due to angling not requiring having found the target animal
+        sort(pos_list.begin(), pos_list.end());//need to sort vector before using or else will get stuck. unsure if sort by current position or by 0,0
+        pl[p].search_results[species] = pos_list;
+    }
+    Animal::animal& a = (hunting_method != "angling") ? anim1.al[anim1.a_by_id(Environment::Map[pl[p].search_results[species][0].y][pl[p].search_results[species][0].x].animal_id)] : Animal::al[0];//the assignment of the first animal in animal list is simply because &a can't be NULL
+
+
+    //when ranged attack is added, include throwing a net to catch animal as well as regular ranged attack
+    //FIX THIS: need to add relevant changes to Animal to make this work
+   if (hunting_method == "ambush") {//ambush hunted animals such as chickens (includes spearfishing) (stalk animal, when close enough and still unnoticed, rush to attack and catch or kill)
+       if (Position::distance({ a.pos.x, a.pos.y }, pl[p].pos) == STEALTH_DISTANCE || move_to({a.pos.x, a.pos.y}, "to prey - stealth")) {
+           pl[p].animal_id_ambush = a.id;
+           pl[p].speed = STEALTH_SPEED;
+           pl[p].in_stealth = true;
+           if (Position::distance({ a.pos.x, a.pos.y }, pl[p].pos) == AMBUSH_DISTANCE || move_to({ a.pos.x, a.pos.y }, "to prey - ambush")) {
+               if (pl[p].sprint_stamina == 0) {//0 means sprint cooldown is done
+                   pl[p].speed = SPRINT_SPEED;//sprint once close enough to prey
+                   pl[p].in_stealth = false;
+                   if (move_to({ a.pos.x, a.pos.y }, "to prey - ambush kill")) {
+                       //kill prey
+                       if (a.is_alive) {
+                           a.is_alive = false;//kill prey
+                           return false;//in progress
+                       }
+                       if (!acquire("knife")) {//should be separated in a process corpse function with the option to process in the field or carry home first, fix this
+                           
+                           return false;//in progress
+                       }
+                       Environment::Map[a.pos.y][a.pos.x].animal_id = -1;//remove dead animal from map
+                       create_item(a.meat_type, { a.pos.x, a.pos.y });//add meat in its place   <- fix this, Might make more sense to have animals contain a list of items they turn into when butchered and go through the list
+                       anim1.al.erase(anim1.al.begin() + anim1.a_by_id(a.id));//erase animal from global animal list
+                       return true;//done
+                   }
+               }
+           }
+       }
+       
+
+   }
+
+   //this one is cooperative, so need to implement cooperation first
+   // if (hunting_method == "cliff_run") {//chasing prey off cliffs or into pits to kill or catch
+
+   // }
+
+    //include clams for this method to pick up
+    //when hunting, should use the means available, if a better method is known but not currently available, then need to set a flag to prepare the better method for the next hunt
+    //also need to add fleeing and tiring to deer
+    //FIX THIS: need to add "if have ranged weapon, use at distance" as well as the need to get the ranged weapon if knowledge of its crafting is held, unless materials to make ranged weapon are not found in x amount of time or hunger is too great to wait
+    if (hunting_method == "persistence_and_pick_up") {//this serves as both persistance hunting and simple gathering as it is simply "move to animal and kill animal". 
+        if (pl[p].search_results.find(species) != pl[p].search_results.end()) {
+            Animal::animal& a = anim1.al[anim1.a_by_id(Environment::Map[pl[p].search_results[species][0].y][pl[p].search_results[species][0].x].animal_id)];
+            if (!acquire("rock")) {
                 return false;//in progress
             }
-            //don't know why it takes a while for the move_to to execute even after search_results has found deer, fix later, leave for now given it eventually does move to hunt the deer
-            bool reached = move_to({ a.pos.x,a.pos.y }, "to deer");
+            bool reached = move_to({ a.pos.x,a.pos.y }, "to prey");
             if (reached) {
                 if (a.is_alive) {
-                    a.is_alive = false;//kill deer
+                    a.is_alive = false;//kill prey
                     return false;//in progress
                 }
-                if (inventory_has("knife").empty()) {
-                    acquire("knife");
+                if (!acquire("knife")) {
                    return false;//in progress
                 }
-                Environment::Map[a.pos.y][a.pos.x].animal_id = -1;//remove dead animal from map
-                create_item("deer_meat", {a.pos.x, a.pos.y});//add deer meat in its place
+                Environment::Map[a.pos.y][a.pos.x].animal_id = -1;//remove dead animal from map. Might make more sense to have animal contain body parts and components such as feathers and bones and when all have been removed from corpse, then the corpse is removed.
+                create_item(a.meat_type, {a.pos.x, a.pos.y});//add meat in its place   <- fix this, Might make more sense to have animals contain a list of items they turn into when butchered and go through the list
                 anim1.al.erase(anim1.al.begin() + anim1.a_by_id(a.id));//erase animal from global animal list
                 return true;//done
             }
@@ -1315,71 +1768,102 @@ bool People::hunting(string species) {
             return false;//search for target
         }
     }
-    else if (species == "rabbit") {//need to handle when to remove traps or place them in new spots, especially when either not having a campsite or when moving campsites, fix this
-        if (pl[p].search_results.find("rabbit") != pl[p].search_results.end()) {
-            vector<Position> pos_list = pl[p].search_results["rabbit"];
-            sort(pos_list.begin(), pos_list.end());//need to sort vector before using or else will get stuck. unsure if sort by current position or by 0,0
-            Animal::animal& a = anim1.al[anim1.a_by_id(Environment::Map[pos_list[0].y][pos_list[0].x].animal_id)]; 
+ 
+    //this serves as the trapping method, need to add a bit of variety for if prey is fish or not. FIX THIS
+    //need to add fish
+    //(includes fishing with nets) (go to area known to have animal, set trap and either wait for trap to spring or come back later to check traps)
+    else if (hunting_method == "trap") {//need to handle when to remove traps (could make them one use too) or place them in new spots, especially when either not having a campsite or when moving campsites, fix this
             if (!a.is_alive) {
-                if (inventory_has("knife").empty()) {
-                    acquire("knife");
+                if (!acquire("knife")) {//fix this, this should be already handled in acquire(), as in simply call acquire(item) and if it returns true then it's becuase already have item, else it's in process and therefore if false return false in hunting() because an action is in process
+                    
                     return false;//in progress
                 }
-                if (move_to(pos_list[0],"to rabbit")) {
+                if (move_to({a.pos.x,a.pos.y}, "to trapped small game")) {
                     Environment::Map[a.pos.y][a.pos.x].animal_id = -1;//remove dead animal from map
                     delete_item(Environment::Map[a.pos.y][a.pos.x].item_id, { a.pos.x,a.pos.y }, -1);//delete active trap
-                    create_item("rabbit_meat", { a.pos.x,a.pos.y });//add rabbit meat in its place
+                    create_item(a.meat_type, { a.pos.x,a.pos.y });//add meat in its place
                     anim1.al.erase(anim1.al.begin() + anim1.a_by_id(a.id));//erase animal from global animal list
                     return true;//done
                 }
             }
-        }
-        if (pl[p].saw_rabbit_recently) {
-            if (pl[p].traps_set.size() < 4) {
-                if (pl[p].search_results.find("no item") != pl[p].search_results.end()) {
-                    if (inventory_has("trap").empty()) {
-                        acquire("trap");
-                        return false; //in progress
-                    }
-                    int trap_ind = inventory_has("trap")[0];
-                    delete_item(pl[p].item_inventory[trap_ind], { -1,-1 }, trap_ind);
-                    create_item("active trap", { -1,-1 });
-                    trap_ind = inventory_has("active trap")[0];
-                    if (!drop_item(trap_ind)) {
-                        pl[p].general_search_called = true;
-                        return false;//in progress
-                    }
-                    pl[p].traps_set.push_back({ pl[p].dropsite, pday_count });
-                    pl[p].dropsite = { -1,-1 };
-                    return false;//in progress
-                }
-            }
-        }
-        if (!pl[p].traps_set.empty()) {//if have traps, check traps
-            bool all_traps_checked = true;
-            for (trap_check& t : pl[p].traps_set) {
-                if ((pday_count - t.last_day_checked) >= 3) {//check each trap once every other day since it was set
-                    all_traps_checked = false;
-                    if (move_to(t.pos, "to trap")) {
-                        t.last_day_checked = pday_count;
-                    }
-                    break;
-                }
-            }
-        }
+        
      }
-    pl[p].general_search_called = true;
-    return false;//searching
+
+    else if (hunting_method == "angling") {
+        if (pl[p].active_fish_hook_pos.x != -1) {
+            //get fishing rod and bait
+            if (!acquire("fishing rod")) {
+                return false;//don't have fishing rod, getting it
+            }
+            if (!acquire("fish bait")) {
+                return false;//don't have fish bait, getting it
+            }
+            //go to water
+            if (pl[p].search_results.find("water") != pl[p].search_results.end()) {
+                if (Position::distance(pl[p].search_results["water"][0], pl[p].pos) == 1 || move_to(pl[p].search_results["water"][0], "to water")) {
+                    //reached water edge, continue angling function
+                }
+                return false;//moving towards water
+            }
+            else {
+                pl[p].general_search_called = true;
+                return false;//search for water
+            }
+            //throw fishing rod hook into water
+            create_item("active fish hook", { -1,-1 });//FIX THIS: need to create fish, fish hook, fish bait, fishing rod, and active fish hook and related fish behavior
+            int trap_ind = inventory_has("active fish hook")[0];
+            if (!drop_item(trap_ind)) {//if no valid tile to throw hook in, if valid tile then drop hook
+                pl[p].general_search_called = true;
+                pl[p].active_fish_hook_pos = pl[p].dropsite;
+                return false;//in progress
+            }
+        }
+        
+        int fish_id = Environment::Map[pl[p].active_fish_hook_pos.y][pl[p].active_fish_hook_pos.x].animal_id;
+        if (fish_id == -1) {
+            pl[p].time_waited++;//might make more sense to use progress_state instead, fix this
+            //pl[p].move_already = true;//don't move this tick, might not work as might move before reaching this line of code. fix this
+            if (pl[p].time_waited >= ANGLING_WAIT_TIME) {
+                //remove active fish hook
+                delete_item(Environment::Map[pl[p].active_fish_hook_pos.y][pl[p].active_fish_hook_pos.x].item_id, pl[p].active_fish_hook_pos, -1);
+                pl[p].time_waited = 0;
+                pl[p].active_fish_hook_pos = { -1,-1 };
+                return false;//did not catch fish
+            }
+            return false;//waiting for fish to bite
+        }
+        else {
+            Animal::animal& a2 = anim1.al[anim1.a_by_id(fish_id)];
+            if (!a2.is_alive) {//something is dead on the hook, caught something. Distance doesn't matter because not moving to animal because it's "reeled in"
+                //remove active hook ("reel it in")
+                delete_item(Environment::Map[pl[p].active_fish_hook_pos.y][pl[p].active_fish_hook_pos.x].item_id, pl[p].active_fish_hook_pos, -1);
+                pl[p].time_waited = 0;
+                pl[p].active_fish_hook_pos = { -1,-1 };
+                Environment::Map[a2.pos.y][a2.pos.x].animal_id = -1;//remove dead animal from map
+                create_item(a2.meat_type, { a2.pos.x,a2.pos.y });//add meat in its place
+                anim1.al.erase(anim1.al.begin() + anim1.a_by_id(a2.id));//erase animal from global animal list
+                return true;//done
+            }
+        }
+    }
 }
 
+
+//NOTE: for implementing cooperation, conduct through speak() requests and answers. Person 1 proposes joint action, Person 2 decides whether to agree or not. If a 3rd person or more are involved, then need to set a meeting location and time to conduct the proposition -> up/down vote and an option to continue action with those who said yes only. Later add option to be able to coerce those who said no into complying.
+
+
 bool People::drinking() {
-    if (pl[p].thirst_level < THIRSTY_LEVEL) {
+    if (pl[p].thirst_level < THIRSTY_LEVEL && pl[p].drinking.progress==0) {
         return false;
     }
     if (pl[p].search_results.find("water") != pl[p].search_results.end()) {
-        if (move_to(pl[p].search_results["water"][0],"to water")) {
+        if (Position::distance(pl[p].pos, pl[p].search_results["water"][0])==1 || move_to(pl[p].search_results["water"][0], "to water")) {
             pl[p].thirst_level -= THIRST_REDUCTION_RATE;
-            return true;//done
+            pl[p].drinking.progress_done = pl[p].thirst_level / THIRST_REDUCTION_RATE;//drink until practically no longer any thirst
+            if (pl[p].drinking.progress_func()) {//drinking delay. add animation
+                return true;//done
+            }
+            return true;//in progress
         }
     }
     else {
@@ -1388,9 +1872,9 @@ bool People::drinking() {
     return true;//in progress
 }
 
+//integrate this into craft() as a generic that also serves mining stone, obtaining water and milking cows, picking berries off bushes instead of consuming whole bush
 bool People::cut_down_tree() {
     if (!inventory_has("wood").empty()) {
-        cout << "have wood";
         return true;
     }
     if (pl[p].search_results.find("tree") != pl[p].search_results.end()) {
@@ -1427,7 +1911,6 @@ void People::change_disposition(int p_id, int amount, string reason) {
         else if (pl[p].dispositions[p_id] > 100) {
             pl[p].dispositions[p_id] = 100;
         }
-        //cout << "change\n";
     }
     else {
         pl[p].dispositions.insert({ p_id,amount });
@@ -1469,7 +1952,6 @@ void People::chat() {//if make this a speak() action, can affect dispositions of
             (comment < 0) ? valence = "insult" : valence = "compliment";
             change_disposition(pl[op].id, comment, valence);//positive is compliment, negative is insult
             p = op;
-            //cout << "chat\n";
 
         }
         else {
@@ -1480,9 +1962,10 @@ void People::chat() {//if make this a speak() action, can affect dispositions of
 
 //has a magic number but unsure if it needs to be pulled out as it's only relevant here and might not need to be balanced against other numbers.
 void People::authority_calc() {
-    int num_people_liked_by = 0;
-    int amount_liked = 0;
-    int num_submissives = 0;
+    int num_people_liked_by = 1;//set all factors to 1 to avoid any 0 making authority == 0; For debugging. This worked to allow someone to win the game. 
+    int amount_liked = 1;
+    int num_submissives = 1;
+    if (pl[p].num_fights_won == 0) { pl[p].num_fights_won = 1; }
     bool am_sovereign = true;
     for (int i = 0; i < pl.size(); i++) {
         if (pl[i].dispositions.find(pl[p].id) != pl[i].dispositions.end()) {
@@ -1506,6 +1989,7 @@ void People::authority_calc() {
     //10000 = 10*10*10*10 = 1*100*1*1  <-- this may be a problem, rethink formula
     if (pl[p].authority > 10000 && am_sovereign) {
         pl[p].monument_unlocked = true;
+        game_won = true;
     }
     else {
         pl[p].monument_unlocked = false;//access to monument building can be lost if authority is lost
@@ -1551,6 +2035,9 @@ vector<int> People::remove_dup(vector<int> v) {
     }
     return v2;
 }
+
+//note: maybe a mechanic to desire to be liked, such that if someone dislikes one, one tries to improve the other's opinion of onself, would help prevent excessive social isolation on a population level
+//but this should be either random or personality determined so that some seek out more or less to be liked. 
 
 //has percent magic numbers
 //need to implement being downed if lost a personal fight and how to recover, as well as in what cases might be killed or can kill (maybe a percent chance?)
@@ -1644,7 +2131,7 @@ bool People::fight() {//Order of execution for people here might necessitate hav
 
             }
             else {
-                pl[p].num_fights_won--;
+                //pl[p].num_fights_won--;   //Fights lost getting subtracted might be causing game to be unwinnable given that the wins and losses average out to 0, preventing win state. Keep them commented out for now.
 
             }
         }
@@ -1678,10 +2165,10 @@ bool People::fight() {//Order of execution for people here might necessitate hav
             }
         }
         else {
-            pl[p].num_fights_won--;
+            //pl[p].num_fights_won--;
             for (int i = 0; i < pl[p].hostile_towards.size(); i++) {//reduces enemy submission level to me
                 if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.find(pl[p].id) != pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.end()) {
-                    pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost--;
+                    //pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost--;
                     if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost < 3) {
                         pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].submissive_to = false;
                     }
@@ -1820,6 +2307,15 @@ void People::build_monument() {
     drop_item(inventory_has("monument")[0]);
     cout << pl[p].id << " HAS WON THE GAME\n";
 }
+
+void People::create_tracks(Position pos) {
+    if (pl[p].last_position.x != -1) {
+        Environment::Tracks t = { "human", 0, pos.x, pos.y};
+        Environment::Map[pl[p].last_position.y][pl[p].last_position.x].track = t;
+    }
+}
+
+
 //need to implement a chance of no longer submitting to someone if their authority level falls too low or below one's own
 //need to either figure out a way to handle order execution priority between getting food and removing campsite or create a function called remove_campsite to encapsulate its code and call before attempting to get food
 

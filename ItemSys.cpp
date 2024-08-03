@@ -23,6 +23,17 @@ ItemSys::ItemSys() {
 
     presets.insert({ "monument",   { -1, "monument", "monument" , {}, {},false} });
 
+    presets.insert({ "medicine",   { -1, "medicine","pics/debug.png" , {}, {"wood"},false} });
+    presets.insert({ "bandage",   { -1,  "bandage","pics/debug.png" , {}, {"wood"},false} });
+    presets.insert({ "campfire",   { -1,  "campfire","pics/debug.png" , {}, {"wood"},false} });
+    presets.insert({ "necklace",   { -1,  "necklace","pics/debug.png" , {}, {"wood"},false} });
+    presets.insert({ "trumpet",   { -1, "trumpet","pics/debug.png" , {}, {"wood"},false} });
+    presets.insert({ "fishing rod",   { -1,  "fishing rod","pics/debug.png" , {}, {"wood"},false} });
+    presets.insert({ "fishing bait",   { -1, "fishing bait","pics/debug.png" , {}, {"wood"},false} });
+    presets.insert({ "poncho",   { -1, "poncho","pics/debug.png" , {"clothes","torso_wearing_eq"}, {"wood"},false}});
+    presets["poncho"].insulation_from_cold = 10;
+    presets.insert({ "active fish hook",   { -1, "active fish hook","pics/debug.png" , {}, {"wood"},false} });
+
     fill_tag_lookup();
     /*
     cout << "\n\n\n\n\n";

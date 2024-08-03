@@ -44,7 +44,7 @@ map<string, SDL_Texture*> texture_map;
 
 int day_count = 0; //temporary measure for counting days passed
 int hour_count = 0; //temporary measure for tracking when a new day starts, 20 updates == 1 day
-int hours_in_day = 40;
+int hours_in_day = 24*4;
 
 int initint = 1;
 void Game::initGameState() {
@@ -103,7 +103,11 @@ void Game::initGameState() {
 	{"head", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/head.png"))},
 	{"human_female", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_female.png"))},
 	{"fire", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/fire.png"))},
-	{"rain", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rain1.png"))}
+	{"rain", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/rain1.png"))},
+	{"tracks", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/tracks.png"))},
+	{"playing_trumpet", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_playing_trumpet.png"))},
+	{"bathing", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_bathing.png"))},
+	{"darkness", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/darkness_filter.png"))}
 	};
 
 
@@ -258,11 +262,26 @@ void Game::render() {
 					textureManager("pics/shallow_water.png", destR);
 				}
 			}
+			if (Environment::Map[y][x].track.track_age != -1) {
+				textureManager("tracks", destR);
+			}
 			if (Environment::Map[y][x].has_fire) {//fire should be last thing drawn, needs to be moved to the end of render() FIX THIS
 				textureManager("fire", destR);
 			}
 			if (Environment::Map[y][x].has_rain) {//same issue regarding draw order as fire, fix this
 				textureManager("rain", destR);
+			}
+			if (Environment::Map[y][x].light_level <= 3) {//this would be better as a for loop, fix
+				textureManager("darkness", destR);
+				if (Environment::Map[y][x].light_level <= 2) {
+					textureManager("darkness", destR);
+					if (Environment::Map[y][x].light_level <= 1) {
+						textureManager("darkness", destR);
+						if (Environment::Map[y][x].light_level == 0) {
+							textureManager("darkness", destR);
+						}
+					}
+				}
 			}
 		}
 	}

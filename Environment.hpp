@@ -27,6 +27,14 @@ using namespace std;
 //add more clique based behavior such as fighting over land if hungry, blood feuds, defend each other, raid each other, etc
 
 class Environment {
+public:
+	struct Tracks {//might serve for the creation of cow trails as well (natural roads/paths)
+		//int id = -1; //id might not be necessary
+		string creature;//the animal/person that caused the tracks
+		int track_age=-1;//for controlling the lifetime of tracks according to terrain type. (tracks last longer in snow, no tracks made on stone (add feces and urine, etc later which can be found on stone))
+		int direction_x;//which way the tracks are pointing
+		int direction_y;
+	};
 
 	struct Tile {
 		int person_id = -1;//helps enforce only 1 person per tile. Maybe make an exception for carrying infants or wounded? Or might be better to tie the carried infants/wounded in a the inventory of the carrier 
@@ -36,6 +44,9 @@ class Environment {
 		string terrain;
 		bool has_fire = false;
 		bool has_rain = true;
+		Tracks track;
+		int light_level = 4;//max light
+		int temperature = 75;
 	};
 
 	struct sky_tile {
@@ -43,7 +54,7 @@ class Environment {
 		bool has_moon = false;
 	};
 
-public:
+
 	static const int map_y_max = 50;
 	static const int map_x_max = 100;
 	static Tile Map[map_y_max][map_x_max];
@@ -55,6 +66,9 @@ public:
 
 	static void fire_spread();
 	static void rain();
+	static void track_manager();
+
+	static vector<int> people_in_stealth;//used so that Animal knows if any person is in stealth
 };
 
 #endif

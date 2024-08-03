@@ -1,6 +1,8 @@
 #include "Animal.hpp"
 using namespace std;
 
+//need to isolate any unique parts of Animal both in the hpp and cpp, then import the latest version of People and strip it to create an updated Animal and add back in the unique parts saved prior.
+
 vector<Animal::animal> Animal::al;
 vector<Animal::Message> Animal::message_list;
 vector<int> Animal::Message_Map[Environment::map_y_max][Environment::map_x_max];
@@ -104,6 +106,7 @@ bool Animal::check_death() {
 }
 
 void Animal::update(int day_count, int hour_count, int hours_in_day) {
+    al[a].meat_type = al[a].species + "_meat";
     if (check_death()) {
         return;
     }
@@ -160,21 +163,41 @@ bool Animal::move_to(Position dest) {//need to add speed of moving from one tile
         al[a].current_image = "pics/debug.png";
         return true;
     }
+
+    if (al[a].fleeing) {
+        int chance = rand() % 2;//50/50 chance that animal sprints away rather than simply moving away
+        if (chance == 0) {
+            al[a].speed = 2;
+        }
+    }
+    else {
+        al[a].speed = 1;
+    }
+
+    if (al[a].pos != al[a].last_position) {
+        al[a].last_position = al[a].pos;
+    }
+
+    if (Position::distance(al[a].pos, dest) == 1) {//prevents overshooting destination if fleeing
+        al[a].speed = 1;
+    }
+
     Position old_pos = al[a].pos;
     Environment::Map[al[a].pos.y][al[a].pos.x].animal_id = -1;//remove animal from Map
     if (al[a].pos.x < dest.x) {//for future optimization, see: https://stackoverflow.com/questions/14579920/fast-sign-of-integer-in-c
-        al[a].pos.x++;
+        al[a].pos.x+=al[a].speed;
     }
     else if (al[a].pos.x > dest.x) {
-        al[a].pos.x--;
+        al[a].pos.x-= al[a].speed;
     }
 
     if (al[a].pos.y < dest.y) {
-        al[a].pos.y++;
+        al[a].pos.y+= al[a].speed;
     }
     else if (al[a].pos.y > dest.y) {
-        al[a].pos.y--;
+        al[a].pos.y-= al[a].speed;
     }
+    
     bool reached = false;
     if (Environment::Map[al[a].pos.y][al[a].pos.x].animal_id == -1) {//if no other animal on this tile
         Environment::Map[al[a].pos.y][al[a].pos.x].animal_id = al[a].id;//add animal back to animal_Map at new location
@@ -196,6 +219,26 @@ bool Animal::move_to(Position dest) {//need to add speed of moving from one tile
             }
         }
     }
+
+    if (al[a].pos != al[a].last_position) {
+        int x=0;
+        int y=0;
+        if (al[a].pos.x < al[a].last_position.x) {
+            x = -1;
+        }
+        else if (al[a].pos.x > al[a].last_position.x) {
+            x = 1;
+        }
+        if (al[a].pos.y < al[a].last_position.y) {
+            y = -1;
+        }
+        else if (al[a].pos.y > al[a].last_position.y) {
+            y = 1;
+        }
+        Position dir = {x,y};
+        create_tracks(dir);
+    }
+    
     return reached;
 }
 
@@ -307,7 +350,7 @@ void Animal::find_all() {//returns all things (items, people, messages, etc) fou
             for (int sign = -1; sign <= 1; sign += 2) {//sign == -1, then sign == 1
                 Position pos1 = { x,o.y + (sign * radius) };
                 Position pos2 = { o.x + (sign * radius), y };
-                //check for people
+                //check for animals
                 if (valid_position(pos1)) {
                     if (Environment::Map[pos1.y][pos1.x].animal_id != -1) {
                         string species = al[a_by_id(Environment::Map[pos1.y][pos1.x].animal_id)].species;
@@ -406,6 +449,72 @@ void Animal::find_all() {//returns all things (items, people, messages, etc) fou
                         }
                     }
                 }
+                //check for people
+                if (valid_position(pos1)) {
+                    if (Environment::Map[pos1.y][pos1.x].person_id != -1) {
+                        bool detect = true;
+                        for (int pid : Environment::people_in_stealth) {
+                            if (pid == Environment::Map[pos1.y][pos1.x].person_id) {
+                                detect = false;//don't detect
+                                break;
+                            }
+                        }
+                        if (detect) {
+                            if (search_results.find("people") != search_results.end()) {//check if key exists
+                                //key found
+                                search_results["people"].push_back({ pos1 });
+                            }
+                            else {
+                                //key not found
+                                search_results.insert({ "people",{pos1} });
+                            }
+                        }
+                    }
+                    else {//creates list of tiles without any item, for use when placing an item on the map
+                        if (search_results.find("no people") != search_results.end()) {//check if key exists
+                            //key found
+                            search_results["no people"].push_back({ pos1 });
+                        }
+                        else {
+                            //key not found
+                            search_results.insert({ "no people",{pos1} });
+                        }
+                    }
+                }
+                if (y <= ymax) {
+                    if (valid_position(pos2)) {
+                        if (Environment::Map[pos2.y][pos2.x].person_id != -1) {
+                            bool detect = true;
+                            for (int pid : Environment::people_in_stealth) {
+                                if (pid == Environment::Map[pos2.y][pos2.x].person_id) {
+                                    detect = false;//don't detect
+                                    break;
+                                }
+                            }
+                            if (detect) {
+                                if (search_results.find("people") != search_results.end()) {//check if key exists
+                                    //key found
+                                    search_results["people"].push_back({ pos2 });
+                                }
+                                else {
+                                    //key not found
+                                    search_results.insert({ "people",{pos2} });
+                                }
+                            }
+                        }
+                        else {//creates list of tiles without any item, for use when placing an item on the map
+                            if (search_results.find("no people") != search_results.end()) {//check if key exists
+                                //key found
+                                search_results["no people"].push_back({ pos2 });
+                            }
+                            else {
+                                //key not found
+                                search_results.insert({ "no people",{pos2} });
+                            }
+                        }
+                    }
+                }
+
                 //check for messages
                 if (valid_position(pos1)) {
                     check_tile_messages(pos1);
@@ -608,6 +717,15 @@ bool Animal::acquire(string target) {
 }
 
 void Animal::utility_function() {//is currently actually just a behavior tree not a utility function. Selects what action to take this tick.
+    if (al[a].search_results.find("people") != al[a].search_results.end()) {
+        //if people seen and am ambushable animal, flee
+        if (al[a].species == "chicken") {
+            al[a].fleeing = true;
+            move_to(walk_search_random_dest());
+            return;
+        }
+    }
+    
     if (sleeping()) {}
     else if (eating()) {}//if don't have food, searches for food. Therefore the structure of utility_function is focused on which needs to satsify first (sleep, hunger, campsite, reproduction, etc)
     else if (reproduce()) {}
@@ -678,3 +796,9 @@ bool Animal::eating() {
     return true;//in progress
 }
 
+void Animal::create_tracks(Position pos) {
+    if (al[a].last_position.x != -1) {
+        Environment::Tracks t = { al[a].species, 0, pos.x, pos.y };
+        Environment::Map[al[a].last_position.y][al[a].last_position.x].track = t;
+    }
+}

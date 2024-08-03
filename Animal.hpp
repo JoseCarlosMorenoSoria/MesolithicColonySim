@@ -109,8 +109,14 @@ public:
 		string diet="";
 
 		bool isdead = false;
-	};
 
+		Position last_position;//for setting direction of tracks
+
+		string meat_type;
+		int speed = 1;
+		bool fleeing = false;
+	};
+	//need to implement flee mechanic to animal and make animal faster than human but slow to react (later it should be slow to accelerate not react?)
 
 
 	//vectors use more memory than necessary? Need to check
@@ -154,6 +160,8 @@ public:
 
 	vector<Position> filter_search_results(string target);
 
+
+	void create_tracks(Position pos);
 };
 
 #endif

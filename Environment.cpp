@@ -1,6 +1,7 @@
 #include "Environment.hpp"
 
 using namespace std;
+vector<int> Environment::people_in_stealth;//used so that Animal knows if any person is in stealth
 
 Environment::Tile Environment::Map[50][100]; //this somehow resolved link error of People not accessing the Map, but might have unintended consequences?
 vector<Environment::sky_tile> Environment::Sky;
@@ -150,6 +151,7 @@ void Environment::update(int hours_in_day, int hour_count, int day_count) {
 	
 	//rain(); needs trigger
 	fire_spread(); //needs triggers
+	track_manager();
 
 	if (season == 0) {
 		int spawn_chance = rand() % 100;
@@ -232,7 +234,7 @@ void Environment::fire_spread() {//FIX THIS. this function is inefficient. Fire 
 		}
 	}
 }
-
+//all these functions that check the whole map every tick are inefficient, need to merge them together
 bool rain_flip = false;
 void Environment::rain() {
 	for (int y = 0; y < map_y_max; y++) {
@@ -258,3 +260,23 @@ void Environment::rain() {
 	rain_flip = !rain_flip;
 }
 
+
+void Environment::track_manager() {//need to implement: tracks should be removable by the placement of other items on it or replaced by another animal or person walking on it
+	for (int y = 0; y < map_y_max; y++) {
+		for (int x = 0; x < map_x_max; x++) {
+			if (Map[y][x].track.track_age!=-1) {
+				if (Map[y][x].terrain == "stone") {//no tracks on stone, might be more efficient to simply not place tracks in the first place, fix?
+					Map[y][x].track = {};//reset
+				}
+				else {
+					if (Map[y][x].track.track_age > 10) {//10 ticks
+						Map[y][x].track = {};//reset
+					}
+					else {
+						Map[y][x].track.track_age++;
+					}
+				}
+			}
+		}
+	}
+}

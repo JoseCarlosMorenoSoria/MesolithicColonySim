@@ -11,7 +11,7 @@ int main(int argc, const char* argv[]) {
 	srand((unsigned int)time(NULL));//set seed for rand()
 
 	//frame rate variables
-	const int FPS = 12; //normally 60 FPS, currently less for testing
+	const int FPS = 120; //normally 60 FPS, currently less for testing. use 12FPS?
 	const int frameDelay = 1000 / FPS;
 	Uint32 frameStart;
 	int frameTime;
@@ -23,7 +23,7 @@ int main(int argc, const char* argv[]) {
 	while (game.running()) {
 		frameStart = SDL_GetTicks();//for capping frame rate below
 		game.handleEvents(); 
-		int speed = 1; //controls how many updates before a new frame is rendered. Useful for speeding up time/debugging
+		int speed = 16; //controls how many updates before a new frame is rendered. Useful for speeding up time/debugging
 		for (int i = 0; i < speed; i++) {
 			srand((unsigned int)time(NULL));//ensures random numbers don't repeat every program run
 			game.update();
