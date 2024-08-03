@@ -142,7 +142,7 @@ public:
 		Position pos;
 		bool sex; //true==male, false==female
 
-		string name;
+		string name = "no name";
 		string current_image = "pics/human.png";
 
 		equipped_items equipped;

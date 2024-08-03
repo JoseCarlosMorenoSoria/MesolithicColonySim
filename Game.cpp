@@ -26,6 +26,19 @@ void Game::init(const char* title, int xpos, int ypos, int width, int height, bo
 			SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);//set background color
 			cout << "Renderer created." << endl;
 		}
+		
+		//Initialize PNG loading		unsure if this and ttf init are necessary or if SDL_INIT_EVERYTHING already handles it
+		int imgFlags = IMG_INIT_PNG;
+		if (!(IMG_Init(imgFlags) & imgFlags))
+		{
+			printf("SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError());
+		}
+		//Initialize SDL_ttf
+		if (TTF_Init() == -1)
+		{
+			printf("SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError());
+		}
+		
 		isRunning = true;
 	}
 	else {
@@ -107,13 +120,22 @@ void Game::initGameState() {
 	{"tracks", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/tracks.png"))},
 	{"playing_trumpet", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_playing_trumpet.png"))},
 	{"bathing", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_bathing.png"))},
-	{"darkness", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/darkness_filter.png"))}
+	{"darkness", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/darkness_filter.png"))},
+
+
+	{"a", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/text/a.png"))},
+	{"b", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/text/b.png"))},
+	{"c", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/text/c.png"))},
+
+	{"menu_color", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/menu_background.png"))},
 	};
 
 
 	//create_human();
 }
 
+int menu_num = 0;
+bool pause_game = false;
 void Game::handleEvents() { //this handles user inputs such as keyboard and mouse
 	SDL_Event event;
 	SDL_PollEvent(&event);
@@ -132,6 +154,13 @@ void Game::handleEvents() { //this handles user inputs such as keyboard and mous
 			break;
 		case SDLK_DOWN:
 			player.move("S");
+			break;
+		case SDLK_p:
+			pause_game = !pause_game;
+			break;
+		case SDLK_n:
+			menu_num++;
+			menu_num %= 4;//4 menu screens
 			break;
 		default:
 			break;
@@ -170,17 +199,18 @@ void Game::update() {
 	
 
 
+	if (!pause_game) {
+		hour_count++;
+		if (hour_count == hours_in_day) {
+			hour_count = 0;
+			day_count++;
+		}
 
-	hour_count++;
-	if (hour_count == hours_in_day) {
-		hour_count = 0;
-		day_count++;
+		Environment::update(hours_in_day, hour_count, day_count);
+		peep.update_all(day_count, hour_count, hours_in_day);
+		anim.update_all(day_count, hour_count, hours_in_day);
+		player.update();
 	}
-
-	Environment::update(hours_in_day, hour_count, day_count);
-	peep.update_all(day_count, hour_count, hours_in_day);
-	anim.update_all(day_count, hour_count, hours_in_day);
-	player.update();
 }
 
 
@@ -213,6 +243,7 @@ void Game::textureManager(string texture, SDL_Rect destRect) {//textureManager f
 			//SDL_RenderCopy(renderer, tmpTex, NULL, &destRect);
 	SDL_RenderCopy(renderer, texture_map[texture], NULL, &destRect);
 			//SDL_DestroyTexture(tmpTex); //this might not be necessary, maybe move to the game.clean() function
+
 }
 
 
@@ -221,8 +252,11 @@ void Game::render() {
 	//resets destR for printing environment
 	destR.x = 0;
 	destR.y = 0;
+	destR.w = sqdim;
+	destR.h = sqdim;
 	//animation_testing();
 
+	
 	for (int x = 0; x < hours_in_day/2; x++) {
 		destR.x = x * sqdim;
 		destR.y = 0;
@@ -271,6 +305,7 @@ void Game::render() {
 			if (Environment::Map[y][x].has_rain) {//same issue regarding draw order as fire, fix this
 				textureManager("rain", destR);
 			}
+			//this (darkness) doesn't seem to work, fix
 			if (Environment::Map[y][x].light_level <= 3) {//this would be better as a for loop, fix
 				textureManager("darkness", destR);
 				if (Environment::Map[y][x].light_level <= 2) {
@@ -310,9 +345,95 @@ void Game::render() {
 		}
 	}
 	
+	if (pause_game) {
+		destR.x = 10 * sqdim;
+		destR.y = 10 * sqdim;
+		destR.w = sqdim * 80;
+		destR.h = sqdim * 30;
+		textureManager("menu_color", destR);
+
+		if (menu_num == 0) {
+			vector<string> stats = player.view_own_data();//should menus be moved inside of Player class?
+			int x = 16;
+			int y = 12;
+			textManager("Player Stats: ", 24, x * sqdim, y * sqdim);
+			y++;//because Player Stats is larger and so needs more vertical room
+			for (string s : stats) {
+				y++;
+				textManager(s, 12, x * sqdim, y * sqdim);
+			}
+		}
+		else if (menu_num == 1) {
+			vector<string> inventory = player.view_inventory();//should menus be moved inside of Player class?
+			int x = 16;
+			int y = 12;
+			textManager("Player Inventory: ", 24, x* sqdim, y* sqdim);
+			y++;
+			for (string s : inventory) {
+				y++;
+				textManager(s, 12, x * sqdim, y * sqdim);
+			}
+		}
+		else if (menu_num == 2) {
+			vector<string> equipment = player.view_equipment();//should menus be moved inside of Player class?
+			int x = 16;
+			int y = 12;
+			textManager("Player Equipment: ", 24, x * sqdim, y * sqdim);
+			y++;
+			for (string s : equipment) {
+				y++;
+				textManager(s, 12, x * sqdim, y * sqdim);
+			}
+		}
+		else if (menu_num == 3) {
+			vector<string> dispositions = player.view_dispositions();//should menus be moved inside of Player class?
+			int x = 16;
+			int y = 12;
+			textManager("Player Dispositions: ", 24, x * sqdim, y * sqdim);
+			y++;
+			for (string s : dispositions) {
+				y++;
+				textManager(s, 12, x * sqdim, y * sqdim);
+			}
+		}
+
+		
+
+		
+	}
+
+
+	/* For when I want to use my own custom font
+	string test = "abccba";
+
+	destR.x = 50 * sqdim;
+	destR.y = 25 * sqdim;
+	for (auto &c : test) {
+		string s(1,c);
+		textureManager(s, destR);
+		destR.x/=sqdim;
+		destR.x++;
+		destR.x *= sqdim;
+	}
+	*/
+
 	SDL_RenderPresent(renderer);
 }
 
+//fix this: need to cache text constants such as menu titles, labels, etc and only update variable text such as numbers and names, etc.
+void Game::textManager(string text, int size, int x, int y) {
+	TTF_Font* font = TTF_OpenFont("pics/text/LEMONMILK-Bold.otf", size);
+	SDL_Color color = { 0, 0, 0 };//black
+	const char* text1 = text.c_str();
+	SDL_Surface* text_surface = TTF_RenderText_Solid(font, text1, color);
+	SDL_Texture* text_texture = SDL_CreateTextureFromSurface(renderer, text_surface);
+	destR.w = text_surface->w;
+	destR.h = text_surface->h;
+	SDL_FreeSurface(text_surface);//to prevent memory leak?
+	destR.x = x;
+	destR.y = y;
+	SDL_RenderCopy(renderer, text_texture, NULL, &destR);
+}
 
 void Game::clean() {
 	SDL_DestroyWindow(window);

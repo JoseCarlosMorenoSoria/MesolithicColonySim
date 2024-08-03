@@ -109,9 +109,9 @@ void People::update_all(int day_count, int hour_count, int hours_in_day) {
         if (pl[p].authority > top_auth) {
             top_auth = pl[p].authority;
         }
-        //anchor
     }
-    cout << top_auth << "\n";
+    //cout << top_auth << "\n";
+    
     //clear global message list every other update. One issue with npcs cooperating or communicating is sequence order, 
     //as in if npc1 updates before npc2, anything npc2 says or does won't be witnessed unless it is still there on the next update, NEED TO FIX
     if (message_clear_flag) {

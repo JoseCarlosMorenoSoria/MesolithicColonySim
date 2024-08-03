@@ -3,6 +3,7 @@
 #define SDL_MAIN_HANDLED //this is included before the SDL.h include to resolve a LNK2019 error
 #include  "SDL.h"
 #include "SDL_image.h"
+#include <SDL_ttf.h>
 #include <iostream>
 #include <string>
 #include <map>
@@ -30,13 +31,14 @@ public:
 
 	static void textureManager(string texture, SDL_Rect destRect, int angle, SDL_Point center);
 	static void textureManager(string texture, SDL_Rect destRect);
+	static void textManager(string text, int size, int x, int y);
 
 	bool isRunning;
 	SDL_Window* window; //window and renderer have to(?) be pointers because they aren't instanced until the Game::init function runs.
 	static SDL_Renderer* renderer; //should this be made static and public?
 
-
-
+	TTF_Font* gFont = NULL;
+	SDL_Texture* mTexture;
 
 
 	//animation - move to another class

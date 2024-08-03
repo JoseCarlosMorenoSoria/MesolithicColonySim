@@ -101,14 +101,111 @@ void Player::bathe() {}
 void Player::share_disposition() {}
 
 void Player::mouse_info() {}//show info on whatever is being moused over
-void Player::view_inventory() {}
 void Player::pause_game() {}
-void Player::view_own_data() {}//variables such as sex, tired_level, search_results, found_messages, etc.
+
+
+vector<string> Player::view_own_data() {
+	vector<string> stats;
+	pc->name = "Jose";//need to implement both npc names and player naming, fix this
+	stats.push_back("Name: "+pc->name);
+	stats.push_back("Sex: " + string((pc->sex) ? "male" : "female"));
+	stats.push_back("Hunger Level: "+to_string(pc->hunger_level));
+	stats.push_back("Thirst Level: " + to_string(pc->thirst_level));
+	stats.push_back("Tired Level: " + to_string(pc->tired_level));
+	stats.push_back("Recreation Level: " + to_string(pc->recreation_level));
+	stats.push_back("Beauty Satisfied: " + string((pc->beauty_need_satisfied) ? "True" : "False"));
+	stats.push_back("Current Camp Location: " + string((pc->campsite_pos.x == -1) ? "none" : to_string(pc->campsite_pos.x) + ", " + to_string(pc->campsite_pos.y)));
+	stats.push_back("Current Camp Age: " + string((pc->campsite_age == -1) ? "N/A" : to_string(pc->campsite_age)));
+	stats.push_back("Spouse: " + string((pc->spouse_id != -1) ? pl[p_by_id(pc->spouse_id)].name : "none"));
+	string children= "Children:";
+	if (pc->children_id.empty()) { children += " none"; }
+	else {
+		for (int i : pc->children_id) {
+			children += " " + pl[p_by_id(i)].name + ",";
+		}//need to remove last comma after loop ends
+	}
+	stats.push_back(children);
+	stats.push_back("Age: "+to_string(pc->age));
+	stats.push_back("Monument Unlocked: " + string((pc->monument_unlocked) ? "True" : "False"));
+	stats.push_back("Fights Won: "+to_string(pc->num_fights_won));
+	stats.push_back("Authority Level: "+to_string(pc->authority));
+	stats.push_back("Dirtiness Level: "+to_string(pc->dirtiness));
+	stats.push_back("My Temperature: "+to_string(pc->my_temperature));
+	stats.push_back("Sickness: " + string((!pc->am_sick) ? "none" : "Yes - Sick Time: " + to_string(pc->sick_time)));
+	stats.push_back("Injured: " + string((!pc->am_injured) ? "none" : "Yes - Injured Time: " + to_string(pc->injured_time)));
+
+	return stats;
+
+	//separate menu lists?
+	/*
+	map<int, submit_tracker> submissive_to;//{Person_ID, submissive_to/Not submissive_to} tracks people who have won a fight against self at least 3 times (them being present as a hotile during a fight that was lost against someone else counts)
+	
+	This should be shown on the map in real time as speech bubbles above speaker
+	vector<int> found_messages;//message id's
+
+	*/
 
 
 
+}//variables such as sex, tired_level, search_results, found_messages, etc.
 
 
+vector<string> Player::view_inventory() {
+	vector<string> inventory;
+	for (int& i : pc->item_inventory) {
+		ItemSys::Item& item = ItemSys::item_list[ItemSys::item_by_id(i)];
+		inventory.push_back(item.item_name + " : ");
+	}//need to remove last colon after loop is done
+	if (inventory.empty()) {
+		inventory.push_back("Inventory is Empty");
+	}
+	return inventory;
+}
 
+vector<string> Player::view_equipment() {
+	vector<string> equipment;
+	for (auto& i : pc->equipped.equipment) {
+		string s = i.first + ": ";
+		if (i.second != -1) {
+			ItemSys::Item& item = ItemSys::item_list[ItemSys::item_by_id(i.second)];
+			s += item.item_name + " - Insulation = " + to_string(item.insulation_from_cold);
+			equipment.push_back(s);
+		}
+	}//need to remove last colon after loop is done
+	if (equipment.empty()) {
+		equipment.push_back("Nothing Equipped");
+	}
+	return equipment;
+}
 
+//These should be manually set by the player, such that if the player chooses to hate someone, they can set their disposition to that person as hate and therefore be able to share the disposition with other npcs
+//map<int, int> dispositions;//{Person_ID, favorability} holds id's of known people and whether and how much one likes or dislikes each
 
+vector<string> Player::view_dispositions() {
+	vector<string> dispositions;
+	for (auto& i : pc->dispositions) {
+		string s = "Name: " + pl[p_by_id(i.first)].name + " - ";
+		
+		if (i.second < HATED_THRESHOLD) {
+			s += "Hate(" + to_string(i.second) + ")";
+		}
+		else if (i.second < DISLIKE_THRESHOLD) {
+			s += "Dislike(" + to_string(i.second) + ")";
+		}
+		else if (i.second < LIKE_THRESHOLD) {
+			s += "Neutral(" + to_string(i.second) + ")";
+		}
+		else if (i.second < LOVED_THRESHOLD) {
+			s += "Like(" + to_string(i.second) + ")";
+		}
+		else {
+			s += "Love(" + to_string(i.second) + ")";
+		}
+
+		dispositions.push_back(s);
+	}
+	if (dispositions.empty()) {
+		dispositions.push_back("No Opinions on Anyone");
+	}
+	return dispositions;
+}

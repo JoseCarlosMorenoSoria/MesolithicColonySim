@@ -58,12 +58,11 @@ public:
 
 
 	void mouse_info();//show info on whatever is being moused over
-	void view_inventory();
 	void pause_game();
-	void view_own_data();//variables such as sex, tired_level, search_results, found_messages, etc.
-
-
-
+	vector<string> view_own_data();//variables such as sex, tired_level, search_results, found_messages, etc.
+	vector<string> view_inventory();
+	vector<string> view_equipment();
+	vector<string> view_dispositions();
 	
 
 	/*//player versions of these functions
