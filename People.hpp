@@ -182,6 +182,11 @@ public:
 		bool friend_camp_check = false;//used for searching for new campsite, check near friend first but only once
 	
 		People::Position lastpos;//for debugging find_all_helper. Unsure if actually bugged.
+
+		int px_x = 0;
+		int px_y = 0;
+		bool mov = false;
+		Position dest;
 	};
 
 	//note: given how the acquire function is structured, berrybush is given priority over bread. Don't know if this is affected by order of which is searched for first or if the depth of the crafting chain has affect on which is chosen. To encourage farming/crafting/etc, need to bias choices towards things like bread. 
@@ -197,6 +202,8 @@ public:
 	bool message_clear_flag = false;
 	int campsite_distance_search = 5;
 
+	static int p;
+
 	People();
 	People(int initint);
 	bool check_death();
@@ -210,7 +217,7 @@ public:
 	vector<int> remove_dup(vector<int> v);//to remove duplicates from vector but preserve original order
 	
 	//find a way to make these 2 functions automatic rather than having to be manually called
-	int new_person_id();
+	static int new_person_id();
 	int new_message_id();
 
 	//can these 2 functions be merged?

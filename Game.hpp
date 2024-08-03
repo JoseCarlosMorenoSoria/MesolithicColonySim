@@ -11,6 +11,7 @@
 #include "Environment.hpp"
 #include "ItemSys.hpp"
 #include "Animal.hpp"
+#include "Player.hpp"
 using namespace std;
 
 class Game {

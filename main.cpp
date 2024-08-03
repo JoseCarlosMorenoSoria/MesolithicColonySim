@@ -11,7 +11,7 @@ int main(int argc, const char* argv[]) {
 	srand((unsigned int)time(NULL));//set seed for rand()
 
 	//frame rate variables
-	const int FPS = 8; //normally 60 FPS, currently less for testing
+	const int FPS = 6; //normally 60 FPS, currently less for testing
 	const int frameDelay = 1000 / FPS;
 	Uint32 frameStart;
 	int frameTime;
@@ -19,7 +19,7 @@ int main(int argc, const char* argv[]) {
 	game = Game();
 	game.init("Game Title", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, (32*48), (32*27), false);
 	game.initGameState();
-	
+
 	while (game.running()) {
 		frameStart = SDL_GetTicks();//for capping frame rate below
 		game.handleEvents(); 

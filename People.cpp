@@ -4,7 +4,7 @@ using namespace std;
 vector<People::Person> People::pl; //pl, using the name pl because of the frequency of use, used to store all Person instances
 vector<People::Message> People::message_list;
 vector<int> People::Message_Map[Environment::map_y_max][Environment::map_x_max];
-int p = -1;//index for accessing current person. Using index to access instead of a pointer because list may change such as when a new person is born or dies which invalidates pointers to pl (people_list)
+int People::p = -1;//index for accessing current person. Using index to access instead of a pointer because list may change such as when a new person is born or dies which invalidates pointers to pl (people_list)
 ItemSys it2;//used to access member functions and variables of ItemSys
 int People::ox = -1;
 int People::oy = -1;
@@ -15,10 +15,13 @@ int People::people_id_iterator = 0;
 People::People(){}
 
 People::People(int initint) {
+    
     Person p1 = { new_person_id(), {50,25}, true};
     p1.age = 11;
     pl.push_back(p1);
     Environment::Map[p1.pos.y][p1.pos.x].person_id = p1.id;
+
+    /*
     Person p2 = { new_person_id(), {51,26}, false};
     p2.age = 11;
     pl.push_back(p2);
@@ -40,7 +43,7 @@ People::People(int initint) {
     p6.age = 11;
     pl.push_back(p6);
     Environment::Map[p6.pos.y][p6.pos.x].person_id = p6.id;
-
+    */
 }
 
 int People::new_person_id() {//unsure if this function is redundant with how int++ works or if there's a better method
@@ -70,7 +73,7 @@ void People::update_all(int day_count, int hour_count, int hours_in_day) {
     pday_count = day_count;
     phour_count = hour_count;
 
-    for(int i = 0; i < pl.size(); i++) {
+    for(int i = 1; i < pl.size(); i++) {//i starts at 1 because for now, the first Person in the list is reserved for player control
         p = i;
         ox = pl[p].pos.x;
         oy = pl[p].pos.y;
@@ -121,9 +124,10 @@ bool People::check_death() {
             pl[p_by_id(pl[p].spouse_id)].spouse_id = -1;//unlink from spouse
         }
         //set these to -1 to prevent others referencing them
-        //pl[p].hunger_level = -1;
-        //pl[p].hungry_time = -1;
-        //pl[p].reproduction_cooldown = -1;
+        pl[p].hunger_level = -1;
+        pl[p].thirst_level = -1;
+        pl[p].hungry_time = -1;
+        pl[p].reproduction_cooldown = -1;
         if(!pl[p].printed){
             //print record of function history for debugging
             cout << "\n______\n"<<pl[p].id<<" ~ ";
@@ -198,7 +202,11 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
     }
 
     find_all();//gets all items, people, etc from within sight/earshot to then react to or inform next action
+
     utility_function();
+    if (!pl[p].move_already && pl[p].general_search_called) {
+        general_search_walk("");//ensures this function only executes once per update and also only after all other move_to's have been considered. This prioritizes intentional movement (moving to a target) rather than random movement
+    }
 
     if (pl[p].search_results.find("rabbit") != pl[p].search_results.end()) {
         pl[p].saw_rabbit_recently = true;
@@ -216,12 +224,6 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
         pl[p].campsite_pos = pl[p_by_id(pl[p].spouse_id)].campsite_pos;
     }
 
-
-    
-
-    if (!pl[p].move_already && pl[p].general_search_called) {
-        general_search_walk("");//ensures this function only executes once per update and also only after all other move_to's have been considered. This prioritizes intentional movement (moving to a target) rather than random movement
-    }
     pl[p].move_already = false;
     pl[p].general_search_called = false;
 
@@ -248,69 +250,132 @@ bool People::valid_position(Position pos) {
     return false;
 }
 
-//person sometimes stops moving, need to check functions that call move_to to make sure they aren't asking to move to the same tile person is on
 bool People::move_to(Position dest, string caller) {//need to add speed of moving from one tile to another and how many tiles at a time. Also need to add a check to prevent it being called more than once per person per update.
-    //if (pl[p].search_active) {//prevents function getting called more than once per update
-    //    return false;
-    //}
-    if (!valid_position(dest)) { //for debugging, kill npc if it tries to go off map or is asked to move to the spot it is already at
-        pl[p].is_alive = false;
-        pl[p].current_image = "pics/debug.png";
-        return true;
-    }
-    if (pl[p].general_search_called && caller != "general searching") {
-        pl[p].general_search_called = false;
-    }
-    
-    if (pl[p].downed || pl[p].immobile || pl[p].move_already || pl[p].age < 5) {//the image check shouldn't be necessary but I don't know why it still moves while having crafting image
-        if (pl[p].pos == dest) {
-            return true;
-        }
-        return false;
-    }
-    //cout << pl[p].id << " - " << caller << "\n";
-    Position old_pos = pl[p].pos;
-    Environment::Map[pl[p].pos.y][pl[p].pos.x].person_id = -1;//remove person from Map
-    if (pl[p].pos.x < dest.x) {//for future optimization, see: https://stackoverflow.com/questions/14579920/fast-sign-of-integer-in-c
-        pl[p].pos.x++;
-    }
-    else if (pl[p].pos.x > dest.x) {
-        pl[p].pos.x--;
-    }
-    
-    if (pl[p].pos.y < dest.y) {
-        pl[p].pos.y++;
-    }
-    else if (pl[p].pos.y > dest.y) {
-        pl[p].pos.y--;
-    }
     bool reached = false;
-    if (Environment::Map[pl[p].pos.y][pl[p].pos.x].person_id == -1) {//if no other person on this tile
-        Environment::Map[pl[p].pos.y][pl[p].pos.x].person_id = pl[p].id;//add person back to Person_Map at new location
-        reached = pl[p].pos == dest;
-    }
-    else {//if a person is blocking path, move to first empty tile in a clockwise direction
-        pl[p].current_direction = { old_pos.x - pl[p].pos.x, old_pos.y - pl[p].pos.y };
-        Position test_pos;
-        bool next = false;
-        for (Position pos : pl[p].rotations) {//still just a temp fix, need actual pathfinding algo
-            if (next) {
-                test_pos = { old_pos.x + pos.x, old_pos.y + pos.y };
-                if (valid_position(test_pos) && test_pos != pl[p].pos && Environment::Map[test_pos.y][test_pos.x].person_id == -1) {
-                    pl[p].pos = test_pos;
-                    break;//need to handle if no adjacent tile is empty, fix this
-                }
+    Position old_pos;
+    Position new_pos;
+    if (!pl[p].mov) {
+        if (pl[p].general_search_called && caller != "general searching") {
+            pl[p].general_search_called = false;
+        }
+
+        if (pl[p].downed || pl[p].immobile || pl[p].move_already || pl[p].age < 5) {//the image check shouldn't be necessary but I don't know why it still moves while having crafting image
+            if (pl[p].pos == dest) {
+                return true;
             }
-            if (pl[p].current_direction == pos) {
+            return false;
+        }
+        //cout << pl[p].id << " - " << caller << "\n";
+        old_pos = pl[p].pos;
+        new_pos = pl[p].pos;
+        if (new_pos.x < dest.x) {//for future optimization, see: https://stackoverflow.com/questions/14579920/fast-sign-of-integer-in-c
+            new_pos.x++;
+        }
+        else if (new_pos.x > dest.x) {
+            new_pos.x--;
+        }
+
+        if (new_pos.y < dest.y) {
+            new_pos.y++;
+        }
+        else if (new_pos.y > dest.y) {
+            new_pos.y--;
+        }
+
+        if (!(Environment::Map[new_pos.y][new_pos.x].person_id == -1)) {//if a person is blocking path, move to first empty tile in a clockwise direction
+            pl[p].current_direction = { old_pos.x - new_pos.x, old_pos.y - new_pos.y };
+            Position test_pos;
+            bool next = false;
+            for (Position pos : pl[p].rotations) {//still just a temp fix, need actual pathfinding algo
                 if (next) {
-                    pl[p].pos = old_pos;//no free adjacent tile, don't move
-                    break;
+                    test_pos = { old_pos.x + pos.x, old_pos.y + pos.y };
+                    if (valid_position(test_pos) && test_pos != pl[p].pos && Environment::Map[test_pos.y][test_pos.x].person_id == -1) {
+                        new_pos = test_pos;
+                        break;
+                    }
                 }
-                next = true;
+                if (pl[p].current_direction == pos) {
+                    if (next) {
+                        new_pos = old_pos;//no free adjacent tile, don't move
+                        break;
+                    }
+                    next = true;
+                }
             }
         }
+
+        pl[p].move_already = true;
+        pl[p].dest = new_pos;
     }
-    pl[p].move_already = true;
+
+    
+    old_pos = pl[p].pos;
+    new_pos = pl[p].dest;
+    int sqdim1 = 17;
+    int spd = 4;
+    pl[p].current_direction = { old_pos.x - new_pos.x, old_pos.y - new_pos.y };
+
+    if (old_pos.x<new_pos.x) {//fix this, later need to modify to tie to new tile when it hits the midway point between 2 tiles
+        pl[p].px_x += 1 * spd;
+        
+        pl[p].mov = true;
+        if (pl[p].px_x == 16) {
+            pl[p].mov = false;
+            pl[p].px_x += 1;
+            pl[p].pos.x++;
+            pl[p].px_x = 0;
+            //pl[p].px_x *= -1;
+        }
+    }
+    else if (old_pos.x > new_pos.x) {
+        pl[p].px_x -= 1 * spd;
+        
+        pl[p].mov = true;
+        if (pl[p].px_x == -16) {
+            pl[p].mov = false;
+            pl[p].px_x -= 1;
+            pl[p].pos.x--;
+            pl[p].px_x = 0;
+            //pl[p].px_x *= -1;
+        }
+    }
+    if (old_pos.y > new_pos.y) {
+        pl[p].px_y -= 1 * spd;
+        
+        pl[p].mov = true;
+        if (pl[p].px_y == -16) {
+            pl[p].mov = false;
+            pl[p].pos.y--;
+            pl[p].px_y -= 1;
+            pl[p].px_y = 0;
+            //pl[p].px_y *= -1;
+        }
+    }
+    else if (old_pos.y < new_pos.y) {
+        pl[p].px_y += 1 * spd;
+       
+        pl[p].mov = true;
+        if (pl[p].px_y == 16) {
+            pl[p].mov = false;
+            pl[p].pos.y++;
+            pl[p].px_y += 1;
+            pl[p].px_y = 0;
+            //pl[p].px_y *= -1;
+        }
+    }
+
+    if (pl[p].pos == new_pos) {
+        Environment::Map[old_pos.y][old_pos.x].person_id = -1;//remove person from Map
+        Environment::Map[pl[p].pos.y][pl[p].pos.x].person_id = pl[p].id;//add person back to Map at new location
+    }
+    
+
+
+
+    //pl[p].pos = new_pos;
+   // Environment::Map[pl[p].pos.y][pl[p].pos.x].person_id = -1;//remove person from Map
+    //Environment::Map[new_pos.y][new_pos.x].person_id = pl[p].id;//add person back to Map at new location
+    reached = pl[p].pos == dest;
     return reached;
 }
 
@@ -1006,7 +1071,10 @@ void People::utility_function() {//is currently actually just a behavior tree no
     //this implementation allows functions to be interrupted by higher priority ones on every update, however this means that a function may not properly reset or preserve as needed for when it gets called again later, need to fix
     //if(func()==false) go to next func(), if(func()==true) executed this func() for both in progress and done cases
     chat();//chance to chat every update
-    
+    if (pl[p].mov) {
+        move_to(pl[p].dest, "continue");
+        return;
+    }
     if(child_birth()){}
     else if(fight()){}
     else if (sleeping()) {}

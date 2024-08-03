@@ -35,9 +35,10 @@ void Game::init(const char* title, int xpos, int ypos, int width, int height, bo
 
 People peep;
 Animal anim;
+Player player;
 //Environment envir;
 SDL_Rect srcR, destR;
-int sqdim = 15;
+int sqdim = 16;
 
 map<string, SDL_Texture*> texture_map;
 
@@ -52,6 +53,7 @@ void Game::initGameState() {
 	destR.w = sqdim;
 	destR.x = 0;
 	destR.y = 0;
+	Player::Player(a);
 	Environment::Environment(hours_in_day);
 	People::People(initint);
 	ItemSys::ItemSys();
@@ -100,21 +102,63 @@ void Game::initGameState() {
 	};
 }
 
-void Game::handleEvents() { //I think this handles user inputs such as keyboard and mouse
+void Game::handleEvents() { //this handles user inputs such as keyboard and mouse
 	SDL_Event event;
 	SDL_PollEvent(&event);
 	switch (event.type) {
+		
+	case SDL_KEYDOWN:
+		switch (event.key.keysym.sym) {
+		case SDLK_LEFT:
+			player.move("W");
+			break;
+		case SDLK_RIGHT:
+			player.move("E");
+			break;
+		case SDLK_UP:
+			player.move("N");
+			break;
+		case SDLK_DOWN:
+			player.move("S");
+			break;
+		default:
+			break;
+		}
+		break;
+		
 	case SDL_QUIT:
 		isRunning = false;
 		break;
 	default:
 		break;
 	}
+
+	/*
+	const Uint8* keystates = SDL_GetKeyboardState(NULL);
+	if (keystates[SDL_SCANCODE_RIGHT]) {
+		player.move("E");
+	}
+	if (keystates[SDL_SCANCODE_LEFT]) {
+		player.move("W");
+	}
+	if (keystates[SDL_SCANCODE_UP]) {
+		player.move("N");
+	}
+	if (keystates[SDL_SCANCODE_DOWN]) {
+		player.move("S");
+	}
+	*/
+
+
 }
 
 
 
 void Game::update() {
+	
+
+
+
 	hour_count++;
 	if (hour_count == hours_in_day) {
 		hour_count = 0;
@@ -124,7 +168,7 @@ void Game::update() {
 	Environment::update(hours_in_day, hour_count, day_count);
 	peep.update_all(day_count, hour_count, hours_in_day);
 	anim.update_all(day_count, hour_count, hours_in_day);
-
+	player.update();
 }
 
 
@@ -203,6 +247,8 @@ void Game::render() {
 	for (int i = 0; i < People::pl.size(); i++) {
 		destR.x = People::pl[i].pos.x * sqdim;
 		destR.y = (People::pl[i].pos.y + 1) * sqdim;
+		destR.x += People::pl[i].px_x;
+		destR.y += People::pl[i].px_y;
 		textureManager(People::pl[i].current_image, destR);
 	}
 
