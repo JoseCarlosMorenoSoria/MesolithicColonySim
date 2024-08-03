@@ -31,7 +31,7 @@ public:
 
 	static void textureManager(string texture, SDL_Rect destRect, int angle, SDL_Point center);
 	static void textureManager(string texture, SDL_Rect destRect);
-	static void textManager(string text, int size, int x, int y);
+	static SDL_Rect textManager(string text, int size, int x, int y);//returns rectangle of text that was printed
 
 	bool isRunning;
 	SDL_Window* window; //window and renderer have to(?) be pointers because they aren't instanced until the Game::init function runs.
@@ -40,6 +40,12 @@ public:
 	TTF_Font* gFont = NULL;
 	SDL_Texture* mTexture;
 
+	int mouse_x=-1;
+	int mouse_y=-1;
+	bool mousedown = false;
+
+	bool mouse_in_tile(int x, int y);
+	bool mouse_in_rect(SDL_Rect posR);
 
 	//animation - move to another class
 	void animation_testing();

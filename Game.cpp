@@ -128,6 +128,7 @@ void Game::initGameState() {
 	{"c", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/text/c.png"))},
 
 	{"menu_color", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/menu_background.png"))},
+	{"player", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/player/player.png"))},
 	};
 
 
@@ -136,6 +137,7 @@ void Game::initGameState() {
 
 int menu_num = 0;
 bool pause_game = false;
+//Important: does handleEvents interrupt other update functions or does it execute between update functions? If it interrupts then it will cause problems given it shares variables with other functions.
 void Game::handleEvents() { //this handles user inputs such as keyboard and mouse
 	SDL_Event event;
 	SDL_PollEvent(&event);
@@ -160,13 +162,40 @@ void Game::handleEvents() { //this handles user inputs such as keyboard and mous
 			break;
 		case SDLK_n:
 			menu_num++;
-			menu_num %= 4;//4 menu screens
+			menu_num %= 5;//5 menu screens
+			break;
+		case SDLK_c:
+			player.toggle_set_and_remove_camp_pc();
+			break;
+		case SDLK_s:
+			player.toggle_speed_pc();
+			break;
+		case SDLK_z:
+			player.pick_up_item_pc();
+			break;
+		case SDLK_r:
+			player.sleep_pc();
+			break;
+		case SDLK_b:
+			player.bathe();
+			break;
+		case SDLK_t:
+			player.play_trumpet();
+			break;
+		case SDLK_q:
+			player.drink_pc();
 			break;
 		default:
 			break;
 		}
 		break;
 		
+	case SDL_MOUSEMOTION:
+		SDL_GetMouseState(&mouse_x, &mouse_y);//Get mouse position
+		break;
+	case SDL_MOUSEBUTTONDOWN:
+		mousedown = true;
+		break;
 	case SDL_QUIT:
 		isRunning = false;
 		break;
@@ -246,6 +275,19 @@ void Game::textureManager(string texture, SDL_Rect destRect) {//textureManager f
 
 }
 
+bool Game::mouse_in_tile(int x, int y) {
+	if (mouse_x > x * sqdim && mouse_x<(x + 1) * sqdim && mouse_y>(y + 1) * sqdim && mouse_y < (y + 2) * sqdim) {//y is offset due to Sky row
+		return true;
+	}
+	return false;
+}
+
+bool Game::mouse_in_rect(SDL_Rect posR) {
+	if (mouse_x > posR.x && mouse_x<posR.x+posR.w && mouse_y>posR.y && mouse_y < posR.y+posR.h) {
+		return true;
+	}
+	return false;
+}
 
 void Game::render() {
 	SDL_RenderClear(renderer);
@@ -256,6 +298,9 @@ void Game::render() {
 	destR.h = sqdim;
 	//animation_testing();
 
+	SDL_Rect mouseR;
+	mouseR.x = -1;
+	string item_name_moused;
 	
 	for (int x = 0; x < hours_in_day/2; x++) {
 		destR.x = x * sqdim;
@@ -280,13 +325,26 @@ void Game::render() {
 		for (int x = 0; x < Environment::map_x_max; x++) {
 			destR.x = x * sqdim;
 			destR.y = (y+1) * sqdim;
+
+			if (!pause_game && mousedown && mouse_in_tile(x,y)) {
+				player.move_to_pc({ x,y });
+				mousedown = false;
+				cout << x;
+			}
+
 			bool no_item = false;
 			int item_id = Environment::Map[y][x].item_id;
 			if (item_id == -1) {
 				no_item = true;
 			}
 			if (!no_item) {
-				textureManager(ItemSys::item_list[ItemSys::item_by_id(item_id)].image, destR);
+				ItemSys::Item& item = ItemSys::item_list[ItemSys::item_by_id(item_id)];
+				textureManager(item.image, destR);
+				if (!pause_game && mouse_in_tile(x,y)) {
+					mouseR = destR;
+					mouseR.y = y * sqdim;
+					item_name_moused = item.item_name;
+				}
 			}
 			else {
 				if (Environment::Map[y][x].terrain == "dirt") {
@@ -344,6 +402,9 @@ void Game::render() {
 			People::pl[i].current_image = "pics/human.png";
 		}
 	}
+	if (mouseR.x != -1) {
+		textManager(item_name_moused, 8, mouseR.x, mouseR.y);
+	}
 	
 	if (pause_game) {
 		destR.x = 10 * sqdim;
@@ -369,9 +430,13 @@ void Game::render() {
 			int y = 12;
 			textManager("Player Inventory: ", 24, x* sqdim, y* sqdim);
 			y++;
-			for (string s : inventory) {
+			for (int inv_i = 0; inv_i < inventory.size(); inv_i++) {
 				y++;
-				textManager(s, 12, x * sqdim, y * sqdim);
+				SDL_Rect text_box = textManager(inventory[inv_i], 12, x* sqdim, y* sqdim);
+				if (mousedown && mouse_in_rect(text_box)) {//y-1 becuase it is screen position and so must ignore Sky offset
+					player.drop_item_pc(inv_i);//pass index of item
+					mousedown = false;
+				}
 			}
 		}
 		else if (menu_num == 2) {
@@ -394,6 +459,21 @@ void Game::render() {
 			for (string s : dispositions) {
 				y++;
 				textManager(s, 12, x * sqdim, y * sqdim);
+			}
+		}
+		else if (menu_num == 4) {
+			vector<string> craftable = player.view_craftable();//should menus be moved inside of Player class?
+			int x = 16;
+			int y = 12;
+			textManager("Craftable Items: ", 24, x* sqdim, y* sqdim);
+			y++;
+			for (int inv_i = 0; inv_i < craftable.size(); inv_i++) {
+				y++;
+				SDL_Rect text_box = textManager(craftable[inv_i], 12, x * sqdim, y * sqdim);
+				if (mousedown && mouse_in_rect(text_box)) {//y-1 becuase it is screen position and so must ignore Sky offset
+					player.craft_pc(craftable[inv_i]);//pass name of item
+					mousedown = false;
+				}
 			}
 		}
 
@@ -421,7 +501,8 @@ void Game::render() {
 }
 
 //fix this: need to cache text constants such as menu titles, labels, etc and only update variable text such as numbers and names, etc.
-void Game::textManager(string text, int size, int x, int y) {
+SDL_Rect Game::textManager(string text, int size, int x, int y) {
+	SDL_Rect tempR = destR;
 	TTF_Font* font = TTF_OpenFont("pics/text/LEMONMILK-Bold.otf", size);
 	SDL_Color color = { 0, 0, 0 };//black
 	const char* text1 = text.c_str();
@@ -433,6 +514,9 @@ void Game::textManager(string text, int size, int x, int y) {
 	destR.x = x;
 	destR.y = y;
 	SDL_RenderCopy(renderer, text_texture, NULL, &destR);
+	SDL_Rect returnR = destR;
+	destR = tempR;
+	return returnR;
 }
 
 void Game::clean() {

@@ -24,18 +24,23 @@ public:
 		vector<string> tags;//include tags such as "food", "tool", "building", etc
 		vector<string> ingredients;//includes tools (and later station) needed to craft item. Later can add quantity requirements for ingredients, etc
 		bool consumable_ingredient;//true means item is consumed when used as an ingredient to craft something, false means it isn't
+		bool can_pick_up = true;
 		int insulation_from_cold=0;//only used by clothing/armor/blankets/etc
 		//as items gain more properties, especially once weapons are added, will need to create separate categories of items rather than all treated as the same Item struct
 		//as well as for clothing, buildings, plants, etc
+
 	};
 	//presets
 	map<string, Item> presets;
 	map<string, vector<string>> tags; //caches all items by name under their associated tags for ease of lookup
+	map<string, vector<string>> ingredients;//same as above tags map<>
+
 
 	static vector<Item> item_list;//global list
 	static int item_by_id(int id);
 	static int new_item_id();
 	void fill_tag_lookup();
+	void fill_ingredients_lookup();
 };
 
 #endif

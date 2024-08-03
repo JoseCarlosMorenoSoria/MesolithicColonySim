@@ -23,17 +23,20 @@ public:
 	void update();
 	Person* pc;//player character
 	int pcindex;
+	int continue_func = -1;//for running a function in update after being triggered manually by player. Turn this later into a map<> with the function name for more clarity.
 	void move(string direction);//use keyboard //maybe should use keyboard for movement?
-	void move_to();//use mouse click
-
+	void move_to_pc(Position dest);//use mouse click
+	Position mouse_click_dest = {-1,-1};
+	string crafting_item = "";
 	//2 types of functions are needed, individual actions such as eat, sleep, etc. 
 	//And cooperative functions where the player either initiates an interaction with an npc or responds to an interaction
 	//from an npc. This requires npc's algorithms to therefore recognize the player as a player 
 	//to then wait for a response rather than the fast paced data transfer between npcs.
 
 	//_pc suffix prevents confusion and accidental overwriting of People functions
-	void set_camp_pc();
-	void remove_camp_pc();
+	void toggle_set_and_remove_camp_pc();
+	void toggle_speed_pc();
+
 	void chat_pc();
 	void fight_pc();
 	void sleep_pc();
@@ -45,24 +48,21 @@ public:
 	void carry_infant_pc();
 	void drop_infant_pc();
 	void speak_pc();
-	void craft_pc();
-	void drop_item_pc();
+	void craft_pc(string product);
+	void drop_item_pc(int index);
 	void pick_up_item_pc();
 	void set_trap_pc();
-	void toggle_sprint_pc();
-	void toggle_stealth_pc();
 	void cut_down_tree_pc();
 	void play_trumpet();//recreation option
 	void bathe();
 	void share_disposition();
 
 
-	void mouse_info();//show info on whatever is being moused over
-	void pause_game();
 	vector<string> view_own_data();//variables such as sex, tired_level, search_results, found_messages, etc.
 	vector<string> view_inventory();
 	vector<string> view_equipment();
 	vector<string> view_dispositions();
+	vector<string> view_craftable();
 	
 
 	/*//player versions of these functions

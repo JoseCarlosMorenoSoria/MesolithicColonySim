@@ -132,7 +132,6 @@ public:
 			}
 			return -1;//slot is already empty
 		}
-		
 	};
 
 	//note: when optimizing, convert for loops which are only for lookup into binary search lookups
@@ -273,7 +272,11 @@ public:
 		int injured_time = 0;
 		bool am_injured = false;
 
+
+		bool player_trigger = false;
 	};
+
+	static ItemSys it2;
 
 	bool game_won = false;//for halting updates to check if game is winnable, for debugging
 
@@ -299,6 +302,7 @@ public:
 	void update(int day_count, int hour_count, int hours_in_day);
 	void utility_function();
 	void find_all();
+	//move_to should be modified to accept a distance variable such that it returns true when it reaches a given distance from the target, such as for going adjacent to a target
 	bool move_to(Position pos, string caller);//string is the intended action calling move_to, such as hunting deer
 	Position walk_search_random_dest(); //returns a random destination for a random walk
 	vector<int> remove_dup(vector<int> v);//to remove duplicates from vector but preserve original order

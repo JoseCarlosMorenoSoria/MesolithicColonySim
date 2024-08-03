@@ -149,7 +149,7 @@ void Environment::update(int hours_in_day, int hour_count, int day_count) {
 		}
 	}
 	
-	//rain(); needs trigger
+	//rain();// needs trigger
 	fire_spread(); //needs triggers
 	track_manager();
 

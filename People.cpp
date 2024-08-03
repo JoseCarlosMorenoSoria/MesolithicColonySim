@@ -5,7 +5,7 @@ vector<People::Person> People::pl; //pl, using the name pl because of the freque
 vector<People::Message> People::message_list;
 vector<int> People::Message_Map[Environment::map_y_max][Environment::map_x_max];
 int People::p = -1;//index for accessing current person. Using index to access instead of a pointer because list may change such as when a new person is born or dies which invalidates pointers to pl (people_list)
-ItemSys it2;//used to access member functions and variables of ItemSys
+ItemSys People::it2;//used to access member functions and variables of ItemSys
 int People::ox = -1;
 int People::oy = -1;
 int People::pday_count;
@@ -1540,7 +1540,7 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
 
 bool People::sleeping(){
     bool tired = pl[p].tired_level > SLEEP_TRIGGER;
-    bool start_moving_to_bed = tired && pl[p].campsite_pos.x != -1 && pl[p].hunger_level<HUNGRY_LEVEL && pl[p].thirst_level<THIRSTY_LEVEL;
+    bool start_moving_to_bed = pl[p].awake && tired && pl[p].campsite_pos.x != -1 && pl[p].hunger_level<HUNGRY_LEVEL && pl[p].thirst_level<THIRSTY_LEVEL;
     if (start_moving_to_bed) {
         add_func_record("moving to bed");
         if(move_to(pl[p].campsite_pos,"to bed")) { //go to campsite.
@@ -1582,7 +1582,6 @@ bool People::eating(){
 
     if ((hungry && !has_food) /* || food_indexes1.size() < MIN_EXTRA_FOOD_IN_INVENTORY*/) {//ensures that person has 2 food items in inventory for self or to share
         if (acquire("ready food")) {
-            cout << food_indexes1.size()<<"\n";
             add_func_record("acquired ready food");
             //done
             return true;
@@ -2306,7 +2305,7 @@ void People::build_monument() {
     //temp implementation
     create_item("monument", { -1,-1 });
     drop_item(inventory_has("monument")[0]);
-    cout << pl[p].id << " HAS WON THE GAME\n";
+    //cout << pl[p].id << " HAS WON THE GAME\n";
 }
 
 void People::create_tracks(Position pos) {
