@@ -38,7 +38,22 @@ public:
 	map<string, vector<string>> tags; //caches all items by name under their associated tags for ease of lookup
 	map<string, vector<string>> ingredients;//same as above tags map<>
 
+	//This system is temporary, later, need to have a better system for handling different types of items instead of just having it all under the Item label, some may need their own classes as well such as plants. 
+	//Item Types:
+	//Plant
+	//Building/structure
+	//Clothing
+	//Weapon
+	//Armor? Or should this be a type of clothing?
+	//Tool
+	//Food (what about plants, they're food. or maybe do it similar to animal:meat division?)
+	//Natural Resource (stone/wood/meat/etc)
 
+
+
+
+
+	void ItemPresetsCSVPull();
 	static vector<Item> item_list;//global list
 	static int item_by_id(int id);
 	static int new_item_id();

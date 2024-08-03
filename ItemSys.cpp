@@ -8,35 +8,7 @@ vector<ItemSys::Item> ItemSys::item_list;
 int ItemSys::item_id_iterator = 0; 
 
 ItemSys::ItemSys() {
-    presets.insert({ "tent",            { -1, "tent", "pics/house.png", {/*tags*/}, {/*ingredients*/},false}});
-    presets.insert({ "berrybush",       { -1, "berrybush", "pics/berrybush.png", {"food", "ready food"}, {/*ingredients*/},false}});
-    presets.insert({ "grain",            { -1, "grain", "grain" , {"food", "needs processing"}, {/*ingredients*/},true} });
-    presets.insert({ "bread",           { -1, "bread", "bread" , {"ready food"}, {"grain","mortar_pestle"},false}});
-    presets.insert({ "rock",            { -1, "rock", "rock",{},{} ,true} });
-    presets.insert({ "mortar_pestle",   { -1, "mortar_pestle", "mortar and pestle" , {"tool"}, {"rock"},false}});
-
-    presets.insert({ "knife",   { -1, "knife", "pics/debug.png" , {"tool"}, {"rock"},false} });
-    presets.insert({ "trap",   { -1, "trap", "trap" , {}, {"rock","wood"},false}});
-    presets.insert({ "active trap",   { -1, "active trap", "trap" , {}, {},false,false} });//a version of trap that avoids getting picked up, must create a special pick up function for it
-    presets.insert({ "rabbit_meat",   { -1, "rabbit_meat", "rabbit_meat" , {"ready food"}, {"rabbit"},false}});
-    presets.insert({ "deer_meat",   { -1, "deer_meat", "deer_meat" , {"ready food"}, {"deer"},false}});
-
-    presets.insert({ "tree",   { -1, "tree", "tree" , {"wood source"}, {},false,false} });
-    presets.insert({ "wood",   { -1, "wood", "wood" , {}, {},true} });
-
-    presets.insert({ "monument",   { -1, "monument", "monument" , {}, {},false,false} });
-
-    presets.insert({ "medicine",   { -1, "medicine","pics/debug.png" , {}, {"wood"},false} });
-    presets.insert({ "bandage",   { -1,  "bandage","pics/debug.png" , {}, {"wood"},false} });
-    presets.insert({ "campfire",   { -1,  "campfire","pics/debug.png" , {}, {"wood"},false,false} });
-    presets.insert({ "necklace",   { -1,  "necklace","pics/debug.png" , {}, {"wood"},false} });
-    presets.insert({ "trumpet",   { -1, "trumpet","pics/debug.png" , {}, {"wood"},false} });
-    presets.insert({ "fishing rod",   { -1,  "fishing rod","pics/debug.png" , {}, {"wood"},false} });
-    presets.insert({ "fishing bait",   { -1, "fishing bait","pics/debug.png" , {}, {"wood"},false} });
-    presets.insert({ "poncho",   { -1, "poncho","pics/debug.png" , {"clothes","torso_wearing_eq"}, {"rock"},false}});
-    presets["poncho"].insulation_from_cold = 10;
-    presets.insert({ "active fish hook",   { -1, "active fish hook","pics/debug.png" , {}, {"wood"},false,false} });
-
+    ItemPresetsCSVPull();
     fill_tag_lookup();
     fill_ingredients_lookup();
     /*
@@ -52,6 +24,8 @@ ItemSys::ItemSys() {
 
     //test_read();
 }
+
+//Note: "active trap" is a version of trap that avoids getting picked up, must create a special pick up or deactivate function for it
 
 void ItemSys::test_read() {
 //read from csv into a vector of structs
@@ -149,4 +123,64 @@ int ItemSys::item_by_id(int id) {//uses binary search to find and return index t
 int ItemSys::new_item_id() {//unsure if this function is redundant with how int++ works or if there's a better method
     item_id_iterator++;
     return item_id_iterator;
+}
+
+void ItemSys::ItemPresetsCSVPull() {
+    //read from csv into a vector of structs
+    fstream fin;// File pointer 
+    fin.open("Item Presets - Sheet1.csv", ios::in);// Open an existing file 
+    vector<string> row;// Read the Data from the file as String Vector 
+    string line, word;
+    bool firstrowdone = false;
+    bool start_count_tags = false;//for counting the max number of tag columns
+    int count_tags = 0;
+    bool start_count_ingredients = false;//for counting the max number of ingredient columns
+    int count_ingredients = 0;
+    while (getline(fin, line)) {// read an entire row and store it in a string variable 'line' 
+        row.clear();
+        stringstream s(line);// used for breaking words 
+        while (getline(s, word, ',')) {// read every column data of a row and store it in a string variable, 'word' 
+            row.push_back(word);// add all the column data of a row to a vector 
+        }
+        if (firstrowdone) {
+            Item it;
+            it.item_id = -1;
+            it.item_name = row[0];
+            it.image = row[1];
+            int tag_end = 2 + count_tags;
+            for (int i = 2; i < tag_end; i++) {
+                if (row[i] == "") {
+                    break;
+                }
+                it.tags.push_back(row[i]);
+            }
+            int ingr_end = tag_end + count_ingredients;
+            for (int i = tag_end; i < ingr_end; i++) {
+                if (row[i] == "") {
+                    break;
+                }
+                it.ingredients.push_back(row[i]);
+            }
+            it.consumable_ingredient = (row[ingr_end]=="TRUE")?true:false;
+            it.can_pick_up = (row[ingr_end+1] == "TRUE") ? true : false;
+            
+            if (row.size()==ingr_end+3) {//need to check size for last element because if the element is blank for any row, the row will be shorter and therefore result in index out of range if it is empty
+                it.insulation_from_cold = stoi(row[ingr_end + 2]);
+            }
+            presets.insert({it.item_name, it });
+        }
+        if (!firstrowdone) {
+            for (int i = 2; i < row.size()-3; i++) {
+                if (row[i] == "Tags") { start_count_tags = true; }
+                else if (row[i] == "Ingredients") { start_count_tags = false; }
+                if (start_count_tags) { count_tags++; }
+            }
+            for (int i = 2+count_tags; i < row.size()-3; i++) {
+                if (row[i] == "Ingredients") { start_count_ingredients = true; }
+                else if (row[i] == "Consumable Ingredient") { start_count_ingredients = false; }
+                if (start_count_ingredients) { count_ingredients++; }
+            }
+            firstrowdone = true;
+        }
+    }
 }

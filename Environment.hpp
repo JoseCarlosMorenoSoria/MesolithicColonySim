@@ -43,7 +43,7 @@ public:
 		int item_id=-1;//holds the id's of item on tile, currently restricted to one per tile, later on add a method to handle stacking items up to a limit, including of different item types
 		string terrain;
 		bool has_fire = false;
-		bool has_rain = true;
+		bool has_rain = false;
 		Tracks track;
 		int light_level = 4;//max light
 		int temperature = 75;
