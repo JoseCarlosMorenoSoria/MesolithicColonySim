@@ -104,10 +104,9 @@ public:
 			ItemSys::Item& item = ItemSys::item_list[ItemSys::item_by_id(item_id)];
 			for (string t : item.tags) {
 				if (t.find("_eq") != -1) {//find the tag that relates to where it is worn
-
 					for (auto& i : equipment) {
 						if (i.first == t) {
-							if (i.second == -1) {//slot is already filled
+							if (i.second != -1) {//slot is already filled
 								return false;//failed to equip
 							}
 							else {
@@ -154,7 +153,7 @@ public:
 		int thirst_level = 0;
 		bool awake = true;
 		int tired_level = 0;//need to add exertion and tie somehow to hunger rate, such that someone who is sedentary gets tired and hungry slower than someone running and fighting and mining, etc
-		vector<int> item_inventory; //holds id's of items in inventory
+		vector<int> item_inventory; //holds id's of items in inventory		//note: when equipping/unequipping, the item stays in the inventory. Later migth be better to have equipment serve as a separate inventory such that if an item is equipped, it is removed from the reular inventory. Having separate inventories can work for bags as well so that bags can be dropped with all their contents still inside.
 
 		int recreation_level = 0;
 		bool beauty_need_satisfied = false;
@@ -274,6 +273,10 @@ public:
 
 
 		bool player_trigger = false;
+
+		int num_people_liked_by = 0;//set all factors to 1 to avoid any 0 making authority == 0; For debugging. This worked to allow someone to win the game. 
+		int amount_liked = 0;
+		int num_submissives = 0;
 	};
 
 	static ItemSys it2;
@@ -422,9 +425,9 @@ public:
 
 	int SPRINT_LIMIT = 20;
 
-	int WALK_SPEED = 8;
-	int STEALTH_SPEED = 4;
-	int SPRINT_SPEED = 16;
+	int WALK_SPEED = 4;
+	int STEALTH_SPEED = 2;
+	int SPRINT_SPEED = 8;
 	int AMBUSH_DISTANCE = 3;
 	int STEALTH_DISTANCE = 6;//distance from prey at which person enters stealth
 	int ANGLING_WAIT_TIME = 20;

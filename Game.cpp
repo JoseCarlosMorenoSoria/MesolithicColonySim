@@ -120,6 +120,7 @@ void Game::initGameState() {
 	{"tracks", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/tracks.png"))},
 	{"playing_trumpet", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_playing_trumpet.png"))},
 	{"bathing", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_bathing.png"))},
+	{"fighting", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/human/human_fighting.png"))},
 	{"darkness", SDL_CreateTextureFromSurface(renderer, IMG_Load("pics/darkness_filter.png"))},
 
 
@@ -162,7 +163,7 @@ void Game::handleEvents() { //this handles user inputs such as keyboard and mous
 			break;
 		case SDLK_n:
 			menu_num++;
-			menu_num %= 5;//5 menu screens
+			menu_num %= 6;//6 menu screens
 			break;
 		case SDLK_c:
 			player.toggle_set_and_remove_camp_pc();
@@ -185,6 +186,12 @@ void Game::handleEvents() { //this handles user inputs such as keyboard and mous
 		case SDLK_q:
 			player.drink_pc();
 			break;
+		case SDLK_l:
+			player.valence = !player.valence;
+			break;
+		case SDLK_f:
+			player.fight_mode = !player.fight_mode;
+			break;
 		default:
 			break;
 		}
@@ -194,7 +201,8 @@ void Game::handleEvents() { //this handles user inputs such as keyboard and mous
 		SDL_GetMouseState(&mouse_x, &mouse_y);//Get mouse position
 		break;
 	case SDL_MOUSEBUTTONDOWN:
-		mousedown = true;
+		mousedown_left = (event.button.button == SDL_BUTTON_LEFT);
+		mousedown_right = (event.button.button == SDL_BUTTON_RIGHT);
 		break;
 	case SDL_QUIT:
 		isRunning = false;
@@ -326,9 +334,9 @@ void Game::render() {
 			destR.x = x * sqdim;
 			destR.y = (y+1) * sqdim;
 
-			if (!pause_game && mousedown && mouse_in_tile(x,y)) {
+			if (!pause_game && mousedown_left && mouse_in_tile(x,y)) {
 				player.move_to_pc({ x,y });
-				mousedown = false;
+				mousedown_left = false;
 				cout << x;
 			}
 
@@ -391,6 +399,17 @@ void Game::render() {
 		destR.x += People::pl[i].px_x;
 		destR.y += People::pl[i].px_y;
 
+		if (mousedown_right && mouse_in_rect(destR)) {
+			if (player.fight_mode) {
+				player.attack_person(People::pl[i].id);
+			}
+			else {
+				player.chat_pc(People::pl[i].id);
+			}
+			
+			mousedown_right = false;
+		}
+
 		//temp adjustment, should be kept inside People class
 		if (People::pl[i].current_image == "pics/human.png" && People::pl[i].sex==false) {
 			People::pl[i].current_image = "human_female";
@@ -433,9 +452,14 @@ void Game::render() {
 			for (int inv_i = 0; inv_i < inventory.size(); inv_i++) {
 				y++;
 				SDL_Rect text_box = textManager(inventory[inv_i], 12, x* sqdim, y* sqdim);
-				if (mousedown && mouse_in_rect(text_box)) {//y-1 becuase it is screen position and so must ignore Sky offset
+				if (mousedown_left && mouse_in_rect(text_box)) {//y-1 becuase it is screen position and so must ignore Sky offset
 					player.drop_item_pc(inv_i);//pass index of item
-					mousedown = false;
+					mousedown_left = false;
+					//should mousedown_right also be reset to false just in case?
+				}
+				else if (mousedown_right && mouse_in_rect(text_box)) {
+					player.equip_pc(inv_i);//if item is food, it is eaten (for now) instead of equipped, only clothing/tools can be equipped for now
+					mousedown_right = false;
 				}
 			}
 		}
@@ -445,9 +469,14 @@ void Game::render() {
 			int y = 12;
 			textManager("Player Equipment: ", 24, x * sqdim, y * sqdim);
 			y++;
-			for (string s : equipment) {
+			for (int inv_i = 0; inv_i < equipment.size(); inv_i++) {
 				y++;
-				textManager(s, 12, x * sqdim, y * sqdim);
+				SDL_Rect text_box = textManager(equipment[inv_i], 12, x * sqdim, y * sqdim);
+				if (mousedown_left && mouse_in_rect(text_box)) {//y-1 becuase it is screen position and so must ignore Sky offset
+					player.unequip_pc(inv_i);//pass index of item in equipped (have to iterate through to index given equipment is a map<>
+					mousedown_left = false;
+					//should mousedown_right also be reset to false just in case?
+				}
 			}
 		}
 		else if (menu_num == 3) {
@@ -470,11 +499,18 @@ void Game::render() {
 			for (int inv_i = 0; inv_i < craftable.size(); inv_i++) {
 				y++;
 				SDL_Rect text_box = textManager(craftable[inv_i], 12, x * sqdim, y * sqdim);
-				if (mousedown && mouse_in_rect(text_box)) {//y-1 becuase it is screen position and so must ignore Sky offset
+				if (mousedown_left && mouse_in_rect(text_box)) {//y-1 becuase it is screen position and so must ignore Sky offset
 					player.craft_pc(craftable[inv_i]);//pass name of item
-					mousedown = false;
+					mousedown_left = false;
 				}
 			}
+		}
+		else if (menu_num == 5) {
+			int x = 16;
+			int y = 12;
+			textManager("Menu 6: ", 24, x* sqdim, y* sqdim);
+
+
 		}
 
 		

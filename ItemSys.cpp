@@ -30,7 +30,7 @@ ItemSys::ItemSys() {
     presets.insert({ "trumpet",   { -1, "trumpet","pics/debug.png" , {}, {"wood"},false} });
     presets.insert({ "fishing rod",   { -1,  "fishing rod","pics/debug.png" , {}, {"wood"},false} });
     presets.insert({ "fishing bait",   { -1, "fishing bait","pics/debug.png" , {}, {"wood"},false} });
-    presets.insert({ "poncho",   { -1, "poncho","pics/debug.png" , {"clothes","torso_wearing_eq"}, {"wood"},false}});
+    presets.insert({ "poncho",   { -1, "poncho","pics/debug.png" , {"clothes","torso_wearing_eq"}, {"rock"},false}});
     presets["poncho"].insulation_from_cold = 10;
     presets.insert({ "active fish hook",   { -1, "active fish hook","pics/debug.png" , {}, {"wood"},false,false} });
 

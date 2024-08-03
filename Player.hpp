@@ -28,6 +28,9 @@ public:
 	void move_to_pc(Position dest);//use mouse click
 	Position mouse_click_dest = {-1,-1};
 	string crafting_item = "";
+	int target_person = -1;
+	bool fight_mode = false;//if fight_mode==true, then when right clicking on an npc, attack them. If ==false, then chat (disposition change) with the npc
+	bool valence = true;//valence==true -> random positive value disposition change, else inverse. Used to determine whether next intentional social interaction is positive or negative, set by player
 	//2 types of functions are needed, individual actions such as eat, sleep, etc. 
 	//And cooperative functions where the player either initiates an interaction with an npc or responds to an interaction
 	//from an npc. This requires npc's algorithms to therefore recognize the player as a player 
@@ -37,14 +40,13 @@ public:
 	void toggle_set_and_remove_camp_pc();
 	void toggle_speed_pc();
 
-	void chat_pc();
-	void fight_pc();
+	void chat_pc(int pid);
 	void sleep_pc();
-	void eat_pc();
+	void eat_pc(int index);
 	void reproduce_pc();
 	void drink_pc();
-	void equip_pc();
-	void unequip_pc();
+	void equip_pc(int index);
+	void unequip_pc(int index);
 	void carry_infant_pc();
 	void drop_infant_pc();
 	void speak_pc();
@@ -56,6 +58,7 @@ public:
 	void play_trumpet();//recreation option
 	void bathe();
 	void share_disposition();
+	void attack_person(int pid);
 
 
 	vector<string> view_own_data();//variables such as sex, tired_level, search_results, found_messages, etc.

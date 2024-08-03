@@ -311,6 +311,9 @@ bool People::valid_position(Position pos) {
     return false;
 }
 
+//need to fix any relevant function that calls move_to() such as general_search/random_walk so as to avoid going near disliked people and avoid even more and at greater distance any hated people.
+//  otherwise everyone bunches up together because everyone likes someone and so they are only pull factors and no push factors in where people move_to. The only push factor right now that sort of works is campsite placement near friends.
+//need to fix so that diagnonal movement is the same speed as non-diagonal movement
 bool People::move_to(Position dest, string caller) {//need to add speed of moving from one tile to another and how many tiles at a time. Also need to add a check to prevent it being called more than once per person per update.
     bool reached = false;
 
@@ -1962,10 +1965,9 @@ void People::chat() {//if make this a speak() action, can affect dispositions of
 
 //has a magic number but unsure if it needs to be pulled out as it's only relevant here and might not need to be balanced against other numbers.
 void People::authority_calc() {
-    int num_people_liked_by = 1;//set all factors to 1 to avoid any 0 making authority == 0; For debugging. This worked to allow someone to win the game. 
-    int amount_liked = 1;
-    int num_submissives = 1;
-    if (pl[p].num_fights_won == 0) { pl[p].num_fights_won = 1; }
+    int num_people_liked_by = 0; 
+    int amount_liked = 0;
+    int num_submissives = 0;
     bool am_sovereign = true;
     for (int i = 0; i < pl.size(); i++) {
         if (pl[i].dispositions.find(pl[p].id) != pl[i].dispositions.end()) {
@@ -1985,7 +1987,29 @@ void People::authority_calc() {
             am_sovereign = false;
         }
     }
+    
+    bool corrected1 = false;
+    bool corrected2 = false;
+    bool corrected3 = false;
+    bool corrected4 = false;
+    if (pl[p].num_fights_won == 0) { pl[p].num_fights_won = 1; corrected1 = true; }
+    if (num_people_liked_by == 0) { num_people_liked_by=1; corrected2 = true;}//to avoid multiplying by 0
+    if (amount_liked == 0) { amount_liked = 1; corrected3 = true;}
+    if (num_submissives == 0) { num_submissives = 1; corrected4 = true;}
+
     pl[p].authority = num_people_liked_by * amount_liked * num_submissives * pl[p].num_fights_won;
+    
+    bool c = corrected1 || corrected2 || corrected3 || corrected4;
+    if (c && pl[p].authority == 1) { pl[p].authority = 0; }//to correct for factors being initialized as 1, not sure if this is the best approach
+
+    if (corrected1) { pl[p].num_fights_won = 0; }//to correct for these being initialized as 1
+    if (corrected2) { num_people_liked_by = 0; }
+    if (corrected3) { amount_liked = 0; }
+    if (corrected4) { num_submissives = 0; }
+    pl[p].num_people_liked_by = num_people_liked_by;
+    pl[p].amount_liked = amount_liked;
+    pl[p].num_submissives = num_submissives;
+    
     //10000 = 10*10*10*10 = 1*100*1*1  <-- this may be a problem, rethink formula
     if (pl[p].authority > 10000 && am_sovereign) {
         pl[p].monument_unlocked = true;
@@ -2076,6 +2100,8 @@ bool People::fight() {//Order of execution for people here might necessitate hav
     }
 
     if (!pl[p].active_hostile_towards.empty()) {//active hostiles means fight is active
+        pl[p].current_image = "fighting";
+
         bool won = false;//for individual fights and personal glory
         //DO THIS, later: check combat allies, if a third have been downed or killed, surrender and submit. Currently fights are only 1v1, no combat allies. Multiple enemies or combat allies might appear simply due to hate triggering 1v1 fights but is unintended.
         for (int i = 0; i < pl[p].active_hostile_towards.size(); i++) {//for every enemy combatant in the fight
@@ -2087,6 +2113,9 @@ bool People::fight() {//Order of execution for people here might necessitate hav
                 if (pl[p].dice == -1) {
                     pl[p].dice = rand() % 20;//when next to target, progress delay and dice roll, currently no progress delay implemented
                     return true;//in progress
+                }
+                if (p == 0) {
+                    cout << "\player fought\n";
                 }
                 if (pl[p].dice > pl[p2].dice) {//if my dice roll is larger than theirs, I win, else I lose. Tie means keep fighting
                     won = true;
@@ -2138,6 +2167,7 @@ bool People::fight() {//Order of execution for people here might necessitate hav
     }
     
     if (pl[p].active_hostile_towards.empty() && !pl[p].hostile_towards.empty()) {//unsure if this check is redundant. Post fight/battle handling.
+        pl[p].clean_image = true;
         bool battle_won = false;
         if (!pl[p].combat_allies.empty()) {
             //check if battle won or lost   not yet implemented

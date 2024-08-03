@@ -26,6 +26,10 @@ Player::Player(int a) {
 	
 }
 
+
+
+//note: need to to constantly update pcindex in update() in case a person gets deleted from list and the pcindex is no longer correct
+
 int speed_toggle = 0;
 //fix this now: need to add a way to lock in an animation until player provides a different input. So for example if eating, then have to initiate and run eating progress in update() until done unless player interrupts by giving another input
 void Player::update() {//this should always be 0 (first in pl list) but for now just in case use function
@@ -45,6 +49,11 @@ void Player::update() {//this should always be 0 (first in pl list) but for now 
 		speed_toggle = 0;
 	}
 
+	if (!pl[p].active_hostile_towards.empty() && continue_func==-1) {//if someone is actively hostile to pc and no player function is currently being continuosly called, fight in self defense
+		pl[p].move_already = false;
+		fight();
+	}
+
 	switch (continue_func) {
 	case 0:
 		bathe();
@@ -62,8 +71,10 @@ void Player::update() {//this should always be 0 (first in pl list) but for now 
 		craft_pc(crafting_item);
 		break;
 	case 5:
+		eat_pc(pl[p].eating_food_index);
 		break;
 	case 6:
+		attack_person(target_person);
 		break;
 	case 7:
 		break;
@@ -77,6 +88,7 @@ void Player::update() {//this should always be 0 (first in pl list) but for now 
 		pl[p].age++;
 	}
 	
+	//need to set upper and lower caps for these (upper for some is death) Might also be better to track some by the hour or day rather than by the tick
 	pl[p].hunger_level++; //hunger increases by 1 per hour, meaning it must decrease by 20 per day to stay at 0 daily average
 	pl[p].tired_level++; //same for tired level
 	pl[p].campsite_age++;
@@ -276,6 +288,9 @@ void Player::pick_up_item_pc() {
 			pick_up_item(Environment::Map[pl[p].pos.y][pl[p].pos.x].item_id, pl[p].pos);//need to add a constraint for items that shouldn't be able to be picked up, such as active traps, trees and tents, etc.
 		}
 	}
+	else {
+		cut_down_tree_pc();//if no item on player's tile, try to cut down nearest tree
+	}
 }
 
 void Player::drink_pc() {//if next to water, drink water
@@ -302,53 +317,166 @@ void Player::craft_pc(string product) {
 	crafting_item = product;
 }
 
-//do these next
+void Player::eat_pc(int index) {//might be better to break up NPC functions such that both the player and the NPC call the same functions the same way rather than having a simplified version for the player, and only differing in where the input is coming from (AI vs player input)
+	p = pcindex;
+	pc = &pl[p];
+
+	pl[p].eating_food_index = index;//of item in inventory
+	continue_func = 5;
+
+	if (pl[p].eating_progress.progress == 0) {
+		pl[p].current_image = "pics/human_eating.png";
+	}
+	if (pl[p].eating_progress.progress_func()) {//makes eating take more than 1 frame
+		int index = pl[p].eating_food_index;
+		int food_id = pl[p].item_inventory[index];
+		delete_item(food_id, { -1,-1 }, index);//delete food from game
+		pl[p].hunger_level -= HUNGER_REDUCTION_RATE; //reduce hungry level by 10, therefore need 2 meals a day to stay at 0 hunger_level average
+		pl[p].clean_image = true; //when this function ends, return to default image on next update
+		continue_func = -1;
+	}
+
+	//do this later for this and all functions, including for npcs
+	//from inventory menu
+	//equip food item <--
+	//exit menu
+	//play eating animation
+	//consume item
+}
+
+void Player::equip_pc(int index) {
+	//while in inventory menu, select item to equip
+	p = pcindex;
+	pc = &pl[p];
+	ItemSys::Item item = ItemSys::item_list[ItemSys::item_by_id(pl[p].item_inventory[index])];
+	for (string t : item.tags) {
+		if (t == "ready food") {
+			eat_pc(index);//if item being equipped is food, eat item.
+			return;
+		}
+	}
+	pl[p].equipped.equip(pl[p].item_inventory[index]);
+}
+
+void Player::unequip_pc(int index) {
+	//while in equipment menu, select item to unequip
+	p = pcindex;
+	pc = &pl[p];//this might be unneccessary given the use of pl[p].
+	int ind = 0;
+	for (auto& i : pl[p].equipped.equipment) {
+		if (ind == index) {
+			pl[p].equipped.unequip(i.first);
+		}
+	}
+}
 
 void Player::play_trumpet() {//need to cap values given that player will probably push them below 0, fix this now
 	p = pcindex;
 	pc = &pl[p];
 	if (!inventory_has("trumpet").empty()) {
 		//play trumpet animation
-		pl[p].current_image = "playing trumpet";
+		pl[p].current_image = "playing_trumpet";
 		pl[p].recreation_level -= 50;//each recreation type should have its own reduction value?
 		continue_func = 1;
-		if (pl[p].recreation_level == 0) {
+		if (pl[p].recreation_level <= 0) {
 			continue_func = -1;
+			pl[p].clean_image = true;
 		}
 	}
 }//recreation option
+
+// currently called by pick_up_item_pc if no item is on pc's tile
+void Player::cut_down_tree_pc() {//temporary implementation, cuts down tree if next to it, if adding an animation then it would cause the pc to move to the nearest tree in its sightline, but the proper implementation should be to have the player click the tree to cut down.
+	p = pcindex;
+	pc = &pl[p];
+	find_all();
+
+	cut_down_tree();
+
+	pl[p].search_results.clear();
+}
+
+void Player::attack_person(int pid) {
+	p = pcindex;
+	pc = &pl[p];
+	if (pid == -1 || pid == pl[p].id) {
+		return;//not sure why it recieves a -1 sometimes
+	}
+
+	if (pid != target_person) {
+		target_person = pid;
+		pl[p].hostile_towards.push_back(pid);
+		pl[p].active_hostile_towards.push_back(pid);
+	}
+	pl[p].move_already = false;
+	fight();
+	continue_func = 6;
+	if (pl[p].hostile_towards.empty()) {
+		continue_func = -1;
+		target_person = -1;
+		pl[p].clean_image = true;
+	}
+}
+
+void Player::chat_pc(int pid) {
+	p = pcindex;
+	pc = &pl[p];
+
+	if (Position::distance(pl[p].pos, pl[p_by_id(pid)].pos) > pl[p].audioline_radius) {
+		return;//only chat if person is close enough
+	}
+	cout << "player chatted";
+
+	//player gives either compliment or insult to a specific npc
+	int p2_ind = p_by_id(pid);
+	int p2_id = pl[p2_ind].id;
+	//compliment or insult
+	int comment = (rand() % 15);
+	if (!valence) {//if valence==false, set topic to negative (slight/insult). 
+		comment *= -1;
+	}
+	change_disposition(p2_id,0,"insert if not found");
+	if (pl[p].dispositions[p2_id] >= 0) {//if like person, make compliment bigger, if like person, make insult smaller. Inverse for dislike person
+		if (comment >= 0) {
+			comment = comment * ((pl[p].dispositions[p2_id] / 100) * 2 + 1);
+		}
+		else {
+			comment = comment * ((pl[p].dispositions[p2_id] / 100) * 0.5 + 1);
+		}
+	}
+	else {
+		if (comment >= 0) {
+			comment = comment * ((pl[p].dispositions[p2_id] / 100) * 0.5 + 1);
+		}
+		else {
+			comment = comment * ((pl[p].dispositions[p2_id] / 100) * 2 + 1);
+		}
+	}
+	int op = p;
+	p = p2_ind;
+	string comment_type;
+	(comment < 0) ? comment_type = "insult" : comment_type = "compliment";
+	change_disposition(pl[op].id, comment, comment_type);//positive is compliment, negative is insult
+	p = op;
+}
+
+
+
+//do these next
+
+void Player::reproduce_pc() {}//need to set so that player decides when to propose or accept reproduction with a specific npc
+
+
+void Player::speak_pc() {}
+void Player::share_disposition() {}
+
 void Player::carry_infant_pc() {
 	//if near infant and infant is mine, pick up
 }
 void Player::drop_infant_pc() {
 	//if empty tile available, drop any infants being carried
 }
-
-void Player::equip_pc() {
-	//while in inventory menu, select item to equip
-}
-void Player::unequip_pc() {
-	//while in equipment menu, select item to unequip
-}
-void Player::eat_pc() {
-	//from inventory menu
-	//equip food item
-	//exit menu
-	//play eating animation
-	//consume item
-}
-
-
-
 void Player::set_trap_pc() {}
-void Player::cut_down_tree_pc() {}
-
-void Player::reproduce_pc() {}
-void Player::speak_pc() {}
-void Player::share_disposition() {}
-void Player::chat_pc() {}
-void Player::fight_pc() {}
-
 
 
 
@@ -360,6 +488,8 @@ vector<string> Player::view_own_data() {
 	vector<string> stats;
 	pc->name = "Jose";//need to implement both npc names and player naming, fix this
 	stats.push_back("Name: "+pc->name);
+	stats.push_back("Chat Mood: " + string((valence) ? "Compliment" : "Insult"));
+	stats.push_back("Current Mode: " + string((fight_mode) ? "Fight" : "Chat"));
 	stats.push_back("Sex: " + string((pc->sex) ? "male" : "female"));
 	stats.push_back("Hunger Level: "+to_string(pc->hunger_level));
 	stats.push_back("Thirst Level: " + to_string(pc->thirst_level));
@@ -378,14 +508,16 @@ vector<string> Player::view_own_data() {
 	}
 	stats.push_back(children);
 	stats.push_back("Age: "+to_string(pc->age));
-	stats.push_back("Monument Unlocked: " + string((pc->monument_unlocked) ? "True" : "False"));
-	stats.push_back("Fights Won: "+to_string(pc->num_fights_won));
-	stats.push_back("Authority Level: "+to_string(pc->authority));
 	stats.push_back("Dirtiness Level: "+to_string(pc->dirtiness));
 	stats.push_back("My Temperature: "+to_string(pc->my_temperature));
 	stats.push_back("Sickness: " + string((!pc->am_sick) ? "none" : "Yes - Sick Time: " + to_string(pc->sick_time)));
 	stats.push_back("Injured: " + string((!pc->am_injured) ? "none" : "Yes - Injured Time: " + to_string(pc->injured_time)));
-
+	stats.push_back("Num liked by: " + to_string(pl[p].num_people_liked_by));
+	stats.push_back("Amount liked: " + to_string(pl[p].amount_liked));
+	stats.push_back("Num Submissives: " + to_string(pl[p].num_submissives));
+	stats.push_back("Fights Won: " + to_string(pc->num_fights_won));
+	stats.push_back("Authority Level: " + to_string(pc->authority));
+	stats.push_back("Monument Unlocked: " + string((pc->monument_unlocked) ? "True" : "False"));
 	return stats;
 
 	//separate menu lists?

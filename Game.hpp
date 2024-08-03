@@ -42,7 +42,8 @@ public:
 
 	int mouse_x=-1;
 	int mouse_y=-1;
-	bool mousedown = false;
+	bool mousedown_left = false;
+	bool mousedown_right = false;
 
 	bool mouse_in_tile(int x, int y);
 	bool mouse_in_rect(SDL_Rect posR);
