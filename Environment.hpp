@@ -51,12 +51,15 @@ public:
 		//what about heat waves and cold snaps or is there a way to make these organic rather than random and discrete?
 		Tracks track;
 		int light_level = 4;//max light
-		int temperature = 75;
+		int temperature = 75;//temperature should be determined by time of day, time of year and latitude
 		//temperature, rain, wind, etc should be nullified by having a tile be classed as indoors and roofed. These should also affect item degradation / food/corpse rotting
 		//add water level. one level for surface water and another for underground water. (for flooding, wells, mud, cracked earth, plant fertility)
 		//terrain then should have 4 levels, underground, the terrain itself, and the surface of the tile and the sky above the tile and its water level that determines cloud cover, clouds should be able to be at the surface as fog. So the terrain could be soil with a level of underground water of 50% and snow at the surface
+		string underground_terrain;//subsurface minerals/deposits/etc
+		int surface_water_level;//for flooding, runoff, rivers
+		int underground_water_level; //for plant roots and wells
 		//smoke at the surface should cause breathing problems, smoke/fog at the surface should affect sightline radius. Include methane emissions from the ground as disaster?
-		//add soil fertility level		
+		int soil_fertility_level;//should be replenished by plant/animal corpses and manure, depleted by plants growing. What about salinity such as what happened in Mesopotamia?
 		//Sunlight level should vary based on cloud/smoke cover, time of day, time of year, and latitude.
 		//tiles should also hold sound and smell, though maybe those are better handled as tracks?
 

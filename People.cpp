@@ -531,6 +531,7 @@ bool People::idle() {
     return true;
 }
 
+//Cooking is just a variation of crafting involving butchering, milling, mixing, brewing, boiling, etc. Smithing, tailoring, etc are also just variations on crafting.
 bool People::craft(string product) {//later add station requirements such as campfire/stove/oven/furnace
     //if inventory has product.ingredients then craft product (consumes non tool ingredients) and place in inventory
     int num_of_ingredients = it2.presets[product].ingredients.size();
@@ -666,34 +667,33 @@ bool People::answer_item_request() {
     return true;//in process
 }
 
-bool People::acquire(string target) {
-    if (!inventory_has(target).empty()) {
-        //cout << ItemSys::item_list[ItemSys::item_by_id(inventory_has(target)[0])].item_name << "\n";
-        return true;
-    }
 
-    //add_func_record("acquiring " + target);
+//FIX THIS
+bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny/craftable/person/information/permission
+//First, determine the type of target to be acquired
+    string target_type;
     //check if target is an item name or item tag
-    if (it2.presets.find(target) != it2.presets.end()) {
-        //target is an item name
-        if (target == "wood") {
+    if (it2.presets.find(target) != it2.presets.end()) {//target is an item name
+        if (target == "wood") {//should instead be "if item cannot be picked up, do this according to item type"
             if (cut_down_tree()) {//do/fix this: might make sense to make tree a consumable station, an activity that must be performed at a specific spot (next to a tree) but the spot is consumed at the end (tree turned into wood)
                 return true;//done
             }
             return false;//in progress
         }
+        //if item can be picked up: target_type = "pickup"
+        //else if item can be carried = "carry"
+        //else if item is a source = "source" / "adjacency"     (terrain/plant/animal)
+        //else if item is a station = "station" / "adjacency"   (campfire)
+        //else if item is a building = "building"
     }
-    else if (anim1.species_names.find(target) != anim1.species_names.end()) {
-        //target is an animal name
+    else if (anim1.species_names.find(target) != anim1.species_names.end()) {//target is an animal name
         if (hunting(target)) {//call hunting function
             return true;//done
         }
         return false;//in progress
     }
-    else if (it2.tags.find(target) != it2.tags.end()) {
-        //target is a tag name
+    else if (it2.tags.find(target) != it2.tags.end()) {//target is a tag name
         for (string item_name : it2.tags[target]) {//for every item with this tag, attempt to acquire item, if one is acquired then tag is acquired therefore return true
-            //cout << item_name;
             if (acquire(item_name)) {
                 return true;//done
             }
@@ -701,16 +701,25 @@ bool People::acquire(string target) {
         return false;//in progress
     }
     else {
-        return false;//target isn't valid
+        return false;//target isn't valid. Need to throw exception
     }
 
-    //if item is craftable, craft it but if in the process of crafting, the item is found, abort crafting the item
-    if (!it2.presets[target].ingredients.empty()) {//if has ingredients, then is craftable
-        if (craft(target)) {
-            return true;//crafting item was successful
+//Second, determine if already have the target or if it is nearby
+    
+    if (target_type == "pickup") {//an item that can be picked up and placed in one's inventory
+        if (!inventory_has(target).empty()) {//this only applies to items that can be picked up, not those that can only be carried or cannot be moved.
+            return true;
         }
     }
-    //if crafting item not yet successful or item is not craftable, look around self for item
+
+    //if item has prereqs for acquiring, such as if item is a source (tree) and requires an axe to obtain, then fulfill prereq first (acquire(axe)) before continuing. Same for animals/plants, acquire spear/sickle
+
+    //look around self for item
+    //if found, move to item (or adjacent according to target_type) (or hunting action if living animal)
+    //call pickup if item can be picked up or adjacency_handler otherwise
+
+    
+    
     if (pl[p].search_results.find(target) != pl[p].search_results.end()) {//key found, if key exists then at least 1 was found
         Position pos = pl[p].search_results[target][0];
         int item_id = Environment::Map[pos.y][pos.x].item_id;
@@ -720,6 +729,24 @@ bool People::acquire(string target) {
         }
         return false;//if still moving towards item, continue to next tick
     }
+
+    //if not found in immediate vicinity, then according to target_type:
+
+    //hunting and well/tuber digging have special actions if the target isn't found (tracking,setting traps,digging) so need to execute those if target not found
+
+
+    //if item is craftable, craft it but if in the process of crafting, the item is found, abort crafting the item
+    if (!it2.presets[target].ingredients.empty()) {//if has ingredients, then is craftable
+        if (craft(target)) {
+            return true;//crafting item was successful
+        }
+    }
+
+    //if item is buildable, build it
+
+    //else if item has a source (wood comes from trees, rock comes from stone terrain, water is from water terrain, bones from animals, etc
+    //then acquire source
+
     //if item not found, and people nearby, request item
     if (pl[p].search_results.find("people") != pl[p].search_results.end()) {
 
@@ -1237,6 +1264,7 @@ void People::build_monument() {
     //cout << pl[p].id << " HAS WON THE GAME\n";
 }
 
+//this needs to trigger the attempt to acquire storage containers and inventory expanders (baskets and bags)
 bool People::inventory_dump() {//later, inventory capacity should also consider if the items are tiny/small/medium/large/huge. Huge items should only be able to be pushed/pulled/carried and may require multiple people or draft animals
     if (pl[p].item_inventory.size() < 6 || pl[p].campsite_pos.x==-1) {
         return false;//don't dump
@@ -1255,6 +1283,54 @@ bool People::inventory_dump() {//later, inventory capacity should also consider 
         pl[p].dumping_not_done = false;
     }
 }
+
+
+
+
+//new funcs
+
+
+
+bool People::extinguish_fire() {
+    //Firefighting: NPCs should stomp or hit with blankets on burning items, use buckets to throw soil/water on fire, create firebreaks, flee from fire or bug out (collect family and belongings before fleeing) either far from fire or into water
+    
+    //identify fire (from search_results)
+    //identify if fire is uncontrolled (is not campfire/hearth/candle/torch/bonfire)
+    //identify size of fire (look at surrounding tiles)
+    //if it is 1 tile, attempt to stomp out, if it is 2 tile radius, hit it with blankets/clothing if have any, if 3 tile radius, if have containers, attempt to fill them with soil/sand or water and throw on tiles on fire, if 4 tile radius, do 3 tile response and also create fire breaks.
+    //need to add cooperative action such as spreading out to extinguish fire and bucket chains for water/soil
+    //if fire is 5 tile radius, flee. If fire is near home/belongings/family then rescue them before fleeing.
+}
+
+bool People::carry() {//should also have a push/pull action for larger/heavier items such as a large stone block for a monument
+    //receive whether it is an item or person
+    //recieve its id and store it
+    //set current image to "carrying" and the current image and state of target person if a person to "carried", tie the position of the carried item/person to the tile in front of the carrier but also offset into the tile of the carrier so the images overlap
+}
+
+bool People::drop() {
+    //if carrying something/someone, remove the pixel offset of the carried item/person and reset images of carrier and carried, remove id of carried from carrier and reset the state of carried to false
+}
+
+bool People::adjacency_acquire_handler() {//for cutting down trees, mining rock, digging out dirt, collecting water, etc
+    //accept target from acquire()
+    //acquire should only call this func if person is next to target source
+
+    //if tree, if have axe, chop tree animation
+
+    //if stone, if have pickaxe, mining animation
+
+    //if it's a station passed as an ingredient/requisite to craft something, then "acquiring" the station counts as either being next to it or building it first
+    //ex: campfire for cooking
+
+    //Construction is a variation on crafting but done by emplacing something on a tile with the resources adjacent to that tile or self rather than in one's inventory.
+}
+
+bool People::coerce() {
+    //Coerce: intimidate, punish, threaten, etc a person into compliance with a request, is used for managing slaves, tributaries, subordinates, bullying, parenting, governance, etc. 
+
+}
+
 
 
 //need to implement a chance of no longer submitting to someone if their authority level falls too low or below one's own

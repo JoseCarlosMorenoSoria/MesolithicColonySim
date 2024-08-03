@@ -21,64 +21,9 @@ ItemSys::ItemSys() {
     }
     */
 
-    //test_read();
 }
 
 //Note: "active trap" is a version of trap that avoids getting picked up, must create a special pick up or deactivate function for it
-
-void ItemSys::test_read() {
-//read from csv into a vector of structs
-    fstream fin;// File pointer 
-    fin.open("test_shiet - Sheet1.csv", ios::in);// Open an existing file 
-    vector<string> row;// Read the Data from the file as String Vector 
-    string line, word;
-    bool firstrowdone = false;
-    bool start_count = false;//for counting the max number of ingredient columns
-    int count = 0;
-    while (getline(fin, line)) {// read an entire row and store it in a string variable 'line' 
-        cout << "\n";
-        row.clear();
-        stringstream s(line);// used for breaking words 
-        while (getline(s, word, ',')) {// read every column data of a row and store it in a string variable, 'word' 
-            row.push_back(word);// add all the column data of a row to a vector 
-        }
-        if (firstrowdone) {
-            test_struct ts;
-            ts.item_name = row[0];
-            ts.item_id = stoi(row[1]);
-            ts.item_stat1 = stoi(row[2]);
-            int ingr_end = 3 + count;
-            for (int i = 3; i < ingr_end; i++) {
-                    if (row[i] == "") {
-                        break;
-                    }
-                    ts.ingredients.push_back(row[i]);
-            }
-            ts.bool1 = (row[ingr_end] == "TRUE") ? true : false;
-            ts.image = row[ingr_end +1];
-            testlist.push_back(ts);
-        }
-        if (!firstrowdone) {
-            for (string i : row) {
-                if (i == "ingredients") { start_count = true; }
-                else if (i == "bool1") { start_count = false; }
-                if (start_count) { count++; }
-            }
-            firstrowdone = true;
-        }
-    }
-    for (auto i : testlist) {//print vector of structs to verify it got inserted correctly
-        cout << "\n";
-        cout<<i.item_name<<"; ";
-        cout << i.item_id << "; ";
-        cout << i.item_stat1 << "; ";
-        for (auto j : i.ingredients) {
-            cout << j << "; ";
-        }
-        cout << i.bool1 << "; ";
-        cout << i.image << "; ";
-    }
-}
 
 void ItemSys::fill_tag_lookup() {
     for(auto const& i : presets){

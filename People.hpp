@@ -12,10 +12,11 @@
 #include "Environment.hpp"
 #include "ItemSys.hpp"
 #include "Animal.hpp"
+#include "Creature.hpp"
 #include <stdexcept>
 using namespace std;
 
-class People {
+class People : public Creature{
 public:
 	static int ox;//origin.x for use in distance() function of Position struct. Uses current Person position
 	static int oy;
@@ -275,7 +276,7 @@ public:
 
 		bool player_trigger = false;
 
-		int num_people_liked_by = 0;//set all factors to 1 to avoid any 0 making authority == 0; For debugging. This worked to allow someone to win the game. 
+		int num_people_liked_by = 0; 
 		int amount_liked = 0;
 		int num_submissives = 0;
 
@@ -307,19 +308,12 @@ have bonded pets - pets and farm animals must be cared for such as feeding, temp
 
 
 Actions:
-Firefighting: NPCs should stomp or hit with blankets on burning items, use buckets to throw soil/water on fire, create firebreaks, flee from fire or bug out (collect family and belongings before fleeing) either far from fire or into water
 Doctoring: should be an extension of treating self injuries and disease to treating others
 Guarding: guard an area, item or person either protecting or imprisoning. May be responsible for feeding, etc.
-Coerce: intimidate, punish, threaten, etc a person into compliance with a request, is used for managing slaves, tributaries, subordinates, bullying, parenting, governance, etc. 
 Rescue: person, animal, item, remove them from danger and to a safe place or provide aid, overlaps with doctoring?
 Animal handling: tame wild animals, train animals such as dogs, the rest should be handled by simply treating animals as a child (feeding/protecting) and collecting resources they provide (including slaughtering them).
-Cooking is just a variation of crafting involving butchering, milling, mixing, brewing, boiling, etc.
-Smithing, tailoring, etc are also just variations on crafting.
-Construction is a variation on crafting but done by emplacing something on a tile with the resources adjacent to that tile or self rather than in one's inventory.
 Repair/Maintenance: need to include ownership of items, animals, buildings. A person will maintain items such as sharpening knives, or refuelling a campfire/hearth, or repair such as fixing a broken cuirass, patching a hole in the roof or wall, sewing a hole in clothing, etc. Some things cannot be repaired such as if something is too rusted/worn/broken/infested (in the case of a building)/etc and must be thrown out as trash or burned and replaced.
 Planting: harvesting plants should use the same mechanic for harvesting wild ones, the planting behavior should be learned and be wild horticulture first, then crops in various plots of various types. Over time includes weeding, surface scattering, sowing, tilling, watering, irrigation, etc.
-Mining is the same as cutting down a tree
-Need to add a carry and drop function for items and people.
 Need to add cleaning and include organizing in it (such that not only is trash thrown in a midden or stockpiled to be thrown away later, but also any belongings that aren't in a container/shelf/etc are placed in the corresponding place. 
 Research: most tech/knowledge advancements are context driven and probabalistic such that boat tech is advanced by living near bodies of water and the type of craft according to the type of body of water (coast/river/lake) or better clothing techniques or tools by gaining a certain level of experience making clothes, etc. 
 //studying a particular subject is available for some tech/knowledge but requires a lot of time investment by the same person or people sharing study progress and then that knowledge must be shared and taught to others in order to actually use it. It's not a global tech tree that is unlocked but the accumulation of individual knowledge that is shared and preserved.
@@ -362,6 +356,13 @@ Research: most tech/knowledge advancements are context driven and probabalistic 
 	bool rebel();//chance to remove submissive status towards someone
 	
 	bool inventory_dump();//if inventory is full, go back to camp and dump items. Encourages use of storage items and inventory expansion items as well as creates a better, cluttered, lived in environment
+	
+	//new funcs
+	bool extinguish_fire();
+	bool carry();//item or person, should merge with pick_up_item() though this is for carrying not placing in one's inventory
+	bool drop();//item or person, should merge with drop_item() though this is just for ending carry();
+	bool adjacency_acquire_handler();//for cutting down trees, mining rock, digging out dirt, collecting water, etc
+	bool coerce();//variation on request()
 //=====================================================================================================================
 	//Animation.cpp Functions:
 

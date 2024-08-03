@@ -11,12 +11,14 @@
 #include <algorithm>
 #include "Environment.hpp"
 #include "ItemSys.hpp"
+#include "Creature.hpp"
 using namespace std;
 
+//this is an outdated version, need to pass relevant functions and data to Creature and then add Animal specific functions/data here
 //this is just a copy paste of People and Person but renamed for animals and with irrelevant functions removed (no crafting, no requests, etc)
 //A better method might be to pull out common functions and structs into a separate class that is used by both People and Animal but for now this works
 
-class Animal {
+class Animal : public Creature{
 	
 public:
 	static int ox;//origin.x for use in distance() function of Position struct.
