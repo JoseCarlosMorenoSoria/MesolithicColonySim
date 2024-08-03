@@ -7,8 +7,9 @@
 #include <string>
 #include <vector>
 #include "ItemSys.hpp"
+#include "ProjUtil.hpp"
 using namespace std;
-
+using namespace proj_util;
 //TO DO NOW:
 //remember close family to avoid mating with parents/etc. Children exclusion done.
 //Unsure if need to add a way to remember past locations that had food or if random searching is good enough for now in order to create cyclical seasonal camp movement

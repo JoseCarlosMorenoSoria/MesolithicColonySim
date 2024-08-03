@@ -27,15 +27,6 @@ int People::message_by_id(int id) {//uses binary search to find and return index
     return -1;//not found
 }
 
-bool People::valid_position(Position pos) {
-    bool valid_x = 0 <= pos.x && pos.x < Environment::map_x_max;
-    bool valid_y = 0 <= pos.y && pos.y < Environment::map_y_max;
-    if (valid_x && valid_y) {
-        return true;
-    }
-    return false;
-}
-
 void People::add_func_record(string s) {
     if (pl[p].function_record.empty()) {
         pl[p].function_record.push_back(s);
@@ -200,30 +191,6 @@ void People::check_tile_messages(Position pos) {
     }
 }
 
-People::Position People::make_position_valid(Position dest, int ux, int lx, int uy, int ly) {//bounds: u==upper, l==lower
-    if (dest.x < lx) {
-        dest.x = lx;
-    }
-    else if (dest.x >= ux) {
-        dest.x = ux - 1;
-    }
-    if (dest.y < ly) {
-        dest.y = 0;
-    }
-    else if (dest.y >= uy) {
-        dest.y = uy - 1;
-    }
-    return dest;
-}
-
-int People::Position::distance(Position pos1, Position pos2) {
-    int xd = abs(pos1.x - pos2.x);
-    int yd = abs(pos1.y - pos2.y);
-    int max = -1;
-    (xd > yd) ? max = xd : max = yd;
-    return max;
-}
-
 vector<int> People::inventory_has(string target) {//return list of indexes of matching items in inventory if found, empty list if not found
     vector<int> indexes;
     if (pl[p].item_inventory.empty()) {
@@ -316,7 +283,7 @@ bool People::drop_item(int index) {
 }
 
 //for filtering search results by tag such as food
-vector<People::Position> People::filter_search_results(string target) {
+vector<Position> People::filter_search_results(string target) {
     set<Position> unique_results;//used to store unique positions only
     for (string i : it2.tags[target]) {
         if (pl[p].search_results.find(i) != pl[p].search_results.end()) {

@@ -13,7 +13,7 @@
 #include "ItemSys.hpp"
 #include <stdexcept>
 using namespace std;
-
+using namespace proj_util;
 //This class holds shared data structures and functions for People and Animal who both inherit from this class
 class Creature {
 public:

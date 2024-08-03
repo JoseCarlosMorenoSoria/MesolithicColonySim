@@ -14,41 +14,12 @@
 #include "Animal.hpp"
 #include "Creature.hpp"
 #include <stdexcept>
+#include "ProjUtil.hpp"
 using namespace std;
 
 class People : public Creature{
 public:
-	static int ox;//origin.x for use in distance() function of Position struct. Uses current Person position
-	static int oy;
-	struct Position {
-		int x = -1;
-		int y = -1;
-		bool operator==(Position const& pos2) {
-			return this->x == pos2.x && this->y == pos2.y;
-		}
-		bool operator!=(Position const& pos2) {
-			return this->x != pos2.x || this->y != pos2.y;
-		}
-		static int distance(Position pos1, Position pos2);
-		bool operator<(Position const& pos2) const {//sorting order is according to distance from an origin, the origin being the person's current position
-			int d1 = distance(*this,{ox,oy});
-			int d2 = distance(pos2, { ox,oy });
-			if (d1 < d2) {
-				return true;
-			}
-			else if(d1==d2){
-				if (this->x < pos2.x) { return true; }
-				if (this->x == pos2.x && this->y < pos2.y) { return true; }
-			}
-			return false;
-		}
-		//should this include an overload of ! operator to check if pos == {-1,-1} which is the NULL equivalent?
-	};
-
-	//These are currently in the UtilityFincs.cpp file
-	//fix this, these should be functions inside the Position struct
-	bool valid_position(Position pos);
-	Position make_position_valid(Position dest, int ux, int lx, int uy, int ly);
+	
 	
 
 	struct Message {//need to tie Messages to tiles in map instead of current Message list
