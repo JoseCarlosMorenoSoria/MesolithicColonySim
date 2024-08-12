@@ -21,37 +21,35 @@ public:
 	//this is for Humans only, need to figure out a system for pack animals to have an inventory
 	struct equipped_items {//item id's
 		map<string, int> equipment = {
-			{"left_hand_holding_eq", -1},//item/shield/bag
-			{"right_hand_holding_eq", -1},//item/weapon/bag
-			{"person_carried_eq", -1},//person id for carrying infants, sick, injured, and prisoners
-			{"head_wearing_eq", -1},//helmet, hat
-			{"eyes_wearing_eq", -1},//glasses
-			{"neck_wearing_eq", -1},//necklace
-			{"shoulders_wearing_eq", -1},//pauldrons, cape
-			{"torso_wearing_eq", -1},//shirt, tunic, poncho, jacket
-			{"arms_wearing_eq", -1},//sleeves
-			{"legs_wearing_eq", -1},//greaves/pants
-			{"feet_wearing_eq", -1}//shoes/sandals
+			{"left_hand_holding", -1},//item/shield/bag
+			{"right_hand_holding", -1},//item/weapon/bag
+			{"person_carried", -1},//person id for carrying infants, sick, injured, and prisoners
+			{"head", -1},//helmet, hat
+			{"eyes", -1},//glasses
+			{"neck", -1},//necklace
+			{"shoulders", -1},//pauldrons, cape
+			{"torso", -1},//shirt, tunic, poncho, jacket
+			{"arms", -1},//sleeves
+			{"legs", -1},//greaves/pants
+			{"feet", -1}//shoes/sandals
 		};
 
 		bool equip(int item_id) {
-			ItemSys::Item& item = ItemSys::item_list[ItemSys::item_by_id(item_id)];
-			for (string t : item.tags) {
-				if (t.find("_eq") != -1) {//find the tag that relates to where it is worn
-					for (auto& i : equipment) {
-						if (i.first == t) {
-							if (i.second != -1) {//slot is already filled
-								return false;//failed to equip
-							}
-							else {
-								i.second = item_id;
-								return true;//item successfully equipped
-							}
-						}
+			ItemSys::Apparel& item = ItemSys::apparel_item_list[ItemSys::apparel_by_id(item_id)];//FIX THIS, need to allow equipping non apparel (holding random item in hand such as weapon)
+			
+			for (auto& i : equipment) {
+				if (i.first == item.body_part) {
+					if (i.second != -1) {//slot is already filled
+						return false;//failed to equip
 					}
-
+					else {
+						i.second = item_id;
+						return true;//item successfully equipped
+					}
 				}
 			}
+
+				
 			return false;//item is invalid for equipping
 		}
 
@@ -111,6 +109,8 @@ public:
 		bool dumping_not_done = false;
 	};
 
+
+	Animal::Species& con = Animal::species["human"];//access to human constants
 	static vector<Person> pl;
 	static int p;
 	static int people_id_iterator;
@@ -180,7 +180,7 @@ public:
 	bool extinguish_fire();
 	bool carry();//item or person, should merge with pick_up_item() though this is for carrying not placing in one's inventory
 	bool drop();//item or person, should merge with drop_item() though this is just for ending carry();
-	bool adjacency_acquire_handler();//for cutting down trees, mining rock, digging out dirt, collecting water, etc
+	bool adjacency_acquire_handler(string target);//for cutting down trees, mining rock, digging out dirt, collecting water, etc
 	bool coerce();//variation on request()
 	//=====================================================================================================================
 		//Animation.cpp Functions:

@@ -65,7 +65,7 @@ public:
 		string effects_uses;//should this instead be only an attribute of plant components?
 		int calories;//likewise should this be only attribute of components?
 	};
-
+	Plants();
 	Plants(int a);
 	void update_all(int hour);//hour is recieved from Game
 	//check conditions, react to conditions (growth rate, leaf loss, drying up, drowning, reproduction, image changes, fruit production)

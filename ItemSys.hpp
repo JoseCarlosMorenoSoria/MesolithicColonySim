@@ -29,7 +29,7 @@ public:
 		int item_id = -1;
 		string item_name = "";
 		string image = "";
-		vector<string> tags;//include tags such as "food", "tool", "building", etc
+		vector<string> tags;
 		vector<string> ingredients;//includes tools (and later station) needed to craft item. Later can add quantity requirements for ingredients, etc
 		bool consumable_ingredient=true;//true means item is consumed when used as an ingredient to craft something, false means it isn't
 		bool can_pick_up = true;
@@ -55,13 +55,11 @@ public:
 		//Need to ensure every item has the right drives to ensure that it actually is sought out successfully and test how often it is done so. For example, if there are item A and item B, but in most or every instance only item A is made/sought, then it needs to be reworked to allow B to also be made/sought
 		//need to add flooring as well
 	};
-	//presets
-	map<string, Item> presets;
+
 	map<string, vector<string>> tags; //caches all items by name under their associated tags for ease of lookup
 	map<string, vector<string>> ingredients;//same as above tags map<>
 
-	//remove redundancies inherited by Item from these derived structs
-	//need both the csv reader, to connect it to Item generic and to have combat functions utilize these stats. Need to adjust Equipment so that any item that can be picked up can be equipped in a hand or both
+	//need to have combat functions utilize these stats. Need to adjust Equipment so that any item that can be picked up can be equipped in a hand or both
 	struct Weapon : Item {//currently, all weapons can be picked up, none are consumable, all are craftable
 		string material;//this is determined at the time of crafting, not from the csv. Modifier on other stats.
 		//currently weapons only have 1 tag
@@ -99,7 +97,6 @@ public:
 		bool airtight;
 	};
 
-	//all materials are consumable ingredients
 	struct Material : Item {//Materials are items that serve as ingredients and affect the stats of items made from them.
 		string source;
 		int mass;
@@ -109,7 +106,6 @@ public:
 		int insulation;
 	};
 
-	//no tool is a consumable ingredient
 	struct Tool : Item{//these are either items required to craft, build or extract other items or affect the speed or quality of doing so.
 		string material;//determined at crafting time
 
@@ -119,7 +115,6 @@ public:
 		vector<string> ingredients;
 	};
 
-	//no building can be picked up or carried nor is a consumable ingredient
 	//for now, buildings remain a subset of Item, need to later move to its own class and have buildings take up more than 1 tile and have its walls be impassable. A 1 person hut/tent should be 1 tile in size but have an entrance only on one side. (thin walls vs thick walls)
 	struct Structure : Item {
 		string material;
@@ -127,9 +122,35 @@ public:
 		int insulation_cold;
 	};
 
+	//presets
+	static map<string, Item> misc_presets;
+	static map<string, Weapon> weapon_presets;
+	static map<string, Apparel> apparel_presets;
+	static map<string, Tool> tool_presets;
+	static map<string, Material> material_presets;
+	static map<string, Structure> structure_presets;
+	static map<string, Container> container_presets;
+
 	void ItemPresetsCSVPull();
-	static vector<Item> item_list;//global list
-	static int item_by_id(int id);
+	static vector<Item> misc_item_list;
+	static vector<Weapon> weapon_item_list;
+	static vector<Apparel> apparel_item_list;
+	static vector<Structure> structure_item_list;
+	static vector<Tool> tool_item_list;
+	static vector<Material> material_item_list;
+	static vector<Container> container_item_list;
+	//static Item* item_by_id(int id);
+	static int misc_item_by_id(int id);
+	static int weapon_by_id(int id);
+	static int apparel_by_id(int id);
+	static int container_by_id(int id);
+	static int tool_by_id(int id);
+	static int material_by_id(int id);
+	static int structure_by_id(int id);
+
+	static Item as_item_by_id(int id);
+	static Item as_item_preset_by_name(string);
+
 	static int new_item_id();
 	void fill_tag_lookup();
 	void fill_ingredients_lookup();

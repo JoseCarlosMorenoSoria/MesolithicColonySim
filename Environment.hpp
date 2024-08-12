@@ -94,7 +94,8 @@ public:
 	Environment(int hours_in_day);
 	static void update(int hours_in_day, int hour_count, int day_count);
 
-	static void add_item_to_map(string item, int x, int y);
+	//need to replace with add rock or other valid items only
+	//static void add_item_to_map(string item, int x, int y);
 
 	static void fire_spread();
 	static void rain();

@@ -4,8 +4,10 @@ map<string,Plants::SpeciesPreset> Plants::species_presets;
 vector<Plants::Plant> Plants::pln;
 Plants::Plant* p;//current plant being updated
 Plants::SpeciesPreset* s;//the current plant's species constants
-int plant_id_iterator = -1;
+int Plants::plant_id_iterator = -1;
 //should the Plants class be converted into fully replacing the Plant struct?
+
+Plants::Plants(){}
 
 Plants::Plants(int a) {
 

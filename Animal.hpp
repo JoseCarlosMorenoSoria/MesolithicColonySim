@@ -14,6 +14,7 @@
 #include "ItemSys.hpp"
 #include "ProjUtil.hpp"
 #include <stdexcept>
+#include "Plants.hpp"
 using namespace std;
 using namespace proj_util;
 
@@ -196,7 +197,6 @@ public:
 
 	void find_all();
 	void check_tile_messages(Position pos);
-	vector<int> remove_dup(vector<int> v);//to remove duplicates from vector but preserve original order
 	vector<Position> filter_search_results(string target);
 //=====================================================================================================================
 	//Subsistence.cpp Functions:

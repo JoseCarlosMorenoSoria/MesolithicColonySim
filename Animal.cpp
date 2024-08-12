@@ -114,8 +114,8 @@ void Animal::update_all(int day_count, int hour_count, int hours_in_day) {
 
     for (int i = 1; i < al.size(); i++) {//i starts at 1 because for now, the first Person in the list is reserved for player control
         a = i;
-        Position::ox = al[a].pos.x;
-        Position::oy = al[a].pos.y;
+        ox = al[a].pos.x;
+        oy = al[a].pos.y;
         update(day_count, hour_count, hours_in_day);
         if (al[a].in_stealth) {
             animals_in_stealth.push_back(al[a].a_id);
@@ -456,22 +456,25 @@ bool Animal::idle() {
 //FIX THIS
 bool Animal::acquire(string target) {//target_type: animal/plant/pickup/adjaceny/craftable/person/information/permission
     //First, determine the type of target to be acquired
-    animal& an = al[a];
-    Species& sp = species[an.species];
     string target_type;
+    //if item can be picked up: target_type = "pickup"
+    //else if item can be carried = "carry"
+    //else if item is a source = "source" / "adjacency"     (terrain/plant/animal)
+    //else if item is a station = "station" / "adjacency"   (campfire)
+    //else if item is a building = "building"
+
     //check if target is an item name or item tag
-    if (it2.presets.find(target) != it2.presets.end()) {//target is an item name
-        //if item can be picked up: target_type = "pickup"      animals can't pickup but can eat/carry regular items
-        //else if item is a source = "source" / "adjacency"     (terrain/plant/animal)  for digging out tubers or eating grass?
-        //else if item is a building = "building"   for nests/beehives
+    ItemSys::Item it = ItemSys::as_item_preset_by_name(target);
+    if (it.item_name != "") {//target is an item name
+       
+            target_type = "pickup";
+        
     }
-    else if (species.find(target) != species.end()) {//target is an animal name
-        //if (hunting(target)) {//call hunting function
-        //    return true;//done
-        //}
-        //return false;//in progress
+    else if (Plants::species_presets.find(target) != Plants::species_presets.end()) {//target is a plant name
+        target_type = "source";
     }
-    else if (it2.tags.find(target) != it2.tags.end()) {//target is a tag name
+    /*
+    else if (it2.tags.find(target) != it2.tags.end()) {//target is tag name
         for (string item_name : it2.tags[target]) {//for every item with this tag, attempt to acquire item, if one is acquired then tag is acquired therefore return true
             if (acquire(item_name)) {
                 return true;//done
@@ -479,37 +482,72 @@ bool Animal::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
         }
         return false;//in progress
     }
+    */
+  
+    
+    else if (target == "plant") {
+        for (auto w : Plants::species_presets) {//for every item with this tag, attempt to acquire item, if one is acquired then tag is acquired therefore return true
+            if (acquire(w.first)) {
+                return true;//done
+            }
+        }
+        return false;//in progress
+    }
+    else if (Environment::terrains.find(target) != Environment::terrains.end()) {//target is a terrain type
+        target_type = "source";
+    }
     else {
-        return false;//target isn't valid. Need to throw exception
+        throw invalid_argument{"target is invalid"};
+        return false;
     }
 
     //Second, determine if already have the target or if it is nearby
+
+    
 
     //if item has prereqs for acquiring, such as if item is a source (tree) and requires an axe to obtain, then fulfill prereq first (acquire(axe)) before continuing. Same for animals/plants, acquire spear/sickle
 
     //look around self for item
     //if found, move to item (or adjacent according to target_type) (or hunting action if living animal)
-    //call pickup if item can be picked up or adjacency_handler otherwise
 
-    if (an.search_results.find(target) != an.search_results.end()) {//key found, if key exists then at least 1 was found
-        Position pos = an.search_results[target][0];
+    if (al[a].search_results.find(target) != al[a].search_results.end()) {//key found, if key exists then at least 1 was found
+        Position pos = al[a].search_results[target][0];
         int item_id = Environment::Map[pos.y][pos.x].item_id;
-        if (move_to(pos, "found item" + target)) {//if item is found, move to it and pick it up
-            //eat or carry item, need to add?
-            return true;//item picked up
+        if (Position::distance(al[a].pos, pos) == 1 || move_to(pos, "to found item " + target)) {//if item is found, move to it and pick it up
+            if (target_type == "pickup" && move_to(pos, "to found item " + target)) {
+                //likely is food, eat it right off the map
+                return true;//target acquired
+            }
+            else {
+                return false;//still moving to dest
+            }
+
+            if (target_type == "source") {
+                //likely is water, drink right off the map
+                //adjacency_acquire_handler(target);//extract/deconstruct
+                return true;//target acquired
+            }
         }
         return false;//if still moving towards item, continue to next tick
     }
+
     //if not found in immediate vicinity, then according to target_type:
+
     //hunting and well/tuber digging have special actions if the target isn't found (tracking,setting traps,digging) so need to execute those if target not found
+
+
 
     //if item is buildable, build it
 
     //else if item has a source (wood comes from trees, rock comes from stone terrain, water is from water terrain, bones from animals, etc
     //then acquire source
-    
+    if (it.item_type == "material") {
+        ItemSys::Material m = ItemSys::material_presets[it.item_name];
+        acquire(m.source);
+    }
+
     //if all fails, move in search pattern. Search pattern is shared, to reduce erratic movement from various instances of search patterns
-    an.general_search_called = true;
+    al[a].general_search_called = true;
     return false;//searching
 }
 
@@ -734,19 +772,19 @@ bool Animal::sleeping() {
 
 //new funcs
 
-bool People::carry() {//should also have a push/pull action for larger/heavier items such as a large stone block for a monument
+bool Animal::carry() {//should also have a push/pull action for larger/heavier items such as a large stone block for a monument
     //receive whether it is an item or person
     //recieve its id and store it
     //set current image to "carrying" and the current image and state of target person if a person to "carried", tie the position of the carried item/person to the tile in front of the carrier but also offset into the tile of the carrier so the images overlap
     return false;
 }
 
-bool People::drop() {
+bool Animal::drop() {
     return false;
     //if carrying something/someone, remove the pixel offset of the carried item/person and reset images of carrier and carried, remove id of carried from carrier and reset the state of carried to false
 }
 
-bool People::adjacency_acquire_handler() {//for cutting down trees, mining rock, digging out dirt, collecting water, etc
+bool Animal::adjacency_acquire_handler() {//for cutting down trees, mining rock, digging out dirt, collecting water, etc
     //accept target from acquire()
     //acquire should only call this func if person is next to target source
     return false;

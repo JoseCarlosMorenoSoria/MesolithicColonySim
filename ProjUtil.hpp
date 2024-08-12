@@ -90,7 +90,10 @@ namespace proj_util {
 	};
 
 
-
+	static int ox;//origin.x for use in distance(). Uses current Person/Animal/etc position
+	static int oy;
+	static int pu_map_x_max;//need to set in Environment class
+	static int pu_map_y_max;
 	struct Position {
 		int x = -1;//was going to use bint to automatically keep these in range, but that would cause problems with getting a getting a position relative to another, such as adding {-1,-1} to a position to get a new position 1 tile SW of the original
 		int y = -1;
@@ -110,8 +113,7 @@ namespace proj_util {
 			(xd > yd) ? max = xd : max = yd;
 			return max;
 		}
-		static int ox;//origin.x for use in distance(). Uses current Person/Animal/etc position
-		static int oy;
+		
 		bool operator<(Position const& pos2) const {//sorting order is according to distance from an origin, the origin being the person's current position
 			int d1 = distance(*this, { ox,oy });
 			int d2 = distance(pos2, { ox,oy });
@@ -124,12 +126,10 @@ namespace proj_util {
 			}
 			return false;
 		}
-		static int map_x_max;//need to set in Environment class
-		static int map_y_max;
 		//should this include an overload of ! operator to check if pos == {-1,-1} which is the NULL equivalent?
 		static bool valid_position(Position pos) {//according to world map
-			bool valid_x = 0 <= pos.x && pos.x < map_x_max;
-			bool valid_y = 0 <= pos.y && pos.y < map_y_max;
+			bool valid_x = 0 <= pos.x && pos.x < pu_map_x_max;
+			bool valid_y = 0 <= pos.y && pos.y < pu_map_y_max;
 			if (valid_x && valid_y) {
 				return true;
 			}
@@ -153,7 +153,7 @@ namespace proj_util {
 
 	};
 
-	vector<int> remove_dup(vector<int> v) {//to remove duplicates from vector but preserve original order
+	inline vector<int> remove_dup(vector<int> v) {//to remove duplicates from vector but preserve original order
 		vector<int> v2;
 		bool dupe = false;
 		for (int i : v) {
@@ -171,7 +171,7 @@ namespace proj_util {
 		return v2;
 	}
 
-	vector<vector<string>> get_data(string file_name) {
+	inline vector<vector<string>> get_data(string file_name) {
 		fstream fin;// File pointer 
 		fin.open(file_name, ios::in);// Open an existing file 
 		vector<vector<string>> data;
@@ -187,5 +187,8 @@ namespace proj_util {
 		}
 		return data;
 	}
+
+
+
 }
 #endif

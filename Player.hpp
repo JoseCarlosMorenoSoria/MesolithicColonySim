@@ -11,7 +11,6 @@
 #include <algorithm>
 #include "Environment.hpp"
 #include "ItemSys.hpp"
-#include "Animal.hpp"
 #include "People.hpp"
 #include <stdexcept>
 using namespace std;

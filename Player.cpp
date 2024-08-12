@@ -9,7 +9,6 @@
 //create save system
 
 #include "Player.hpp"
-Animal::Species& con = Animal::species["human"];//access to human constants
 
 //once player is done, test if can win game, then improve player by turning actions into context actions or tooltip actions to reduce need to go into menu
 
@@ -110,7 +109,7 @@ void Player::update() {//this should always be 0 (first in pl list) but for now 
 	int insulation_cold = 0;//unsure if insulation from heat makes sense, except from hats and maybe light white clothing? Only insulation from cold used for now.
 	for (auto const& i : pl[p].equipped.equipment) {
 		if (i.second != -1) {
-			insulation_cold += ItemSys::item_list[ItemSys::item_by_id(i.second)].insulation_from_cold;
+			insulation_cold += ItemSys::apparel_item_list[ItemSys::apparel_by_id(i.second)].insulation_cold;
 		}
 	}
 	if (Environment::Map[pl[p].pos.y][pl[p].pos.x].temperature > pl[p].my_temperature) {//like other needs, having this update every tick is not ideal and should be changed.
@@ -265,7 +264,7 @@ void Player::sleep_pc() {
 void Player::bathe() {
 	p = pcindex;
 	pc = &pl[p];
-	if (Environment::Map[pl[p].pos.y][pl[p].pos.x].terrain == "water" && pl[p].dirtiness>0) {
+	if (Environment::Map[pl[p].pos.y][pl[p].pos.x].terrain_name == "water" && pl[p].dirtiness>0) {
 		//play bathing animation
 		//reduce dirtiness
 		continue_func = 0;
@@ -292,7 +291,7 @@ void Player::pick_up_item_pc() {
 	pc = &pl[p];
 	int item_id = Environment::Map[pl[p].pos.y][pl[p].pos.x].item_id;
 	if (item_id != -1) {
-		ItemSys::Item& item = ItemSys::item_list[ItemSys::item_by_id(item_id)];
+		ItemSys::Item item = ItemSys::as_item_by_id(item_id);
 		if (item.can_pick_up) {//fix this, need to add it to NPC as well
 			pick_up_item(Environment::Map[pl[p].pos.y][pl[p].pos.x].item_id, pl[p].pos);//need to add a constraint for items that shouldn't be able to be picked up, such as active traps, trees and tents, etc.
 		}
@@ -357,9 +356,10 @@ void Player::equip_pc(int index) {
 	//while in inventory menu, select item to equip
 	p = pcindex;
 	pc = &pl[p];
-	ItemSys::Item item = ItemSys::item_list[ItemSys::item_by_id(pl[p].item_inventory[index])];
-	for (string t : item.tags) {
-		if (t == "ready food") {
+	int item_id = pl[p].item_inventory[index];
+	ItemSys::Item item = ItemSys::as_item_by_id(item_id);
+	for (string t : item.tags) {//NEED TO FIX THIS: check by item type not by tag
+		if (t == "food") {
 			eat_pc(index);//if item being equipped is food, eat item.
 			return;
 		}
@@ -547,7 +547,7 @@ vector<string> Player::view_inventory() {
 	pc = &pl[p];
 	vector<string> inventory;
 	for (int& i : pc->item_inventory) {
-		ItemSys::Item& item = ItemSys::item_list[ItemSys::item_by_id(i)];
+		ItemSys::Item item = ItemSys::as_item_by_id(i);
 		inventory.push_back(item.item_name + " : ");
 	}//need to remove last colon after loop is done
 	if (inventory.empty()) {
@@ -563,8 +563,8 @@ vector<string> Player::view_equipment() {
 	for (auto& i : pc->equipped.equipment) {
 		string s = i.first + ": ";
 		if (i.second != -1) {
-			ItemSys::Item& item = ItemSys::item_list[ItemSys::item_by_id(i.second)];
-			s += item.item_name + " - Insulation = " + to_string(item.insulation_from_cold);
+			ItemSys::Apparel& item = ItemSys::apparel_item_list[ItemSys::apparel_by_id(i.second)];//FIX THIS: need to handle case where equippment is not apparel
+			s += item.item_name + " - Insulation = " + to_string(item.insulation_cold);
 			equipment.push_back(s);
 		}
 	}//need to remove last colon after loop is done
@@ -612,7 +612,7 @@ vector<string> Player::view_craftable() {//this function is very inefficient, ma
 	pc = &pl[p];
 	vector<string> craftable;
 	for (int& i : pc->item_inventory) {
-		ItemSys::Item& item = ItemSys::item_list[ItemSys::item_by_id(i)];
+		ItemSys::Item item = ItemSys::as_item_by_id(i);
 		for (string j : it2.ingredients[item.item_name]) {
 			craftable.push_back(j);
 		}
@@ -627,7 +627,7 @@ vector<string> Player::view_craftable() {//this function is very inefficient, ma
 		craftable.push_back(i);
 	}
 		for (int i = craftable.size()-1; i > -1; i--) {
-			ItemSys::Item& product = it2.presets[craftable[i]];
+			ItemSys::Item product = it2.as_item_preset_by_name(craftable[i]);
 			for (string s : product.ingredients) {
 				if (inventory_has(s).empty()) {
 					craftable.erase(craftable.begin() + i);

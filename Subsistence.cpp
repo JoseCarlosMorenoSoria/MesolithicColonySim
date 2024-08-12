@@ -1,8 +1,7 @@
 #include "People.hpp"
 #include "Animal.hpp"
 using namespace std;
-People peep;//to access People functions in Animal functions
-Animal::Species& con = Animal::species["human"];//access to human constants
+People peep1;//to access People functions in Animal functions
 //Any main functions that regard obtaining and processing food and water for People
 
 bool Animal::eating() {
@@ -16,7 +15,7 @@ bool Animal::eating() {
     bool has_food = false;
     vector<int> food_indexes1;
     if (c.species == "human") {
-        food_indexes1 = peep.inventory_has("ready food");
+        food_indexes1 = peep1.inventory_has("ready food");
         if (!food_indexes1.empty()) {
             has_food = true;
             c.eating_food_index = food_indexes1[0];
@@ -54,11 +53,11 @@ bool Animal::eating() {
         int index = c.eating_food_index;
         if (c.species == "human") {
             int food_id = People::pl[People::p].item_inventory[index];
-            peep.delete_item(food_id, { -1,-1 }, index);//delete food from game
+            peep1.delete_item(food_id, { -1,-1 }, index);//delete food from game
         }
         else {
             int food_id = Environment::Map[c.food_to_eat.y][c.food_to_eat.x].item_id;
-            peep.delete_item(food_id, c.food_to_eat, -1);//delete food from game
+            peep1.delete_item(food_id, c.food_to_eat, -1);//delete food from game
         }
         c.hunger_level -= sp.HUNGER_REDUCTION_RATE; //reduce hungry level by 10, therefore need 2 meals a day to stay at 0 hunger_level average
         c.clean_image = true; //when this function ends, return to default image on next update

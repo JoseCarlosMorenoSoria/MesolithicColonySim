@@ -1,7 +1,6 @@
 #include "People.hpp"
 #include "Animal.hpp"
 using namespace std;
-Animal::Species& con = Animal::species["human"];//access to human constants
 //Simple functions that provide services to main People functions.
 
 int People::new_person_id() {//unsure if this function is redundant with how int++ works or if there's a better method
@@ -84,7 +83,7 @@ void Animal::find_all() {//returns all things (items, people, messages, etc) fou
             else { key = "no people"; }
         }
         else if (type == "item") {
-            if (Environment::Map[pos.y][pos.x].item_id != -1) { key = ItemSys::item_list[ItemSys::item_by_id(Environment::Map[pos.y][pos.x].item_id)].item_name; }
+            if (Environment::Map[pos.y][pos.x].item_id != -1) { key = ItemSys::as_item_by_id(Environment::Map[pos.y][pos.x].item_id).item_name; }
             else { key = "no item"; }
         }
         else if (type == "animal") {
@@ -92,7 +91,7 @@ void Animal::find_all() {//returns all things (items, people, messages, etc) fou
             else if (Environment::Map[pos.y][pos.x].animal_id == -2) { key = "reserved for animal movement"; }
             else { key = "no animal"; }
         }
-        else if (type == "terrain") { key = Environment::Map[pos.y][pos.x].terrain; }
+        else if (type == "terrain") { key = Environment::Map[pos.y][pos.x].terrain_name; }
 
         if (c.search_results.find(key) != c.search_results.end()) {//check if key exists
             c.search_results[key].push_back(pos);
@@ -192,27 +191,56 @@ vector<int> People::inventory_has(string target) {//return list of indexes of ma
         return indexes;
     }
     for (int i = 0; i < pl[p].item_inventory.size(); i++) {
-        int item_index = ItemSys::item_by_id(pl[p].item_inventory[i]);
-        if (item_index == -1) {//this shouldn't be happening, need to figure out why, temp fix. fix this
-            return indexes;
-        }
-        if (ItemSys::item_list[item_index].item_name == target) {
+        ItemSys::Item it = ItemSys::as_item_by_id(pl[p].item_inventory[i]);
+        
+        if (it.item_name == target) {
             indexes.push_back(i);
         }
-        for (int j = 0; j < ItemSys::item_list[item_index].tags.size(); j++) {
-            if (ItemSys::item_list[item_index].tags[j] == target) {
-                indexes.push_back(i);
-                break;
-            }
-        }
+        //FIX THIS: inventory no longer searches tags given changes in Item, need to allow searching both for Item types (apparel, weapon, etc) and other tags/properties
     }
     return indexes;
 }
 
 void People::create_item(string item_type, Position pos) {
-    ItemSys::Item new_item = it2.presets[item_type];
+    ItemSys::Item new_item = it2.as_item_preset_by_name(item_type);
     new_item.item_id = ItemSys::new_item_id();
-    ItemSys::item_list.push_back(new_item);
+
+    if (new_item.item_type == "weapon") {
+        ItemSys::Weapon w = ItemSys::weapon_presets[item_type];
+        w.item_id = new_item.item_id;
+        ItemSys::weapon_item_list.push_back(w);
+    }
+    else if (new_item.item_type == "apparel") {
+        ItemSys::Apparel w = ItemSys::apparel_presets[item_type];
+        w.item_id = new_item.item_id;
+        ItemSys::apparel_item_list.push_back(w);
+    }
+    else if (new_item.item_type == "tool") {
+        ItemSys::Tool w = ItemSys::tool_presets[item_type];
+        w.item_id = new_item.item_id;
+        ItemSys::tool_item_list.push_back(w);
+    }
+    else if (new_item.item_type == "material") {
+        ItemSys::Material w = ItemSys::material_presets[item_type];
+        w.item_id = new_item.item_id;
+        ItemSys::material_item_list.push_back(w);
+    }
+    else if (new_item.item_type == "container") {
+        ItemSys::Container w = ItemSys::container_presets[item_type];
+        w.item_id = new_item.item_id;
+        ItemSys::container_item_list.push_back(w);
+    }
+    else if (new_item.item_type == "structure") {
+        ItemSys::Structure w = ItemSys::structure_presets[item_type];
+        w.item_id = new_item.item_id;
+        ItemSys::structure_item_list.push_back(w);
+    }
+    else if (new_item.item_type == "misc") {
+        ItemSys::Item w = ItemSys::misc_presets[item_type];
+        w.item_id = new_item.item_id;
+        ItemSys::misc_item_list.push_back(w);
+    }
+
     if (pos.x == -1) {
         pl[p].item_inventory.push_back(new_item.item_id);
     }
@@ -235,8 +263,30 @@ void People::delete_item(int item_id, Position pos, int inventory_index) {
     if (item_id == -1) {//don't know what's causing this issue but need this check to work
         return;
     }
-    int item_index = ItemSys::item_by_id(item_id);
-    ItemSys::item_list.erase(ItemSys::item_list.begin() + item_index);//remove item from global item_list
+    ItemSys::Item it = ItemSys::as_item_by_id(item_id);
+
+    if (it.item_type == "weapon") {
+        ItemSys::weapon_item_list.erase(ItemSys::weapon_item_list.begin() + ItemSys::weapon_by_id(it.item_id));//remove item from global item_list
+    }
+    else if (it.item_type == "apparel") {
+        ItemSys::apparel_item_list.erase(ItemSys::apparel_item_list.begin() + ItemSys::apparel_by_id(it.item_id));
+    }
+    else if (it.item_type == "tool") {
+        ItemSys::tool_item_list.erase(ItemSys::tool_item_list.begin() + ItemSys::tool_by_id(it.item_id));
+    }
+    else if (it.item_type == "material") {
+        ItemSys::material_item_list.erase(ItemSys::material_item_list.begin() + ItemSys::material_by_id(it.item_id));
+    }
+    else if (it.item_type == "container") {
+        ItemSys::container_item_list.erase(ItemSys::container_item_list.begin() + ItemSys::container_by_id(it.item_id));
+    }
+    else if (it.item_type == "structure") {
+        ItemSys::structure_item_list.erase(ItemSys::structure_item_list.begin() + ItemSys::structure_by_id(it.item_id));
+    }
+    else if (it.item_type == "misc") {
+        ItemSys::misc_item_list.erase(ItemSys::misc_item_list.begin() + ItemSys::misc_item_by_id(it.item_id));
+    }
+    
     if (pos.x != -1) {//if pos.x == -1, then the item was not on the map and was probably in a Person's inventory from which it was deleted separately
         Environment::Map[pos.y][pos.x].item_id = -1; //removes item from map
     }

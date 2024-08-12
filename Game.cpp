@@ -422,7 +422,7 @@ void Game::render_map(SDL_Rect mouseR, string item_name_moused, int min_x, int m
 				no_item = true;
 			}
 			if (!no_item) {
-				ItemSys::Item& item = ItemSys::item_list[ItemSys::item_by_id(item_id)];
+				ItemSys::Item item = ItemSys::as_item_by_id(item_id);
 				textureManager(item.image, destR);
 				if (!pause_game && mouse_in_rect(destR)) {
 					mouseR = destR;
@@ -431,10 +431,10 @@ void Game::render_map(SDL_Rect mouseR, string item_name_moused, int min_x, int m
 				}
 			}
 			else {
-				if (Environment::Map[y][x].terrain == "dirt") {
+				if (Environment::Map[y][x].terrain_name == "dirt") {
 					textureManager("pics/dirt.png", destR);
 				}
-				else if (Environment::Map[y][x].terrain == "water") {
+				else if (Environment::Map[y][x].terrain_name == "water") {
 					textureManager("pics/shallow_water.png", destR);
 				}
 			}

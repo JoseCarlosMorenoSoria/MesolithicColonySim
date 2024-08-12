@@ -3,10 +3,7 @@ using namespace std;
 
 vector<People::Person> People::pl; //pl, using the name pl because of the frequency of use, used to store all Person instances
 int People::p = -1;//index for accessing current person. Using index to access instead of a pointer because list may change such as when a new person is born or dies which invalidates pointers to pl (people_list)
-int People::pday_count;
-int People::phour_count;
 int People::people_id_iterator = 0;
-Animal::Species& con = Animal::species["human"];//access to human constants
 vector<int> People::people_in_stealth;//unsure if need a separate people and animal list of these, also need to implement both animal and people not seeing or reduced seeing probability of those in stealth
 //Need to unit test every function and also test the frequency that each function executes, average value for all variables, and different scenarios (resource/people density, size, environment, etc)
 
@@ -64,8 +61,8 @@ void People::update_all(int day_count, int hour_count, int hours_in_day) {
     int top_auth = 0;
     for(int i = 1; i < pl.size(); i++) {//i starts at 1 because for now, the first Person in the list is reserved for player control
         p = i;
-        Position::ox = pl[p].pos.x;
-        Position::oy = pl[p].pos.y;
+        ox = pl[p].pos.x;
+        oy = pl[p].pos.y;
         update(day_count, hour_count, hours_in_day);
         if (pl[p].in_stealth) {
             people_in_stealth.push_back(pl[p].p_id);
@@ -159,8 +156,7 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
     int insulation_cold = 0;//unsure if insulation from heat makes sense, except from hats and maybe light white clothing? Only insulation from cold used for now.
     for (auto const& i : pl[p].equipped.equipment) {
         if (i.second != -1) {
-            //FIX THIS. Need to adjust to new Item system
-            //insulation_cold += ItemSys::item_list[ItemSys::item_by_id(i.second)].insulation_from_cold;
+            insulation_cold += ItemSys::apparel_item_list[ItemSys::apparel_by_id(i.second)].insulation_cold;//FIX THIS: Need to ignore case where equipped item is not apparel
         }
     }
     if (Environment::Map[pl[p].pos.y][pl[p].pos.x].temperature > pl[p].my_temperature) {//like other needs, having this update every tick is not ideal and should be changed.
@@ -401,13 +397,15 @@ bool People::idle() {
 //Cooking is just a variation of crafting involving butchering, milling, mixing, brewing, boiling, etc. Smithing, tailoring, etc are also just variations on crafting.
 bool People::craft(string product) {//later add station requirements such as campfire/stove/oven/furnace
     //if inventory has product.ingredients then craft product (consumes non tool ingredients) and place in inventory
-    int num_of_ingredients = it2.presets[product].ingredients.size();
+    ItemSys::Item it = ItemSys::as_item_preset_by_name(product);
+    vector<string> ingredients = it.ingredients;
+    int num_of_ingredients = ingredients.size();
     vector<string> missing_ingredients;//fix this, this should be a single string given that every update rechecks if it can craft the item and only 1 ingredient is sought per tick. Unless a more detailed method is implemented such as checking if any missing ingredient is craftable rather than doing them strictly in order.
     vector<int> temp;
     for (int i = 0; i < num_of_ingredients; i++) {
-        temp = inventory_has(it2.presets[product].ingredients[i]);
+        temp = inventory_has(ingredients[i]);
         if (temp.empty()) {
-            missing_ingredients.push_back(it2.presets[product].ingredients[i]);
+            missing_ingredients.push_back(ingredients[i]);
         }
     }
     if (missing_ingredients.empty()) {//have all items, therefore craft product
@@ -418,8 +416,9 @@ bool People::craft(string product) {//later add station requirements such as cam
         }
         if (pl[p].crafting[product].progress_func()) {//animation/time delay    currently, progress is saved if interrupted which might not make sense in some contexts
             for (int i = 0; i < num_of_ingredients; i++) {//later implement tool degradation here as well
-                if (it2.presets[it2.presets[product].ingredients[i]].consumable_ingredient) {
-                    int consume_index = inventory_has(it2.presets[product].ingredients[i])[0];
+                ItemSys::Item it_c = ItemSys::as_item_preset_by_name(it.ingredients[i]);
+                if (it_c.consumable_ingredient) {
+                    int consume_index = inventory_has(it.ingredients[i])[0];
                     delete_item(pl[p].item_inventory[consume_index], { -1,-1 }, consume_index);
                 }
             }
@@ -533,23 +532,29 @@ bool People::answer_item_request() {
 }
 
 
-//FIX THIS
+//FIX THIS      //need to cache items being actively sought somehow
 bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny/craftable/person/information/permission
 //First, determine the type of target to be acquired
     string target_type;
+    //if item can be picked up: target_type = "pickup"
+    //else if item can be carried = "carry"
+    //else if item is a source = "source" / "adjacency"     (terrain/plant/animal)
+    //else if item is a station = "station" / "adjacency"   (campfire)
+    //else if item is a building = "building"
+        
     //check if target is an item name or item tag
-    if (it2.presets.find(target) != it2.presets.end()) {//target is an item name
-        if (target == "wood") {//should instead be "if item cannot be picked up, do this according to item type"
-            if (cut_down_tree()) {//do/fix this: might make sense to make tree a consumable station, an activity that must be performed at a specific spot (next to a tree) but the spot is consumed at the end (tree turned into wood)
-                return true;//done
-            }
-            return false;//in progress
+    set<string> item_categories = { "weapon","apparel","container","material" };//structure is handled differently, tool and misc not included, food needs to be included
+    ItemSys::Item it = ItemSys::as_item_preset_by_name(target);
+    if (it.item_name!="") {//target is an item name
+        if (it.item_type=="structure") {
+            target_type = "building";
         }
-        //if item can be picked up: target_type = "pickup"
-        //else if item can be carried = "carry"
-        //else if item is a source = "source" / "adjacency"     (terrain/plant/animal)
-        //else if item is a station = "station" / "adjacency"   (campfire)
-        //else if item is a building = "building"
+        else if (!it.can_pick_up) {
+            target_type = "carry";
+        }
+        else {
+            target_type = "pickup";
+        }
     }
     else if (species.find(target) != species.end()) {//target is an animal name
         if (hunting(target)) {//call hunting function
@@ -557,7 +562,11 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
         }
         return false;//in progress
     }
-    else if (it2.tags.find(target) != it2.tags.end()) {//target is a tag name
+    else if (Plants::species_presets.find(target) != Plants::species_presets.end()) {//target is a plant name
+        target_type = "source";
+    }
+    /*
+    else if (it2.tags.find(target) != it2.tags.end()) {//target is tag name
         for (string item_name : it2.tags[target]) {//for every item with this tag, attempt to acquire item, if one is acquired then tag is acquired therefore return true
             if (acquire(item_name)) {
                 return true;//done
@@ -565,8 +574,64 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
         }
         return false;//in progress
     }
+    */
+    else if (item_categories.find(target) != item_categories.end()) {//target general item category name
+        if (target == "weapon") {
+            for (auto w : ItemSys::weapon_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
+                if (acquire(w.first)) {
+                    return true;//done
+                }
+            }
+            return false;//in progress
+        }
+        else if (target == "apparel") {
+            for (auto w : ItemSys::apparel_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
+                if (acquire(w.first)) {
+                    return true;//done
+                }
+            }
+            return false;//in progress
+        }
+        else if (target == "container") {
+            for (auto w : ItemSys::container_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
+                if (acquire(w.first)) {
+                    return true;//done
+                }
+            }
+            return false;//in progress
+        }
+        else if (target == "material") {
+            for (auto w : ItemSys::material_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
+                if (acquire(w.first)) {
+                    return true;//done
+                }
+            }
+            return false;//in progress
+        }
+        
+    }
+    else if (target == "animal") {
+        for (auto w : species) {//for every item with this tag, attempt to acquire item, if one is acquired then tag is acquired therefore return true
+            if (acquire(w.first)) {
+                return true;//done
+            }
+        }
+        return false;//in progress
+    }
+    else if (target == "plant") {
+        for (auto w : Plants::species_presets) {//for every item with this tag, attempt to acquire item, if one is acquired then tag is acquired therefore return true
+            if (acquire(w.first)) {
+                return true;//done
+            }
+        }
+        return false;//in progress
+    }
+    else if (Environment::terrains.find(target) != Environment::terrains.end()) {//target is a terrain type
+        target_type = "source";
+    }
     else {
-        return false;//target isn't valid. Need to throw exception
+        throw invalid_argument{"target is invalid"};
+        return false;
     }
 
 //Second, determine if already have the target or if it is nearby
@@ -581,16 +646,31 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
 
     //look around self for item
     //if found, move to item (or adjacent according to target_type) (or hunting action if living animal)
-    //call pickup if item can be picked up or adjacency_handler otherwise
 
-    
-    
     if (pl[p].search_results.find(target) != pl[p].search_results.end()) {//key found, if key exists then at least 1 was found
         Position pos = pl[p].search_results[target][0];
         int item_id = Environment::Map[pos.y][pos.x].item_id;
-        if (move_to(pos, "found item" + target)) {//if item is found, move to it and pick it up
-            pick_up_item(item_id, pos);
-            return true;//item picked up
+        if (Position::distance(pl[p].pos, pos)==1 || move_to(pos, "to found item " + target)) {//if item is found, move to it and pick it up
+            if (target_type == "pickup" && move_to(pos, "to found item " + target)) {
+                pick_up_item(item_id, pos);
+                return true;//target acquired
+            }
+            else {
+                return false;//still moving to dest
+            }
+            
+            if (target_type == "carry") {
+                //carry function
+                return true;//target acquired
+            }
+            else if(target_type=="source") {
+                adjacency_acquire_handler(target);//extract/deconstruct
+                return true;//target acquired
+            }
+            else if (target_type == "building") {
+                //enter building function (find entrance and walk inside)???
+                return true;//target acquired
+            }
         }
         return false;//if still moving towards item, continue to next tick
     }
@@ -601,7 +681,7 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
 
 
     //if item is craftable, craft it but if in the process of crafting, the item is found, abort crafting the item
-    if (!it2.presets[target].ingredients.empty()) {//if has ingredients, then is craftable
+    if (it.ingredients.empty()) {//if has ingredients, then is craftable
         if (craft(target)) {
             return true;//crafting item was successful
         }
@@ -611,6 +691,10 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
 
     //else if item has a source (wood comes from trees, rock comes from stone terrain, water is from water terrain, bones from animals, etc
     //then acquire source
+    if (it.item_type == "material") {
+        ItemSys::Material m = ItemSys::material_presets[it.item_name];
+        acquire(m.source);
+    }
 
     //if item not found, and people nearby, request item
     if (pl[p].search_results.find("people") != pl[p].search_results.end()) {
@@ -1150,7 +1234,7 @@ bool People::drop() {
     return false;
 }
 
-bool People::adjacency_acquire_handler() {//for cutting down trees, mining rock, digging out dirt, collecting water, etc
+bool People::adjacency_acquire_handler(string target) {//for cutting down trees, mining rock, digging out dirt, collecting water, etc
     //accept target from acquire()
     //acquire should only call this func if person is next to target source
 
