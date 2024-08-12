@@ -77,7 +77,7 @@ public:
 	static vector<Plant> pln;//global list of plants
 	void new_plant(string species, Position pos);
 	int get_by_id(int id);//returns index to plant in global list
-
+	Environment envi2;
 };
 
 #endif

@@ -16,7 +16,7 @@ Plants::Plants(int a) {
 void Plants::new_plant(string species, Position pos) {//need to make sure tile doesn't have plant before calling this function
 	Plant np;
 	SpeciesPreset& sp = species_presets[species];
-	Environment::Tile& t = Environment::Map[pos.y][pos.x];
+	Environment::Tile& t = envi2.tile(pos);
 	np.plant_id=++plant_id_iterator;//use id generator
 	np.species=species;
 	np.pos=pos;
@@ -46,7 +46,7 @@ void Plants::update(int hour) {
 		return;
 	}
 	check_death();
-	Environment::Tile& t = Environment::Map[p->pos.y][p->pos.x];
+	Environment::Tile& t = envi2.tile(p->pos);
 
 	string soil_requirements;
 	string nutrient_requirements;

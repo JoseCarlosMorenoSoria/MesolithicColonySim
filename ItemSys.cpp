@@ -2,16 +2,16 @@
 using namespace std;
 
 //need to add exception-throws for if an image/item that doesn't exist is called, to catch what the name asked for is and find the source
-
-vector<ItemSys::Item> ItemSys::misc_item_list;
-vector<ItemSys::Weapon> ItemSys::weapon_item_list;
-vector<ItemSys::Apparel> ItemSys::apparel_item_list;
-vector<ItemSys::Structure> ItemSys::structure_item_list;
-vector<ItemSys::Tool> ItemSys::tool_item_list;
-vector<ItemSys::Material> ItemSys::material_item_list;
-vector<ItemSys::Container> ItemSys::container_item_list;
+map<int, ItemSys::Item*> ItemSys::item_list;
+map<int, ItemSys::Item> ItemSys::misc_item_list;
+map<int, ItemSys::Weapon> ItemSys::weapon_item_list;
+map<int, ItemSys::Apparel> ItemSys::apparel_item_list;
+map<int, ItemSys::Structure> ItemSys::structure_item_list;
+map<int, ItemSys::Tool> ItemSys::tool_item_list;
+map<int, ItemSys::Material> ItemSys::material_item_list;
+map<int, ItemSys::Container> ItemSys::container_item_list;
 int ItemSys::item_id_iterator = 0; 
-
+map<string, ItemSys::Item*> ItemSys::presets;
 map<string, ItemSys::Item> ItemSys::misc_presets;
 map<string, ItemSys::Weapon> ItemSys::weapon_presets;
 map<string, ItemSys::Apparel> ItemSys::apparel_presets;
@@ -19,6 +19,92 @@ map<string, ItemSys::Tool> ItemSys::tool_presets;
 map<string, ItemSys::Material> ItemSys::material_presets;
 map<string, ItemSys::Structure> ItemSys::structure_presets;
 map<string, ItemSys::Container> ItemSys::container_presets;
+
+void ItemSys::update_item_list() {
+    for (auto i : weapon_item_list) {
+        item_list[i.first] = &i.second;
+    }
+    for (auto i : apparel_item_list) {
+        item_list[i.first] = &i.second;
+    }
+    for (auto i : tool_item_list) {
+        item_list[i.first] = &i.second;
+    }
+    for (auto i : container_item_list) {
+        item_list[i.first] = &i.second;
+    }
+    for (auto i : material_item_list) {
+        item_list[i.first] = &i.second;
+    }
+    for (auto i : structure_item_list) {
+        item_list[i.first] = &i.second;
+    }
+    for (auto i : misc_item_list) {
+        item_list[i.first] = &i.second;
+    }
+}
+
+int ItemSys::create_item(string item_name) {
+    Item new_item = *presets[item_name];
+
+    if (new_item.item_type == "weapon") {
+        Weapon w = weapon_presets[item_name];
+        w.item_id = new_item_id();
+        weapon_item_list.insert({ w.item_id,w });
+        item_list.insert({w.item_id, &weapon_item_list[w.item_id]});
+        update_item_list();
+        return w.item_id;
+    }
+    else if (new_item.item_type == "apparel") {
+        Apparel w = apparel_presets[item_name];
+        w.item_id = new_item_id();
+        apparel_item_list.insert({ w.item_id,w });
+        item_list.insert({ w.item_id, &apparel_item_list[w.item_id] });
+        update_item_list();
+        return w.item_id;
+    }
+    else if (new_item.item_type == "tool") {
+        Tool w = tool_presets[item_name];
+        w.item_id = new_item_id();
+        tool_item_list.insert({ w.item_id,w });
+        item_list.insert({ w.item_id, &tool_item_list[w.item_id] });
+        update_item_list();
+        return w.item_id;
+    }
+    else if (new_item.item_type == "material") {
+        Material w = material_presets[item_name];
+        w.item_id = new_item_id();
+        material_item_list.insert({ w.item_id,w });
+        item_list.insert({ w.item_id, &material_item_list[w.item_id] });
+        update_item_list();
+        return w.item_id;
+    }
+    else if (new_item.item_type == "container") {
+        Container w = container_presets[item_name];
+        w.item_id = new_item_id();
+        container_item_list.insert({ w.item_id,w });
+        item_list.insert({ w.item_id, &container_item_list[w.item_id] });
+        update_item_list();
+        return w.item_id;
+    }
+    else if (new_item.item_type == "structure") {
+        Structure w = structure_presets[item_name];
+        w.item_id = new_item_id();
+        structure_item_list.insert({ w.item_id,w });
+        item_list.insert({ w.item_id, &structure_item_list[w.item_id] });
+        update_item_list();
+        return w.item_id;
+    }
+    else if (new_item.item_type == "misc") {
+        Item w = misc_presets[item_name];
+        w.item_id = new_item_id();
+        misc_item_list.insert({ w.item_id,w });
+        item_list.insert({ w.item_id, &misc_item_list[w.item_id] });
+        update_item_list();
+        return w.item_id;
+    }
+    return -1;//item is invalid
+}
 
 ItemSys::ItemSys() {
     ItemPresetsCSVPull();
@@ -107,199 +193,37 @@ void ItemSys::fill_ingredients_lookup() {
     }
 }
 
-/* This isn't working, use separate functions for each child struct for now
-ItemSys::Item* ItemSys::item_by_id(int id) {//uses binary search to find and return pointer to item from item lists
-    vector<int> size = {
-        (int)misc_item_list.size(),
-        (int)weapon_item_list.size(),
-        (int)apparel_item_list.size(),
-        (int)container_item_list.size(),
-        (int)structure_item_list.size(),
-        (int)material_item_list.size(),
-        (int)tool_item_list.size()
-    };
-    for (int i = 0; i < size.size(); i++) {
-        int low = 0;
-        int high = size[i] - 1;
-        while (low <= high) {
-            int mid = low + (high - low) / 2;
-            Item *it;
-            if (i == 0) {
-                it = &misc_item_list[mid];
-            }
-            else if (i == 1) {
-                it = &weapon_item_list[mid];
-            }
-            else if (i == 2) {
-                it = &apparel_item_list[mid];
-            }
-            else if (i == 3) {
-                it = &container_item_list[mid];
-            }
-            else if (i == 4) {
-                it = &structure_item_list[mid];
-            }
-            else if (i == 5) {
-                it = &material_item_list[mid];
-            }
-            else if (i == 6) {
-                it = &tool_item_list[mid];
-            }
-
-            if (it->item_id == id) {
-                return it;
-            }
-            (it->item_id < id) ? low = mid + 1 : high = mid - 1;
-        }
-    }
-
-    return nullptr;//not found
-}
-*/
-
-
-int ItemSys::misc_item_by_id(int id) {
-    int low = 0;
-    int high = misc_item_list.size() - 1;
-    while (low <= high) {
-        int mid = low + (high - low) / 2;
-        if (misc_item_list[mid].item_id == id) {
-            return mid;
-        }
-        (misc_item_list[mid].item_id < id) ? low = mid + 1 : high = mid - 1;
-    }
-    return -1;//not found
-}
-int ItemSys::weapon_by_id(int id) {
-    int low = 0;
-    int high = weapon_item_list.size() - 1;
-    while (low <= high) {
-        int mid = low + (high - low) / 2;
-        if (weapon_item_list[mid].item_id == id) {
-            return mid;
-        }
-        (weapon_item_list[mid].item_id < id) ? low = mid + 1 : high = mid - 1;
-    }
-    return -1;//not found
-}
-int ItemSys::apparel_by_id(int id) {
-    int low = 0;
-    int high = apparel_item_list.size() - 1;
-    while (low <= high) {
-        int mid = low + (high - low) / 2;
-        if (apparel_item_list[mid].item_id == id) {
-            return mid;
-        }
-        (apparel_item_list[mid].item_id < id) ? low = mid + 1 : high = mid - 1;
-    }
-    return -1;//not found
-}
-int ItemSys::container_by_id(int id) {
-    int low = 0;
-    int high = container_item_list.size() - 1;
-    while (low <= high) {
-        int mid = low + (high - low) / 2;
-        if (container_item_list[mid].item_id == id) {
-            return mid;
-        }
-        (container_item_list[mid].item_id < id) ? low = mid + 1 : high = mid - 1;
-    }
-    return -1;//not found
-}
-int ItemSys::tool_by_id(int id) {
-    int low = 0;
-    int high = tool_item_list.size() - 1;
-    while (low <= high) {
-        int mid = low + (high - low) / 2;
-        if (tool_item_list[mid].item_id == id) {
-            return mid;
-        }
-        (tool_item_list[mid].item_id < id) ? low = mid + 1 : high = mid - 1;
-    }
-    return -1;//not found
-}
-int ItemSys::material_by_id(int id) {
-    int low = 0;
-    int high = material_item_list.size() - 1;
-    while (low <= high) {
-        int mid = low + (high - low) / 2;
-        if (material_item_list[mid].item_id == id) {
-            return mid;
-        }
-        (material_item_list[mid].item_id < id) ? low = mid + 1 : high = mid - 1;
-    }
-    return -1;//not found
-}
-int ItemSys::structure_by_id(int id) {
-    int low = 0;
-    int high = structure_item_list.size() - 1;
-    while (low <= high) {
-        int mid = low + (high - low) / 2;
-        if (structure_item_list[mid].item_id == id) {
-            return mid;
-        }
-        (structure_item_list[mid].item_id < id) ? low = mid + 1 : high = mid - 1;
-    }
-    return -1;//not found
-}
-ItemSys::Item ItemSys::as_item_by_id(int id) {//returns truncated copy of item which contains base struct properties only
-    if (weapon_by_id(id) != -1) {
-        Item it = weapon_item_list[weapon_by_id(id)];
-        return it;
-    }
-    if (apparel_by_id(id) != -1) {
-        Item it = apparel_item_list[apparel_by_id(id)];
-        return it;
-    }
-    if (container_by_id(id) != -1) {
-        Item it = container_item_list[container_by_id(id)];
-        return it;
-    }
-    if (tool_by_id(id) != -1) {
-        Item it = tool_item_list[tool_by_id(id)];
-        return it;
-    }
-    if (material_by_id(id) != -1) {
-        Item it = material_item_list[material_by_id(id)];
-        return it;
-    }
-    if (structure_by_id(id) != -1) {
-        Item it = structure_item_list[structure_by_id(id)];
-        return it;
-    }
-    if (misc_item_by_id(id) != -1) {
-        Item it = misc_item_list[misc_item_by_id(id)];
-        return it;
-    }
-    Item null_item;
-    return null_item;
-}
-ItemSys::Item ItemSys::as_item_preset_by_name(string name) {
-    if (misc_presets.find(name) != misc_presets.end()) {
-        return misc_presets[name];
-    }
-    if (weapon_presets.find(name) != weapon_presets.end()) {
-        return weapon_presets[name];
-    }
-    if (apparel_presets.find(name) != apparel_presets.end()) {
-        return apparel_presets[name];
-    }
-    if (container_presets.find(name) != container_presets.end()) {
-        return container_presets[name];
-    }
-    if (tool_presets.find(name) != tool_presets.end()) {
-        return tool_presets[name];
-    }
-    if (structure_presets.find(name) != structure_presets.end()) {
-        return structure_presets[name];
-    }
-    if (material_presets.find(name) != material_presets.end()) {
-        return material_presets[name];
-    }
-}
 int ItemSys::new_item_id() {//unsure if this function is redundant with how int++ works or if there's a better method
     item_id_iterator++;
     return item_id_iterator;
+}
+
+void ItemSys::delete_item(int id) {//to reduce need for updating master list, can store up deleted items and simply delete them from master list and then delete periodically from actual object lists and only then update master list (due to pointer corruption)
+    Item it = *item_list[id];
+
+    if (it.item_type == "weapon") {
+        weapon_item_list.erase(id);
+    }
+    else if (it.item_type == "apparel") {
+        apparel_item_list.erase(id);
+    }
+    else if (it.item_type == "tool") {
+        tool_item_list.erase(id);
+    }
+    else if (it.item_type == "material") {
+        material_item_list.erase(id);
+    }
+    else if (it.item_type == "container") {
+        container_item_list.erase(id);
+    }
+    else if (it.item_type == "structure") {
+        structure_item_list.erase(id);
+    }
+    else if (it.item_type == "misc") {
+        misc_item_list.erase(id);
+    }
+    item_list.erase(id);
+    update_item_list();
 }
 
 void ItemSys::ItemPresetsCSVPull() {
@@ -340,7 +264,8 @@ void ItemSys::ItemPresetsCSVPull() {
                 }
                 w.ingredients.push_back(data[i][++r]);//current max is 3
             }
-            weapon_presets.insert({ w.item_name,w });
+            weapon_presets.insert({ w.item_name,w });//store object
+            presets.insert({ w.item_name, &weapon_presets[w.item_name]});//store reference in master list
         }
     }
     data = get_data("clothing and armor csv");
@@ -370,6 +295,7 @@ void ItemSys::ItemPresetsCSVPull() {
                 a.ingredients.push_back(data[i][++r]);
             }
             apparel_presets.insert({ a.item_name,a });
+            presets.insert({ a.item_name, &apparel_presets[a.item_name] });
         }
     }
     data = get_data("storage item csv");
@@ -400,6 +326,7 @@ void ItemSys::ItemPresetsCSVPull() {
                 c.ingredients.push_back(data[i][++r]);
             }
             container_presets.insert({ c.item_name,c });
+            presets.insert({ c.item_name, &container_presets[c.item_name] });
         }
     }
     data = get_data("structures csv");
@@ -415,6 +342,7 @@ void ItemSys::ItemPresetsCSVPull() {
             s.ingredients.push_back(data[i][++r]);
             s.insulation_cold = stoi(data[i][++r]);
             structure_presets.insert({ s.item_name,s });
+            presets.insert({ s.item_name, &structure_presets[s.item_name] });
         }
     }
     data = get_data("materials");
@@ -434,6 +362,7 @@ void ItemSys::ItemPresetsCSVPull() {
             m.crafting_time = stoi(data[i][++r]);
             m.insulation = stoi(data[i][++r]);
             material_presets.insert({ m.item_name,m });
+            presets.insert({ m.item_name, &material_presets[m.item_name] });
         }
     }
     data = get_data("tools");
@@ -456,6 +385,7 @@ void ItemSys::ItemPresetsCSVPull() {
                 t.ingredients.push_back(data[i][++r]);//current max is 3
             }
             tool_presets.insert({ t.item_name,t });
+            presets.insert({ t.item_name, &tool_presets[t.item_name] });
         }
     }
     data = get_data("food");    //FIX THIS, STRUCT NOT YET IMPLEMENTED

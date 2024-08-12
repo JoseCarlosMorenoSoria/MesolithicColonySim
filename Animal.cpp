@@ -229,11 +229,11 @@ void Animal::update(int day_count, int hour_count, int hours_in_day) {
     if (an.am_sick) {
         an.sick_time++;
     }
-    if (Environment::Map[an.pos.y][an.pos.x].temperature > an.my_temperature) {//like other needs, having this update every tick is not ideal and should be changed.
+    if (envi.tile(an.pos).temperature > an.my_temperature) {//like other needs, having this update every tick is not ideal and should be changed.
         an.my_temperature++;//fix this, need to make increase/decrease a percent of the difference between my_temp and tile_temp. Such that a large difference causes a large change in my_temp but a small one does not. Do the same for the clothing insulation below.
 
     }
-    else if (Environment::Map[an.pos.y][an.pos.x].temperature < an.my_temperature) {
+    else if (envi.tile(an.pos).temperature < an.my_temperature) {
         an.my_temperature--;
     }
 
@@ -340,7 +340,7 @@ bool Animal::child_birth() {
             child.p_id = People::new_person_id();
             child.pos = child_pos;
             child.sex = sex;
-            Environment::Map[child.pos.y][child.pos.x].person_id = child.p_id;
+            envi.tile(child.pos).person_id = child.p_id;
             People::pl.push_back(child);
             c.children_id.push_back(child.p_id);
             People::pl[People::p_by_id(c.spouse_id)].children_id.push_back(child.p_id);
@@ -350,7 +350,7 @@ bool Animal::child_birth() {
             child.a_id = new_animal_id();
             child.pos = child_pos;
             child.sex = sex;
-            Environment::Map[child.pos.y][child.pos.x].animal_id = child.a_id;
+            envi.tile(child.pos).animal_id = child.a_id;
             al.push_back(child);
             c.children_id.push_back(child.a_id);
             al[a_by_id(c.spouse_id)].children_id.push_back(child.a_id);
@@ -368,7 +368,7 @@ bool Animal::reproduce() {
     vector<Position>& pos_list1 = an.search_results[an.species];//note: using reference (&) reduces copying
     int a2 = -1;
     for (int i = 0; i < pos_list1.size(); i++) {//filter out valid mates from found list
-        int anim_id = Environment::Map[pos_list1[i].y][pos_list1[i].x].animal_id;
+        int anim_id = envi.tile(pos_list1[i]).animal_id;
         if (anim_id == -2) {
             cout << "error: anim_id==-2\n";//don't know why this is happening, already checked find_all() but it's the only place it could be inserted
             return true;//try again
@@ -464,7 +464,7 @@ bool Animal::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
     //else if item is a building = "building"
 
     //check if target is an item name or item tag
-    ItemSys::Item it = ItemSys::as_item_preset_by_name(target);
+    ItemSys::Item it = *it2.presets[target];
     if (it.item_name != "") {//target is an item name
        
             target_type = "pickup";
@@ -512,7 +512,7 @@ bool Animal::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
 
     if (al[a].search_results.find(target) != al[a].search_results.end()) {//key found, if key exists then at least 1 was found
         Position pos = al[a].search_results[target][0];
-        int item_id = Environment::Map[pos.y][pos.x].item_id;
+        int item_id = envi.tile(pos).item_id;
         if (Position::distance(al[a].pos, pos) == 1 || move_to(pos, "to found item " + target)) {//if item is found, move to it and pick it up
             if (target_type == "pickup" && move_to(pos, "to found item " + target)) {
                 //likely is food, eat it right off the map
@@ -767,6 +767,7 @@ bool Animal::sleeping() {
     }
     return true;//in progress
 }
+
 
 //NOTE: for implementing cooperation, conduct through speak() requests and answers. Person 1 proposes joint action, Person 2 decides whether to agree or not. If a 3rd person or more are involved, then need to set a meeting location and time to conduct the proposition -> up/down vote and an option to continue action with those who said yes only. Later add option to be able to coerce those who said no into complying.
 

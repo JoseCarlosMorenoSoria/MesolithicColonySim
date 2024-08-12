@@ -122,6 +122,11 @@ public:
 		int insulation_cold;
 	};
 
+
+	//FIX THIS: implement master lists and functions to pass around or store Item children as pointers and simply cast pointer to a Child pointer if child properties need to be accessed.
+
+
+	static map<string, Item*> presets;//master list
 	//presets
 	static map<string, Item> misc_presets;
 	static map<string, Weapon> weapon_presets;
@@ -132,30 +137,24 @@ public:
 	static map<string, Container> container_presets;
 
 	void ItemPresetsCSVPull();
-	static vector<Item> misc_item_list;
-	static vector<Weapon> weapon_item_list;
-	static vector<Apparel> apparel_item_list;
-	static vector<Structure> structure_item_list;
-	static vector<Tool> tool_item_list;
-	static vector<Material> material_item_list;
-	static vector<Container> container_item_list;
-	//static Item* item_by_id(int id);
-	static int misc_item_by_id(int id);
-	static int weapon_by_id(int id);
-	static int apparel_by_id(int id);
-	static int container_by_id(int id);
-	static int tool_by_id(int id);
-	static int material_by_id(int id);
-	static int structure_by_id(int id);
 
-	static Item as_item_by_id(int id);
-	static Item as_item_preset_by_name(string);
+	static map<int, Item*> item_list;//master list <id,ptr>
+
+	static map<int, Item> misc_item_list;
+	static map<int, Weapon> weapon_item_list;
+	static map<int, Apparel> apparel_item_list;
+	static map<int, Structure> structure_item_list;
+	static map<int, Tool> tool_item_list;
+	static map<int, Material> material_item_list;
+	static map<int, Container> container_item_list;
+	
 
 	static int new_item_id();
 	void fill_tag_lookup();
 	void fill_ingredients_lookup();
-
-
+	int create_item(string item_name);//returns item_id of created item
+	void delete_item(int id);
+	void update_item_list();
 };
 
 #endif

@@ -35,7 +35,7 @@ public:
 		};
 
 		bool equip(int item_id) {
-			ItemSys::Apparel& item = ItemSys::apparel_item_list[ItemSys::apparel_by_id(item_id)];//FIX THIS, need to allow equipping non apparel (holding random item in hand such as weapon)
+			ItemSys::Apparel& item = *static_cast<ItemSys::Apparel*>(it2.item_list[item_id]);//FIX THIS, need to allow equipping non apparel (holding random item in hand such as weapon)
 			
 			for (auto& i : equipment) {
 				if (i.first == item.body_part) {
@@ -160,7 +160,6 @@ public:
 	bool craft(string product);//need to add some method of slowing it down, or else might craft multiple items within a single update. Maybe create an action flag that allows only a single action (walk/craft/speak/etc) per update)
 	bool acquire(string target);
 	bool answer_item_request();
-	bool cut_down_tree();//should be made generic for interacting with an adjacent item (converting tree into wood, producing mineral item from mineral vein without deleting the latter (but depleting), using stations, carving/decorating/vandalizing an item, etc) 
 	bool recreation();
 	bool hygiene();
 	bool exposure();
@@ -180,7 +179,8 @@ public:
 	bool extinguish_fire();
 	bool carry();//item or person, should merge with pick_up_item() though this is for carrying not placing in one's inventory
 	bool drop();//item or person, should merge with drop_item() though this is just for ending carry();
-	bool adjacency_acquire_handler(string target);//for cutting down trees, mining rock, digging out dirt, collecting water, etc
+	//add to this: (converting tree into wood, producing mineral item from mineral vein without deleting the latter (but depleting), using stations, carving/decorating/vandalizing an item, etc) 
+	bool adjacency_acquire_handler(string target, string type, Position pos);//for cutting down trees, mining rock, digging out dirt, collecting water, etc
 	bool coerce();//variation on request()
 	//=====================================================================================================================
 		//Animation.cpp Functions:
@@ -190,7 +190,7 @@ public:
 		//UtilityFuncs.cpp Functions:
 	static int new_person_id();
 	static int p_by_id(int id);//returns index of person in people list (pl).
-
+	static Person& person(int id);
 	//void add_func_record(string s);	too many things have changed, need to redo how I track function executions
 	vector<int> inventory_has(string target);
 	void create_item(string item_type, Position pos);

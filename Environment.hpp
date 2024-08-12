@@ -91,6 +91,7 @@ public:
 	static const int map_x_max = 100;
 	static Tile Map[map_y_max][map_x_max];
 	static vector<sky_tile> Sky; //strip of sky above map
+	Environment();
 	Environment(int hours_in_day);
 	static void update(int hours_in_day, int hour_count, int day_count);
 
@@ -100,7 +101,7 @@ public:
 	static void fire_spread();
 	static void rain();
 	static void track_manager();
-
+	Tile& tile(Position pos);//get tile from Map
 };
 
 #endif

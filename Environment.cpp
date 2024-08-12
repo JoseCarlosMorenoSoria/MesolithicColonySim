@@ -26,6 +26,11 @@ void Environment::csv_fill_terrains() {
 
 //only items that should be added in this class are rocks according to the terrain type (granite terrain==granite rocks, dirt terrain == random rock type, etc)
 
+Environment::Tile& Environment::tile(Position pos) {
+	return Map[pos.y][pos.x];
+}
+
+Environment::Environment(){}
 
 Environment::Environment(int hours_in_day) {
 	pu_map_x_max = map_x_max;

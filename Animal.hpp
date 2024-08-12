@@ -20,6 +20,8 @@ using namespace proj_util;
 
 class Animal{
 public:
+	Environment envi;//to access environment functions
+
 	//Animals only send food request and alarm messages. Humans have a far wider variety of Messages
 	struct Message {//need to tie Messages to tiles in map instead of current Message list
 		int message_id = -1;//is map<> more efficient than keeping in a vector?
@@ -182,7 +184,7 @@ public:
 	static int new_animal_id();
 	int new_message_id();
 
-	//can these 2 functions be merged?
+	//can these 2 functions be merged?		FIX THIS: Why have functions that return index instead of a reference to desired object?
 	int a_by_id(int a_id);//returns index of person in people list (pl).
 	int message_by_id(int id);//returns index of message in message list.
 
@@ -198,6 +200,7 @@ public:
 	void find_all();
 	void check_tile_messages(Position pos);
 	vector<Position> filter_search_results(string target);
+
 //=====================================================================================================================
 	//Subsistence.cpp Functions:
 	bool eating();

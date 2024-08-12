@@ -13,6 +13,9 @@ vector<int> People::people_in_stealth;//unsure if need a separate people and ani
 //could also maybe just overload and use the operator! as a return true or false if null function
 
 
+//FIX THIS: fix find_all according to changes in item, plants, etc
+
+
 People::People(){}
 
 People::People(int init) {
@@ -23,7 +26,7 @@ People::People(int init) {
     p1.sex = true;
     p1.age = 11;
     pl.push_back(p1);
-    Environment::Map[p1.pos.y][p1.pos.x].person_id = p1.p_id;
+    envi.tile(p1.pos).person_id = p1.p_id;
 
     
     Person p2;
@@ -32,7 +35,7 @@ People::People(int init) {
     p2.sex = false;
     p2.age = 11;
     pl.push_back(p2);
-    Environment::Map[p2.pos.y][p2.pos.x].person_id = p2.p_id;
+    envi.tile(p2.pos).person_id = p2.p_id;
     
    
     
@@ -124,7 +127,7 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
             speak("requesting food",-1);
         }
         if (pl[p].being_carried) {//if being carried, then position is the position of the carrier offset by 1
-            pl[p].pos = pl[p_by_id(pl[p].carried_by_id)].pos;
+            pl[p].pos = person(pl[p].carried_by_id).pos;
             pl[p].pos.x += 1;
         }
         pl[p].immobile = true;
@@ -156,14 +159,15 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
     int insulation_cold = 0;//unsure if insulation from heat makes sense, except from hats and maybe light white clothing? Only insulation from cold used for now.
     for (auto const& i : pl[p].equipped.equipment) {
         if (i.second != -1) {
-            insulation_cold += ItemSys::apparel_item_list[ItemSys::apparel_by_id(i.second)].insulation_cold;//FIX THIS: Need to ignore case where equipped item is not apparel
+            ItemSys::Apparel* ap = static_cast<ItemSys::Apparel*>(it2.item_list[i.second]);
+            insulation_cold += ap->insulation_cold;//FIX THIS: Need to ignore case where equipped item is not apparel
         }
     }
-    if (Environment::Map[pl[p].pos.y][pl[p].pos.x].temperature > pl[p].my_temperature) {//like other needs, having this update every tick is not ideal and should be changed.
+    if (envi.tile(pl[p].pos).temperature > pl[p].my_temperature) {//like other needs, having this update every tick is not ideal and should be changed.
         pl[p].my_temperature++;//fix this, need to make increase/decrease a percent of the difference between my_temp and tile_temp. Such that a large difference causes a large change in my_temp but a small one does not. Do the same for the clothing insulation below.
         
     }
-    else if (Environment::Map[pl[p].pos.y][pl[p].pos.x].temperature < pl[p].my_temperature) {
+    else if (envi.tile(pl[p].pos).temperature < pl[p].my_temperature) {
         if (insulation_cold == 0) {
             pl[p].my_temperature--; //for now, insulation is essentially a bool that prevents getting colder than already are. Need to implement a more thought out system of person temp change and insulation. Fix.
         }
@@ -189,7 +193,7 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
 
     //check to ensure that spouses share campsite
     if (!pl[p].sex && !pl[p].adopt_spouse_campsite && pl[p].spouse_id != -1) {
-        pl[p].campsite_pos = pl[p_by_id(pl[p].spouse_id)].campsite_pos;
+        pl[p].campsite_pos = person(pl[p].spouse_id).campsite_pos;
     }
 
     pl[p].move_already = false;
@@ -282,42 +286,43 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
         return false;
     }
     vector<Position>& pos_list1 = pl[p].search_results["people"];//note: using reference (&) reduces copying
-    int p2 = -1;
+    Person* p2=nullptr;
+    bool mate_found = false;
     for (int i = 0; i < pos_list1.size(); i++) {//filter out valid mates from people found list
-        int pers_id = Environment::Map[pos_list1[i].y][pos_list1[i].x].person_id;
+        int pers_id = envi.tile(pos_list1[i]).person_id;
         if (pers_id == -2) {
             cout << "error: pid==-2\n";//don't know why this is happening, already checked find_all() but it's the only place it could be inserted
             return true;//try again
         }
-        int pid = p_by_id(pers_id);
-        if (pl[pid].sex != pl[p].sex && pl[pid].age > con.MIN_ADULT_AGE && pl[pid].is_alive) {
+        p2 = &person(pers_id);
+        if (p2->sex != pl[p].sex && p2->age > con.MIN_ADULT_AGE && p2->is_alive) {
             bool is_my_child = false;
             for (int i = 0; i < pl[p].children_id.size(); i++) {
-                if (pl[p].children_id[i] == pl[pid].p_id) {
+                if (pl[p].children_id[i] == p2->p_id) {
                     is_my_child = true;
                     break;
                 }
             }
-            if (!is_my_child && ((pl[pid].spouse_id == -1 && pl[p].spouse_id == -1) || (pl[pid].spouse_id == pl[p].p_id && pl[p].spouse_id == pl[pid].p_id))) {//if not my child AND both unmarried or if married to each other
-                p2 = p_by_id(pers_id);//mate found
+            if (!is_my_child && ((p2->spouse_id == -1 && pl[p].spouse_id == -1) || (p2->spouse_id == pl[p].p_id && pl[p].spouse_id == p2->p_id))) {//if not my child AND both unmarried or if married to each other
+                mate_found = true;//mate found
                 break;
             }
         }
     }
     bool mate_willing = false;
-    if (p2 != -1) {
-        if (pl[p2].reproduction_cooldown > con.REPRODUCTION_TRIGGER && pl[p2].sex != pl[p].sex) {
+    if (mate_found && p2!=nullptr) {
+        if (p2->reproduction_cooldown > con.REPRODUCTION_TRIGGER && p2->sex != pl[p].sex) {
             mate_willing = true;
         }
-        if (mate_willing && (Position::distance(pl[p].pos, pl[p2].pos) == 1 || move_to(pl[p2].pos, "going to mate"))) {//go to tile adjacent to p2
+        if (mate_willing && (Position::distance(pl[p].pos, p2->pos) == 1 || move_to(p2->pos, "going to mate"))) {//go to tile adjacent to p2
             //create a new human, add pregnancy later, only female creates child
             if (!pl[p].sex) {//if female
                 pl[p].pregnancy.progress = 1;//am now pregnant
                 pl[p].reproduction_cooldown = 0;//reset
-                pl[p2].reproduction_cooldown = 0;//unsure if this is the best way to handle interaction between 2 people, speaking or some other function might be better to avoid 2 people not being in sync
-                if (pl[p].spouse_id == -1 && pl[p2].spouse_id == -1) {//if don't have spouse, set as spouse
-                    pl[p].spouse_id = pl[p2].p_id;
-                    pl[p2].spouse_id = pl[p].p_id;
+                p2->reproduction_cooldown = 0;//unsure if this is the best way to handle interaction between 2 people, speaking or some other function might be better to avoid 2 people not being in sync
+                if (pl[p].spouse_id == -1 && p2->spouse_id == -1) {//if don't have spouse, set as spouse
+                    pl[p].spouse_id = p2->p_id;
+                    p2->spouse_id = pl[p].p_id;
                 }
                 //remove campsite and adopt male's campsite as own.
                 pl[p].adopt_spouse_campsite = true;
@@ -372,7 +377,7 @@ bool People::idle() {
                 }
             }//Add later: one way to determine who to socialize with and who to avoid is to when executing social/avoid function, create a map and assign each tile a desirability score, such that each person known gives the tile they're on a positive/negative value with a small radius they affect, then the person chooses the highest value tile nearest to them.
             if (p2id != -1) {
-                if (move_to(pl[p_by_id(p2id)].pos, "to socialize - idle")) {//to search out liked people to encourage clique congregation and disposition sharing
+                if (move_to(person(p2id).pos, "to socialize - idle")) {//to search out liked people to encourage clique congregation and disposition sharing
                     pl[p].current_image = "human_socializing";
                     if (pl[p].progress_states.find("socialize") != pl[p].progress_states.end()) {
                         if (pl[p].progress_states["socialize"].progress_func()) {
@@ -397,7 +402,7 @@ bool People::idle() {
 //Cooking is just a variation of crafting involving butchering, milling, mixing, brewing, boiling, etc. Smithing, tailoring, etc are also just variations on crafting.
 bool People::craft(string product) {//later add station requirements such as campfire/stove/oven/furnace
     //if inventory has product.ingredients then craft product (consumes non tool ingredients) and place in inventory
-    ItemSys::Item it = ItemSys::as_item_preset_by_name(product);
+    ItemSys::Item it = *it2.presets[product];
     vector<string> ingredients = it.ingredients;
     int num_of_ingredients = ingredients.size();
     vector<string> missing_ingredients;//fix this, this should be a single string given that every update rechecks if it can craft the item and only 1 ingredient is sought per tick. Unless a more detailed method is implemented such as checking if any missing ingredient is craftable rather than doing them strictly in order.
@@ -416,7 +421,7 @@ bool People::craft(string product) {//later add station requirements such as cam
         }
         if (pl[p].crafting[product].progress_func()) {//animation/time delay    currently, progress is saved if interrupted which might not make sense in some contexts
             for (int i = 0; i < num_of_ingredients; i++) {//later implement tool degradation here as well
-                ItemSys::Item it_c = ItemSys::as_item_preset_by_name(it.ingredients[i]);
+                ItemSys::Item it_c = *it2.presets[it.ingredients[i]];
                 if (it_c.consumable_ingredient) {
                     int consume_index = inventory_has(it.ingredients[i])[0];
                     delete_item(pl[p].item_inventory[consume_index], { -1,-1 }, consume_index);
@@ -515,7 +520,7 @@ bool People::answer_item_request() {
     pl[p].current_image = "pics/human_giving_food.png";
     speak("answering request for " + target, receiver_id);
     //move to requester's position, adjacent
-    Person& p2 = pl[p_by_id(receiver_id)];
+    Person& p2 = person(receiver_id);
     if (Position::distance(pl[p].pos, p2.pos) == 1 || move_to(p2.pos, "answering request")) {
         //once reached, place requested item in their inventory
         int index = inventory_has(target)[0];
@@ -536,6 +541,7 @@ bool People::answer_item_request() {
 bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny/craftable/person/information/permission
 //First, determine the type of target to be acquired
     string target_type;
+    string source_type;
     //if item can be picked up: target_type = "pickup"
     //else if item can be carried = "carry"
     //else if item is a source = "source" / "adjacency"     (terrain/plant/animal)
@@ -544,7 +550,7 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
         
     //check if target is an item name or item tag
     set<string> item_categories = { "weapon","apparel","container","material" };//structure is handled differently, tool and misc not included, food needs to be included
-    ItemSys::Item it = ItemSys::as_item_preset_by_name(target);
+    ItemSys::Item it = *it2.presets[target];
     if (it.item_name!="") {//target is an item name
         if (it.item_type=="structure") {
             target_type = "building";
@@ -564,6 +570,7 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
     }
     else if (Plants::species_presets.find(target) != Plants::species_presets.end()) {//target is a plant name
         target_type = "source";
+        source_type = "plant";
     }
     /*
     else if (it2.tags.find(target) != it2.tags.end()) {//target is tag name
@@ -628,6 +635,7 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
     }
     else if (Environment::terrains.find(target) != Environment::terrains.end()) {//target is a terrain type
         target_type = "source";
+        source_type = "terrain";
     }
     else {
         throw invalid_argument{"target is invalid"};
@@ -649,7 +657,7 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
 
     if (pl[p].search_results.find(target) != pl[p].search_results.end()) {//key found, if key exists then at least 1 was found
         Position pos = pl[p].search_results[target][0];
-        int item_id = Environment::Map[pos.y][pos.x].item_id;
+        int item_id = envi.tile(pos).item_id;
         if (Position::distance(pl[p].pos, pos)==1 || move_to(pos, "to found item " + target)) {//if item is found, move to it and pick it up
             if (target_type == "pickup" && move_to(pos, "to found item " + target)) {
                 pick_up_item(item_id, pos);
@@ -664,7 +672,7 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
                 return true;//target acquired
             }
             else if(target_type=="source") {
-                adjacency_acquire_handler(target);//extract/deconstruct
+                adjacency_acquire_handler(target, source_type, pos);//extract/deconstruct
                 return true;//target acquired
             }
             else if (target_type == "building") {
@@ -713,7 +721,7 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
         }
         //if request answered, stop requesting and move toward answerer
         if (request_answered) {//Due to sequence ordering issues of NPC updates, need to remember message for a bit to avoid missing messages from NPCs that update after self.
-            Position pos = pl[p_by_id(answerer_id)].pos;
+            Position pos = person(answerer_id).pos;
             if (Position::distance(pos, pl[p].pos) == 1 || move_to(pos, "recieving item")) {//move to adjacent to answerer
                 return false;//wait for answerer to place item in one's inventory (acquire() won't be called next update if was given requested item)
             }
@@ -911,7 +919,7 @@ bool People::recreation() {
 
 //need to simplify this function.
 bool People::search_for_new_campsite(){ //need to bias search direction in the direction of wherever there is more food rather than waiting to randomly stumble on a site with enough food for campsite. Also need to add a system of not searching the same tile within too short a time frame.
-    if (!pl[p].sex && pl[p].spouse_id!=-1 && pl[p].campsite_pos == pl[p_by_id(pl[p].spouse_id)].campsite_pos) {
+    if (!pl[p].sex && pl[p].spouse_id!=-1 && pl[p].campsite_pos == person(pl[p].spouse_id).campsite_pos) {
         return false;//prevent searching for a new campsite if married, only for females
     }
     
@@ -927,13 +935,13 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
 
     if (pl[p].campsite_pos.x != -1) { //if have campsite, remove. //Later add an option to just abandon a campsite without removing the house. Should only decontruct if going to carry it to new location such as a tent/sleeping bag/lean to/etc.
         if (move_to(pl[p].campsite_pos, "to campsite")) {//walk to campsite to remove
-            int item_id = Environment::Map[pl[p].campsite_pos.y][pl[p].campsite_pos.x].item_id;
+            int item_id = envi.tile(pl[p].campsite_pos).item_id;
             delete_item(item_id, pl[p].campsite_pos, -1);
             pl[p].campsite_pos = { -1,-1 };
             pl[p].campsite_age = -1;
             pl[p].friend_camp_check = true;
             if (pl[p].adopt_spouse_campsite) {
-                pl[p].campsite_pos = pl[p_by_id(pl[p].spouse_id)].campsite_pos;
+                pl[p].campsite_pos = person(pl[p].spouse_id).campsite_pos;
                 pl[p].adopt_spouse_campsite = false;//reset for if spouse dies later
                 return true;//in progress
             }
@@ -956,8 +964,8 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
     if (pl[p].friend_camp_check) {//encourages campsite congregation between people who like each other (forgot to check if other person likes self, fix this)
         for (auto const& i : pl[p].dispositions) {
             if (i.second > LOVED_THRESHOLD) {
-                if (pl[p_by_id(i.first)].campsite_pos.x != -1) {//if have a friend with a campsite and am finding a new campsite, move to within 10 tiles of friend to search for campsite location there
-                    if (Position::distance(pl[p].pos, pl[p_by_id(i.first)].campsite_pos) < NEW_CAMP_CLOSE_TO_FRIEND || move_to(pl[p_by_id(i.first)].campsite_pos, "to friend's campsite")) {
+                if (person(i.first).campsite_pos.x != -1) {//if have a friend with a campsite and am finding a new campsite, move to within 10 tiles of friend to search for campsite location there
+                    if (Position::distance(pl[p].pos, person(i.first).campsite_pos) < NEW_CAMP_CLOSE_TO_FRIEND || move_to(person(i.first).campsite_pos, "to friend's campsite")) {
                         pl[p].friend_camp_check = false;
                     }
                     else {
@@ -999,34 +1007,11 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
 
 //NOTE: for implementing cooperation, conduct through speak() requests and answers. Person 1 proposes joint action, Person 2 decides whether to agree or not. If a 3rd person or more are involved, then need to set a meeting location and time to conduct the proposition -> up/down vote and an option to continue action with those who said yes only. Later add option to be able to coerce those who said no into complying.
 
-//integrate this into craft() as a generic that also serves mining stone, obtaining water and milking cows, picking berries off bushes instead of consuming whole bush
-bool People::cut_down_tree() {
-    if (!inventory_has("wood").empty()) {
-        return true;
-    }
-    if (pl[p].search_results.find("tree") != pl[p].search_results.end()) {
-        if (Position::distance(pl[p].pos, pl[p].search_results["tree"][0])==1 || move_to(pl[p].search_results["tree"][0], "to tree")) {
-            Position pos = pl[p].search_results["tree"][0];
-            int tree_id = Environment::Map[pos.y][pos.x].item_id;
-            delete_item(tree_id, pos, -1);
-            create_item("wood", pos);
-            int wood_id = Environment::Map[pos.y][pos.x].item_id;
-            pick_up_item(wood_id, pos);
-            return true;//done
-        }
-        return false;//in progress
-    }
-    else {
-        pl[p].general_search_called = true;
-        return false;//searching
-    }
-}
-
 //same magic number issue of percent chances, fix this
 void People::chat() {//if make this a speak() action, can affect dispositions of more than 1 person with 1 comment, fix this?
     if (pl[p].search_results.find("people") != pl[p].search_results.end()) {
     int topic = rand() % 100;
-    int p2_ind = p_by_id(Environment::Map[pl[p].search_results["people"][0].y][pl[p].search_results["people"][0].x].person_id);
+    int p2_ind = p_by_id(envi.tile(pl[p].search_results["people"][0]).person_id);
     int p2_id = pl[p2_ind].p_id;
     if (topic < 50) {//compliment or insult
             int comment = (rand() % 30) - 15;
@@ -1132,14 +1117,14 @@ bool People::give_tribute() {
     for (auto const& i : pl[p].submissive_to) {
         if (i.second.submissive_to) {
             superiors.push_back(i.first);
-            sum += pl[p_by_id(i.first)].authority;
+            sum += person(i.first).authority;
         }
     }
     int give_to = rand() % sum;
     sum = 0;
     int tribute_to = -1;
     for (int i : superiors) {
-        sum += pl[p_by_id(i)].authority;
+        sum += person(i).authority;
         if (sum > give_to) {
             tribute_to = i;
         }
@@ -1148,7 +1133,7 @@ bool People::give_tribute() {
         //food, tool, clothing, art, etc
 
     //go to give it
-    if (move_to(pl[p_by_id(tribute_to)].pos,"to give tribute")) {
+    if (move_to(person(tribute_to).pos,"to give tribute")) {
         //give tribute
         //dispositions affected
         return true;//done????
@@ -1161,7 +1146,7 @@ bool People::rebel() {
     vector<int> rebel_targets;
     for (auto const& i : pl[p].submissive_to) {
         if (i.second.submissive_to) {
-            if (pl[p_by_id(i.first)].authority <= pl[p].authority || pl[p_by_id(i.first)].num_fights_won<=pl[p].num_fights_won) {
+            if (person(i.first).authority <= pl[p].authority || person(i.first).num_fights_won<=pl[p].num_fights_won) {
                 rebel_targets.push_back(i.first);
             }
         }
@@ -1234,20 +1219,35 @@ bool People::drop() {
     return false;
 }
 
-bool People::adjacency_acquire_handler(string target) {//for cutting down trees, mining rock, digging out dirt, collecting water, etc
+Plants plant_ac;
+//also serves mining stone, obtaining water and milking cows, picking berries off bushes instead of consuming whole bush
+bool People::adjacency_acquire_handler(string target, string type, Position pos) {//for cutting down trees, mining rock, digging out dirt, collecting water, etc
     //accept target from acquire()
     //acquire should only call this func if person is next to target source
 
     //if tree, if have axe, chop tree animation
-
+    if (type == "plant") {//for now, just converts plant into its components and stores components in inventory
+        Plants::Plant& plant = plant_ac.pln[plant_ac.get_by_id(envi.tile(pos).plant_id)];//need to simplify all these methods of accessing an object, maybe by overloading or using a wrapper?
+        for (string c : plant.current_components) {
+            create_item(c, { -1,-1 });//create component items from plant and insert into inventory
+        }
+        plant_ac.pln.erase(plant_ac.pln.begin() + plant_ac.get_by_id(envi.tile(pos).plant_id));
+        envi.tile(pos).plant_id = -1;//remove plant from map
+        return true;//done
+    }
     //if stone, if have pickaxe, mining animation
-
+    if (type == "terrain") {
+        create_item(target, { -1,-1 });//create item of the same name as terrain and insert in inventory
+        return true;//done
+    }
     //if it's a station passed as an ingredient/requisite to craft something, then "acquiring" the station counts as either being next to it or building it first
     //ex: campfire for cooking
 
     //Construction is a variation on crafting but done by emplacing something on a tile with the resources adjacent to that tile or self rather than in one's inventory.
     return false;
 }
+
+
 
 bool People::coerce() {
     //Coerce: intimidate, punish, threaten, etc a person into compliance with a request, is used for managing slaves, tributaries, subordinates, bullying, parenting, governance, etc. 

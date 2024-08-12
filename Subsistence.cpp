@@ -56,7 +56,7 @@ bool Animal::eating() {
             peep1.delete_item(food_id, { -1,-1 }, index);//delete food from game
         }
         else {
-            int food_id = Environment::Map[c.food_to_eat.y][c.food_to_eat.x].item_id;
+            int food_id = envi.tile(c.food_to_eat).item_id;
             peep1.delete_item(food_id, c.food_to_eat, -1);//delete food from game
         }
         c.hunger_level -= sp.HUNGER_REDUCTION_RATE; //reduce hungry level by 10, therefore need 2 meals a day to stay at 0 hunger_level average
@@ -95,7 +95,7 @@ bool People::hunting(string species) {//need to add a percentage success/fail ch
     }
 
     Animal::animal a_null;
-    Animal::animal& a = (!pos_list.empty()) ? al[a_by_id(Environment::Map[pl[p].search_results[species][0].y][pl[p].search_results[species][0].x].animal_id)] : a_null;//the assignment of the first animal in animal list is simply because &a can't be NULL
+    Animal::animal& a = (!pos_list.empty()) ? al[a_by_id(envi.tile(pl[p].search_results[species][0]).animal_id)] : a_null;//the assignment of the first animal in animal list is simply because &a can't be NULL
 
 
 
@@ -142,7 +142,7 @@ bool People::tracking(string species) {
 
         //if tracks belong to trappable animals, set traps
         Position track_pos = pl[p].search_results["animal tracks"][0];
-        if (Environment::Map[track_pos.y][track_pos.x].track.creature == "rabbit") {//need to make these species checks tag checks on the species instead
+        if (envi.tile(track_pos).track.creature == "rabbit") {//need to make these species checks tag checks on the species instead
             Animal::animal& a = al[0];//need to pass an &a, so use this as a "NULL". "set" doesn't use &a currently
             trap("set",species,a);
         }
@@ -179,7 +179,7 @@ bool People::persistence_and_pick_up(string species, Animal::animal& a) {
             if (!acquire("knife")) {
                 return false;//in progress
             }
-            Environment::Map[a.pos.y][a.pos.x].animal_id = -1;//remove dead animal from map. Might make more sense to have animal contain body parts and components such as feathers and bones and when all have been removed from corpse, then the corpse is removed.
+            envi.tile(a.pos).animal_id = -1;//remove dead animal from map. Might make more sense to have animal contain body parts and components such as feathers and bones and when all have been removed from corpse, then the corpse is removed.
             create_item(Animal::species[a.species].meat_type, { a.pos.x, a.pos.y });//add meat in its place   <- fix this, Might make more sense to have animals contain a list of items they turn into when butchered and go through the list
             al.erase(al.begin() + a_by_id(a.a_id));//erase animal from global animal list
             return true;//done
@@ -210,7 +210,7 @@ bool People::ambush(string species, Animal::animal& a) {
 
                             return false;//in progress
                         }
-                        Environment::Map[a.pos.y][a.pos.x].animal_id = -1;//remove dead animal from map
+                        envi.tile(a.pos).animal_id = -1;//remove dead animal from map
                         create_item(Animal::species[a.species].meat_type, { a.pos.x, a.pos.y });//add meat in its place   <- fix this, Might make more sense to have animals contain a list of items they turn into when butchered and go through the list
                         al.erase(al.begin() + a_by_id(a.a_id));//erase animal from global animal list
                         return true;//done
@@ -252,13 +252,13 @@ bool People::angling(string species, Animal::animal& a) {
         }
     }
 
-    int fish_id = Environment::Map[pl[p].active_fish_hook_pos.y][pl[p].active_fish_hook_pos.x].animal_id;
+    int fish_id = envi.tile(pl[p].active_fish_hook_pos).animal_id;
     if (fish_id == -1) {
         pl[p].time_waited++;//might make more sense to use progress_state instead, fix this
         //pl[p].move_already = true;//don't move this tick, might not work as might move before reaching this line of code. fix this
         if (pl[p].time_waited >= ANGLING_WAIT_TIME) {
             //remove active fish hook
-            delete_item(Environment::Map[pl[p].active_fish_hook_pos.y][pl[p].active_fish_hook_pos.x].item_id, pl[p].active_fish_hook_pos, -1);
+            delete_item(envi.tile(pl[p].active_fish_hook_pos).item_id, pl[p].active_fish_hook_pos, -1);
             pl[p].time_waited = 0;
             pl[p].active_fish_hook_pos = { -1,-1 };
             return false;//did not catch fish
@@ -269,10 +269,10 @@ bool People::angling(string species, Animal::animal& a) {
         Animal::animal& a2 = al[a_by_id(fish_id)];
         if (!a2.is_alive) {//something is dead on the hook, caught something. Distance doesn't matter because not moving to animal because it's "reeled in"
             //remove active hook ("reel it in")
-            delete_item(Environment::Map[pl[p].active_fish_hook_pos.y][pl[p].active_fish_hook_pos.x].item_id, pl[p].active_fish_hook_pos, -1);
+            delete_item(envi.tile(pl[p].active_fish_hook_pos).item_id, pl[p].active_fish_hook_pos, -1);
             pl[p].time_waited = 0;
             pl[p].active_fish_hook_pos = { -1,-1 };
-            Environment::Map[a2.pos.y][a2.pos.x].animal_id = -1;//remove dead animal from map
+            envi.tile(a2.pos).animal_id = -1;//remove dead animal from map
             create_item(Animal::species[a2.species].meat_type, { a2.pos.x,a2.pos.y });//add meat in its place
             al.erase(al.begin() + a_by_id(a2.a_id));//erase animal from global animal list
             return true;//done
@@ -308,9 +308,9 @@ bool People::trap(string set_or_check, string species, Animal::animal& a) {
                 return false;//in progress
             }
             if (move_to({ a.pos.x,a.pos.y }, "to trapped small game")) {
-                Environment::Map[a.pos.y][a.pos.x].animal_id = -1;//remove dead animal from map
-                delete_item(Environment::Map[a.pos.y][a.pos.x].item_id, { a.pos.x,a.pos.y }, -1);//delete active trap
-                create_item(Animal::species[a.species].meat_type, { a.pos.x,a.pos.y });//add meat in its place
+                envi.tile(a.pos).animal_id = -1;//remove dead animal from map
+                delete_item(envi.tile(a.pos).item_id, a.pos, -1);//delete active trap
+                create_item(Animal::species[a.species].meat_type, a.pos);//add meat in its place
                 al.erase(al.begin() + a_by_id(a.a_id));//erase animal from global animal list
                 return true;//done
             }

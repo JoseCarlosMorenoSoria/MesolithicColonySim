@@ -285,6 +285,7 @@ void Player::drop_item_pc(int index) {
 	pl[p].search_results.clear();
 }
 
+Plants plant_ac2;
 void Player::pick_up_item_pc() {
 	//pick up item on the same tile as player. Later when add facing direction, add picking up item in front of player
 	p = pcindex;
@@ -297,7 +298,7 @@ void Player::pick_up_item_pc() {
 		}
 	}
 	else {
-		cut_down_tree_pc();//if no item on player's tile, try to cut down nearest tree
+		cut_down_tree_pc();
 	}
 }
 
@@ -399,8 +400,19 @@ void Player::cut_down_tree_pc() {//temporary implementation, cuts down tree if n
 	p = pcindex;
 	pc = &pl[p];
 	find_all();
-
-	cut_down_tree();
+	if (pl[p].search_results["tree"].empty()) {
+		return;
+	}
+	Position pos = pl[p].search_results["tree"][0];
+	if (Position::distance(pl[p].pos, pos) > 1) {
+		return;
+	}
+	int plant_id = Environment::Map[pl[p].pos.y][pl[p].pos.x].plant_id;
+	if (plant_id == -1) {
+		return;
+	}
+	Plants::Plant& plant = plant_ac2.pln[plant_ac2.get_by_id(plant_id)];
+	adjacency_acquire_handler(plant.species, "plant", pl[p].pos);//if no item on player's tile, try to cut down nearest tree
 
 	pl[p].search_results.clear();
 }
@@ -627,7 +639,7 @@ vector<string> Player::view_craftable() {//this function is very inefficient, ma
 		craftable.push_back(i);
 	}
 		for (int i = craftable.size()-1; i > -1; i--) {
-			ItemSys::Item product = it2.as_item_preset_by_name(craftable[i]);
+			ItemSys::Item product = *it2.presets[craftable[i]];
 			for (string s : product.ingredients) {
 				if (inventory_has(s).empty()) {
 					craftable.erase(craftable.begin() + i);

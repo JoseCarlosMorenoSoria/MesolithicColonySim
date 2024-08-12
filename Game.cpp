@@ -73,6 +73,7 @@ People peep;
 Animal anim;
 Player player;
 Plants plant;
+ItemSys ite;
 //Environment envir;
 SDL_Rect srcR, destR;
 
@@ -422,7 +423,7 @@ void Game::render_map(SDL_Rect mouseR, string item_name_moused, int min_x, int m
 				no_item = true;
 			}
 			if (!no_item) {
-				ItemSys::Item item = ItemSys::as_item_by_id(item_id);
+				ItemSys::Item item = *ite.item_list[item_id];
 				textureManager(item.image, destR);
 				if (!pause_game && mouse_in_rect(destR)) {
 					mouseR = destR;
