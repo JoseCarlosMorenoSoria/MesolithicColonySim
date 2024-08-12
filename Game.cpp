@@ -72,6 +72,7 @@ void Game::load_images_from_csv() {
 People peep;
 Animal anim;
 Player player;
+Plants plant;
 //Environment envir;
 SDL_Rect srcR, destR;
 
@@ -81,19 +82,18 @@ int hours_in_day = 24*4;
 
 int sqdim = 16;
 
-int initint = 1;
 void Game::initGameState() {
-	int a = 0;
+	int init = 0;
 	destR.h = sqdim;
 	destR.w = sqdim;
 	destR.x = 0;
 	destR.y = 0;
-	Player::Player(a);
+	Player::Player(init);
 	Environment::Environment(hours_in_day);
-	People::People(initint);
+	People::People(init);
 	ItemSys::ItemSys();
-	Animal::Animal(initint);//to avoid unintended execution of the constructor
-
+	Animal::Animal(init);//init is to avoid unintended execution of the constructor
+	Plants::Plants(init);
 	load_images_from_csv();
 
 	//create_human();
@@ -207,6 +207,7 @@ void Game::update() {
 		Environment::update(hours_in_day, hour_count, day_count);
 		peep.update_all(day_count, hour_count, hours_in_day);
 		anim.update_all(day_count, hour_count, hours_in_day);
+		plant.update_all(hour_count);
 		player.update();
 	}	
 }

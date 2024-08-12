@@ -155,7 +155,7 @@ public:
 	void update(int day_count, int hour_count, int hours_in_day);
 	void utility_function();
 	bool search_for_new_campsite();
-	bool idle();
+	bool idle();//pull out socialize from idle and make it a need
 	bool sleeping();
 	bool reproduce();
 	bool need_light();
@@ -296,9 +296,28 @@ public:
 
 		int SICK_TIME_DEATH;//later replace by specific illness/injury and body part mechanics such as bleeding out and organ failure
 		int INJURED_TIME_DEATH;
-	};
 
-	//add functions to pull species presets from csv and into preset list
+
+		//Not yet added to CSV
+		//skull/long bones/tusk/antler/fur/hide/wool/hair/blood/sinew/intestines/liver/teeth/claws/short bones/fat/blubber/poison/etc
+		vector<string> components;//bones, antlers, fur, hair, skull, etc
+		//components need to be their own items
+		//calories when killed
+		//hunting methods
+		//actions: ram/bite/trample/etc
+		//migration/territoriality
+		//can fly?
+		//can swim?
+		//can burrow?
+		//breathes water/air?
+		//other roles: alarm/guard/war dog, draft animal, ridable, guide(honey / hound), messenger pigeon, hunting aid(dog / falcon)
+		//pack animal? carry capacity
+		//domesticated?
+		//tameable?
+		//social type
+		//fight/flight 
+
+	};
 	void fill_species_presets();
 	static map<string,Species> species;
 	

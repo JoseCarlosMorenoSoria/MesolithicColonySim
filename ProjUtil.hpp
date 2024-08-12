@@ -171,5 +171,21 @@ namespace proj_util {
 		return v2;
 	}
 
+	vector<vector<string>> get_data(string file_name) {
+		fstream fin;// File pointer 
+		fin.open(file_name, ios::in);// Open an existing file 
+		vector<vector<string>> data;
+		vector<string> row;// Read the Data from the file as String Vector 
+		string line, word;
+		while (getline(fin, line)) {// read an entire row and store it in a string variable 'line' 
+			row.clear();
+			stringstream s(line);// used for breaking words 
+			while (getline(s, word, ',')) {// read every column data of a row and store it in a string variable, 'word' 
+				row.push_back(word);// add all the column data of a row to a vector 
+			}
+			data.push_back(row);
+		}
+		return data;
+	}
 }
 #endif

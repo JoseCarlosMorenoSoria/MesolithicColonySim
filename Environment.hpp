@@ -33,12 +33,24 @@ public:
 		int direction_y;
 	};
 
+	struct Terrain {
+		string name;
+		string image;
+		string extracted_by;
+		int movement_cost;
+		string uses;
+	};
+
+	static map<string, Terrain> terrains;
+	void csv_fill_terrains();
+
 	struct Tile {
 		int person_id = -1;//helps enforce only 1 person per tile. Maybe make an exception for carrying infants or wounded? Or might be better to tie the carried infants/wounded in a the inventory of the carrier 
 		int animal_id = -1;
+		int plant_id=-1;
 		//tent/house/campsite is currently implemented as an item, not a building, implement buildings later
 		int item_id=-1;//holds the id's of item on tile, currently restricted to one per tile, later on add a method to handle stacking items up to a limit, including of different item types
-		string terrain;//increase types of terrain: ice/snow/mud/stone type/mineral veins/sand/cracked earth/etc
+		string terrain_name;//increase types of terrain: ice/snow/mud/stone type/mineral veins/sand/cracked earth/etc
 		//terrain type should also affect type of building allowed, so marsh should require stilts before building on it, sand and mud require water draining or removal or constructing a foundation, etc.
 		//terrain also needs to affect movement speed (sand, mud, snow, soil, stone, dirt path, stone road, wood bridge, etc)
 		bool has_fire = false;
@@ -66,6 +78,7 @@ public:
 
 		//biome placement should be preset but then allowed to change organically, such that if climate in a region changes, a fertile grassland can become a desert, or a desert be turned into a fertile forest, etc. Biomes would then be marked by the local flora, fauna, climate and topography of each block of x tiles.
 		//biomes should have transition regions when placed such that they don't have stark borders.
+		int total_movement_cost;//terrain+subsurface_water_level (mud is slower, wet sand is faster)+surface_water_level+plant_movement_cost+flooring	//later +slope+surface roughness
 	};
 
 	struct sky_tile {

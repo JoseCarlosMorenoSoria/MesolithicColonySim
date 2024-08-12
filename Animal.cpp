@@ -29,6 +29,7 @@ int Animal::phour_count;
 int Animal::animal_id_iterator = 0;
 int Animal::TILE_PIXEL_SIZE = 32;//can be modified by Game() class. Was originally 16, not sure if changing it to 32 made a difference. FIX THIS
 vector<int> Animal::animals_in_stealth;
+map<string, Animal::Species> Animal::species;
 //Need to unit test every function and also test the frequency that each function executes, average value for all variables, and different scenarios (resource/people density, size, environment, etc)
 
 //note: readability might be increased by creating null constants for things like int (-1) and Position (-1,-1), etc.
@@ -41,6 +42,62 @@ Animal::Animal() {}
 Animal::Animal(int init) {
 
 
+}
+
+void Animal::fill_species_presets() {
+    vector<vector<string>> data = get_data("animal species csv");
+    for (int i = 0; i < data.size(); i++) {//csv still needs to be transposed before download, unsure if it starts on first or third row?
+        Species spec;
+        int r = -1;
+        spec.species=data[i][++r];
+        spec.diet = data[i][++r];
+        spec.meat_type = data[i][++r];//is this necessary?
+        spec.HUNGER_REDUCTION_RATE = stoi(data[i][++r]);//per tick for now
+        spec.HUNGRY_LEVEL = stoi(data[i][++r]);//assume only need 1 meal per day
+        spec.DAYS_HUNGRY_MOVE_CAMP = stoi(data[i][++r]);
+        spec.STARVATION_LEVEL = stoi(data[i][++r]);//record is 61 days no food, general max is 30 days no food, average is 8 to 21 days no food. For now set to 8
+        spec.THIRST_REDUCTION_RATE = stoi(data[i][++r]);//per tick for now
+        spec.THIRSTY_LEVEL = stoi(data[i][++r]);//assume only need one drink per day
+        spec.DEHYDRATION_LEVEL = stoi(data[i][++r]);//rule of thumb is survive without water for 3 days, not sure about average or max record, set to 3 days for now
+        spec.MAX_INFANT_AGE = stoi(data[i][++r]);
+        spec.MIN_ADULT_AGE = stoi(data[i][++r]);
+        spec.MAX_AGE = stoi(data[i][++r]);
+        spec.REPRODUCTION_TRIGGER = stoi(data[i][++r]);//once every 7 days
+        spec.spouse_distance_limit = stoi(data[i][++r]);//something like this could serve to keep packs/herds close together?
+        spec.NEW_CAMP_PROBATION_TIME = stoi(data[i][++r]);//a third of a day
+        spec.SLEEP_REST_RATE = stoi(data[i][++r]);
+        spec.SLEEP_TRIGGER = stoi(data[i][++r]);//sleep every 2/3rds of a day
+        spec.FORCE_SLEEP_LEVEL = stoi(data[i][++r]);//record is 11 days of no sleep, but extreme symptoms start at 36 hours (1.5 days). For now just set at 2x sleep trigger
+        spec.campsite_distance_search = stoi(data[i][++r]);//should be half a day's walk from camp, fix this
+        spec.HEAT_DEATH_TEMPERATURE = stoi(data[i][++r]);//humidity lowers heat tolerance such that at 100% humidity, humans die at 95F of heat in 6 hours. Need to implement humidity. //max heat that can be survived is between 104 and 122 F. For now set at 110F;//need to implement a time component to surviving temperatures.
+        spec.COLD_DEATH_TEMPERATURE = stoi(data[i][++r]);//40 to 50 degrees can cause death in one to three hours. 32 to 40 degrees can cause death in 30 to 90 minutes. 32 degrees or less can cause death in as little as 15 to 45 minutes.//measured in F
+        spec.SPRINT_LIMIT = stoi(data[i][++r]);
+        spec.WALK_SPEED = stoi(data[i][++r]);
+        spec.STEALTH_SPEED = stoi(data[i][++r]);
+        spec.SPRINT_SPEED = stoi(data[i][++r]);
+        spec.AMBUSH_DISTANCE = stoi(data[i][++r]);
+        spec.STEALTH_DISTANCE = stoi(data[i][++r]);//distance from prey at which person enters stealth
+        spec.SICK_TIME_DEATH = stoi(data[i][++r]); //later replace by specific illness/injury and body part mechanics such as bleeding out and organ failure
+        spec.INJURED_TIME_DEATH = stoi(data[i][++r]);
+        /*
+        fight / flight
+        social type
+        tameable ?
+        domesticated ?
+        pack animal ? carry capacity
+        other roles
+        breathes water / air ?
+        can burrow ?
+        can swim ?
+        can fly ?
+        migration / territoriality
+        actions
+        hunting methods
+        calories when killed
+        spec.components
+        */
+        species.insert({ spec.species,spec });
+    }
 }
 
 void Animal::update_all(int day_count, int hour_count, int hours_in_day) {

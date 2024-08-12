@@ -10,7 +10,9 @@
 #include <iterator>
 #include <fstream>
 #include <sstream>
+#include "ProjUtil.hpp"
 using namespace std;
+using namespace proj_util;
 
 class ItemSys {//Item System
 
@@ -20,15 +22,18 @@ private:
 public:
 	ItemSys();
 
+
+	//FIX THIS: need to separate item instance from item type, such that the instance only contains data that changes such as position, deterioration, material, quality, etc and no constants at all.
+
 	struct Item {
 		int item_id = -1;
 		string item_name = "";
 		string image = "";
 		vector<string> tags;//include tags such as "food", "tool", "building", etc
 		vector<string> ingredients;//includes tools (and later station) needed to craft item. Later can add quantity requirements for ingredients, etc
-		bool consumable_ingredient;//true means item is consumed when used as an ingredient to craft something, false means it isn't
+		bool consumable_ingredient=true;//true means item is consumed when used as an ingredient to craft something, false means it isn't
 		bool can_pick_up = true;
-		
+		string item_type="misc";
 		//many items have deterioration which is affected by time, temperature and being outdoors
 		//humans and animals should have diets which restrict what they can eat and what they seek out as food, this can be facilitated by using tags to mark an item as fitting a certain diet. Animals should be able to eat corpses raw. Vegetarian, omnivore, carnivore, insectivore, infant animals should drink their mother's milk, egg-ivore?
 		//eggs should be fertilized or unfertilized for certain animals such as chickens.
@@ -55,14 +60,11 @@ public:
 	map<string, vector<string>> tags; //caches all items by name under their associated tags for ease of lookup
 	map<string, vector<string>> ingredients;//same as above tags map<>
 
-	//remove redundancies inhereited by Item from these derived structs
+	//remove redundancies inherited by Item from these derived structs
 	//need both the csv reader, to connect it to Item generic and to have combat functions utilize these stats. Need to adjust Equipment so that any item that can be picked up can be equipped in a hand or both
 	struct Weapon : Item {//currently, all weapons can be picked up, none are consumable, all are craftable
-		int item_id;
-		string name;
-		string image;
 		string material;//this is determined at the time of crafting, not from the csv. Modifier on other stats.
-		string tags;//currently weapons only have 1 tag
+		//currently weapons only have 1 tag
 		int cut_damage;
 		int slash_damage;
 		int piercing_damage;
@@ -72,14 +74,12 @@ public:
 		int range;
 		int mass;
 		int speed;
-		vector<string> ingredients;//current max is 3
+		//current max ingredients is 3
 	};
 
 	struct Apparel : Item {//clothing, armor, jewelry, anything that is worn. All apparel can be picked up (for now), crafted, and is equippable according to its designated slots. None are consumable ingredients (for now)
-		int item_id;
-		string name;
-		string image;
 		string material;//this is determined at the time of crafting, not from the csv
+
 		int cut_defense;
 		int slash_defense;
 		int piercing_defense;
@@ -89,30 +89,41 @@ public:
 		string body_part;
 		int insulation_cold;
 		int beauty;
-		vector<string> ingredients;
 	};
 
 	struct Container : Item{//need to modify inventory and find_all so as to use these containers, also person inventory requires division between that which can hold water and that which can't
-		int item_id;
-		string name;
-		string image;
 		vector<int> contents;//holds item id's of items contained inside
 		vector<string> Tags;
 		int capacity;
 		bool holds_liquid;
 		bool airtight;
-		bool can_pick_up;
-		vector<string> ingredients; 
+	};
+
+	//all materials are consumable ingredients
+	struct Material : Item {//Materials are items that serve as ingredients and affect the stats of items made from them.
+		string source;
+		int mass;
+		int sharpness;
+		int beauty;
+		int crafting_time;
+		int insulation;
+	};
+
+	//no tool is a consumable ingredient
+	struct Tool : Item{//these are either items required to craft, build or extract other items or affect the speed or quality of doing so.
+		string material;//determined at crafting time
+
+		string use_case;
+		string crafting_process;
+		int crafting_time;
+		vector<string> ingredients;
 	};
 
 	//no building can be picked up or carried nor is a consumable ingredient
 	//for now, buildings remain a subset of Item, need to later move to its own class and have buildings take up more than 1 tile and have its walls be impassable. A 1 person hut/tent should be 1 tile in size but have an entrance only on one side. (thin walls vs thick walls)
 	struct Structure : Item {
-		int item_id;
-		string name;
 		string material;
 		string use;
-		vector<string> ingredients;
 		int insulation_cold;
 	};
 

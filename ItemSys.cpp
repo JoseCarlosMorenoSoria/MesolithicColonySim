@@ -70,61 +70,165 @@ int ItemSys::new_item_id() {//unsure if this function is redundant with how int+
 }
 
 void ItemSys::ItemPresetsCSVPull() {
-    //read from csv into a vector of structs
-    fstream fin;// File pointer 
-    fin.open("Item Presets - Sheet1.csv", ios::in);// Open an existing file 
-    vector<string> row;// Read the Data from the file as String Vector 
-    string line, word;
-    bool firstrowdone = false;
-    bool start_count_tags = false;//for counting the max number of tag columns
-    int count_tags = 0;
-    bool start_count_ingredients = false;//for counting the max number of ingredient columns
-    int count_ingredients = 0;
-    while (getline(fin, line)) {// read an entire row and store it in a string variable 'line' 
-        row.clear();
-        stringstream s(line);// used for breaking words 
-        while (getline(s, word, ',')) {// read every column data of a row and store it in a string variable, 'word' 
-            row.push_back(word);// add all the column data of a row to a vector 
-        }
-        if (firstrowdone) {
-            Item it;
-            it.item_id = -1;
-            it.item_name = row[0];
-            it.image = row[1];
-            int tag_end = 2 + count_tags;
-            for (int i = 2; i < tag_end; i++) {
-                if (row[i] == "") {
+    vector<vector<string>> data = get_data("misc item csv");    //FIX THIS, DATA NOT YET IMPLEMENTED
+    {
+        int item_id = -1;
+        string item_name = "";
+        string image = "";
+        vector<string> tags;//include tags such as "food", "tool", "building", etc
+        vector<string> ingredients;//includes tools (and later station) needed to craft item. Later can add quantity requirements for ingredients, etc
+        bool consumable_ingredient = true;//true means item is consumed when used as an ingredient to craft something, false means it isn't
+        bool can_pick_up = true;
+    }
+    data = get_data("weapons csv");
+    {
+        for (int i = 21; i < data.size(); i++) {//starts at row 22 (i==21) because the above rows are comments/labels/notes
+            Weapon w;
+            w.item_type = "weapon";
+            w.consumable_ingredient = false;
+            w.can_pick_up = true;
+            w.item_id=-1;
+            int r = -1;//row number, allows rearranging column order without having to rewrite indices for each row
+            w.item_name=data[i][++r];
+            w.image = data[i][++r];
+            w.tags.push_back(data[i][++r]);//currently weapons only have 1 tag
+            w.cut_damage = stoi(data[i][++r]);
+            w.slash_damage = stoi(data[i][++r]);
+            w.piercing_damage = stoi(data[i][++r]);
+            w.blunt_damage = stoi(data[i][++r]);
+            w.burn_damage = stoi(data[i][++r]);
+            w.stagger = stoi(data[i][++r]);
+            w.range = stoi(data[i][++r]);
+            w.mass = stoi(data[i][++r]);
+            w.speed = stoi(data[i][++r]);
+            for (int j = 0; j < 3; j++) {
+                if (data[i][r] == "") {
                     break;
                 }
-                it.tags.push_back(row[i]);
+                w.ingredients.push_back(data[i][++r]);//current max is 3
             }
-            int ingr_end = tag_end + count_ingredients;
-            for (int i = tag_end; i < ingr_end; i++) {
-                if (row[i] == "") {
+            presets.insert({ w.item_name,w });
+        }
+    }
+    data = get_data("clothing and armor csv");
+    {
+        for (int i = 14; i < data.size(); i++) {
+            Apparel a;
+            a.item_type = "apparel";
+            a.consumable_ingredient = false;
+            a.can_pick_up = true;
+            a.item_id = -1;
+            int r = -1;
+            a.item_name = data[i][++r];
+            a.image = data[i][++r];
+            a.cut_defense = stoi(data[i][++r]);
+            a.slash_defense = stoi(data[i][++r]);
+            a.piercing_defense = stoi(data[i][++r]);
+            a.blunt_defense = stoi(data[i][++r]);
+            a.burn_defense = stoi(data[i][++r]);
+            a.weight = stoi(data[i][++r]);//should this be mass for consistency?
+            a.body_part = data[i][++r];
+            a.insulation_cold = stoi(data[i][++r]);
+            a.beauty = stoi(data[i][++r]);
+            for (int j = 0; j < 2; j++) {
+                if (data[i][r] == "") {
                     break;
                 }
-                it.ingredients.push_back(row[i]);
+                a.ingredients.push_back(data[i][++r]);
             }
-            it.consumable_ingredient = (row[ingr_end]=="TRUE")?true:false;
-            it.can_pick_up = (row[ingr_end+1] == "TRUE") ? true : false;
-            
-            if (row.size()==ingr_end+3) {//need to check size for last element because if the element is blank for any row, the row will be shorter and therefore result in index out of range if it is empty
-                it.insulation_from_cold = stoi(row[ingr_end + 2]);
-            }
-            presets.insert({it.item_name, it });
+            presets.insert({ a.item_name,a });
         }
-        else {
-            for (int i = 2; i < row.size()-3; i++) {
-                if (row[i] == "Tags") { start_count_tags = true; }
-                else if (row[i] == "Ingredients") { start_count_tags = false; }
-                if (start_count_tags) { count_tags++; }
+    }
+    data = get_data("storage item csv");
+    {
+        for (int i = 6; i < data.size(); i++) {
+            Container c;
+            c.item_type = "container";
+            c.item_id = -1;
+            c.consumable_ingredient = false;
+            int r = -1;
+            c.item_name = data[i][++r];
+            c.image = data[i][++r];
+            for (int j = 0; j < 2; j++) {
+                if (data[i][r] == "") {
+                    ++r;
+                    continue;
+                }
+                c.tags.push_back(data[i][++r]);
             }
-            for (int i = 2+count_tags; i < row.size()-3; i++) {
-                if (row[i] == "Ingredients") { start_count_ingredients = true; }
-                else if (row[i] == "Consumable Ingredient") { start_count_ingredients = false; }
-                if (start_count_ingredients) { count_ingredients++; }
+            c.capacity=stoi(data[i][++r]);
+            c.holds_liquid = (data[i][++r] == "TRUE") ? true:false;
+            c.airtight = (data[i][++r] == "TRUE") ? true : false;
+            c.can_pick_up = (data[i][++r] == "TRUE") ? true : false;
+            for (int j = 0; j < 3; j++) {
+                if (data[i][r] == "") {
+                    break;
+                }
+                c.ingredients.push_back(data[i][++r]);
             }
-            firstrowdone = true;
+            presets.insert({ c.item_name,c });
+        }
+    }
+    data = get_data("structures csv");
+    {
+        for (int i = 7; i < data.size(); i++) {
+            Structure s;
+            s.item_id=-1;
+            s.can_pick_up = false;
+            s.consumable_ingredient = false;
+            int r = -1;
+            s.item_name=data[i][++r];
+            s.use = data[i][++r];
+            s.ingredients.push_back(data[i][++r]);
+            s.insulation_cold = stoi(data[i][++r]);
+            presets.insert({ s.item_name,s });
+        }
+    }
+    data = get_data("materials");
+    {
+        for (int i = 4; i < data.size(); i++) {
+            Material m;
+            m.can_pick_up = true;
+            m.consumable_ingredient = true;
+            m.item_id = -1;
+            int r = -1;
+            m.item_name=data[i][++r];
+            m.image = data[i][++r];
+            m.source = data[i][++r];
+            m.mass = stoi(data[i][++r]);
+            m.sharpness = stoi(data[i][++r]);
+            m.beauty = stoi(data[i][++r]);
+            m.crafting_time = stoi(data[i][++r]);
+            m.insulation = stoi(data[i][++r]);
+            presets.insert({ m.item_name,m });
+        }
+    }
+    data = get_data("tools");
+    {
+        for (int i = 6; i < data.size(); i++) {
+            Tool t;
+            t.item_id = -1;
+            t.can_pick_up = true;
+            t.consumable_ingredient = false;
+            int r = -1;
+            t.item_name=data[i][++r];
+            t.image = data[i][++r];
+            t.use_case = data[i][++r];
+            t.crafting_process = data[i][++r];
+            t.crafting_time = stoi(data[i][++r]);
+            for (int j = 0; j < 3; j++) {
+                if (data[i][r] == "") {
+                    break;
+                }
+                t.ingredients.push_back(data[i][++r]);//current max is 3
+            }
+            presets.insert({ t.item_name,t });
+        }
+    }
+    data = get_data("food");    //FIX THIS, STRUCT NOT YET IMPLEMENTED
+    {
+        for (int i = 0; i < data.size(); i++) {
+
         }
     }
 }

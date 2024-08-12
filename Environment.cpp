@@ -4,7 +4,7 @@ using namespace std;
 
 Environment::Tile Environment::Map[50][100]; //this somehow resolved link error of People not accessing the Map, but might have unintended consequences?
 vector<Environment::sky_tile> Environment::Sky;
-
+map<string, Environment::Terrain> Environment::terrains;
 ItemSys it;//used to access member functions and variables of ItemSys
 
 int range1_minx = 0;
@@ -27,7 +27,22 @@ int range4_miny = 35;
 int range4_maxx = Environment::map_x_max;
 int range4_maxy = Environment::map_y_max;
 
-void Environment::add_item_to_map(string item, int x, int y) {
+
+void Environment::csv_fill_terrains() {
+	vector<vector<string>> data = get_data("terrain csv");
+	for (int i = 11; i < data.size();i++) {
+		Terrain ter;
+		int r = -1;
+		ter.name=data[i][++r];
+		ter.image = data[i][++r];
+		ter.extracted_by = data[i][++r];
+		ter.movement_cost = stoi(data[i][++r]);
+		ter.uses = data[i][++r];
+		terrains.insert({ ter.name,ter });
+	}
+}
+
+void Environment::add_item_to_map(string item, int x, int y) {//only items that should be added in this class are rocks according to the terrain type (granite terrain==granite rocks, dirt terrain == random rock type, etc)
 	if (x < 0 || y < 0 || x >= map_x_max || y >= map_y_max) {
 		return;//invalid position, should make this function a bool to return false
 	}

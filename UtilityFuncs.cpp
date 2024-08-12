@@ -9,7 +9,7 @@ int People::new_person_id() {//unsure if this function is redundant with how int
     return people_id_iterator;
 }
 
-int Animal::new_animal_id() {//unsure if this function is redundant with how int++ works or if there's a better method
+int Animal::new_animal_id() {//unsure if this function is redundant with how int++ or ++int works or if there's a better method
     animal_id_iterator++;
     return animal_id_iterator;
 }
@@ -32,6 +32,7 @@ int Animal::message_by_id(int id) {//uses binary search to find and return index
     return -1;//not found
 }
 
+//why not radix search and sort?
 int People::p_by_id(int id) {//uses binary search to find and return index to person in people list (pl)
     int low = 0;
     int high = pl.size() - 1;
