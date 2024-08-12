@@ -126,15 +126,15 @@ public:
 	//FIX THIS: implement master lists and functions to pass around or store Item children as pointers and simply cast pointer to a Child pointer if child properties need to be accessed.
 
 
-	static map<string, Item*> presets;//master list
+	 map<string, Item*> presets;//master list
 	//presets
-	static map<string, Item> misc_presets;
-	static map<string, Weapon> weapon_presets;
-	static map<string, Apparel> apparel_presets;
-	static map<string, Tool> tool_presets;
-	static map<string, Material> material_presets;
-	static map<string, Structure> structure_presets;
-	static map<string, Container> container_presets;
+	 map<string, Item> misc_presets;
+	 map<string, Weapon> weapon_presets;
+	 map<string, Apparel> apparel_presets;
+	 map<string, Tool> tool_presets;
+	 map<string, Material> material_presets;
+	 map<string, Structure> structure_presets;
+	 map<string, Container> container_presets;
 
 	void ItemPresetsCSVPull();
 

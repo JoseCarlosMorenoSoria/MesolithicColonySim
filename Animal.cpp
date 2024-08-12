@@ -45,7 +45,7 @@ Animal::Animal(int init) {
 }
 
 void Animal::fill_species_presets() {
-    vector<vector<string>> data = get_data("animal species csv");
+    vector<vector<string>> data = get_data("My Game CSVs - Species_t.csv");
     for (int i = 0; i < data.size(); i++) {//csv still needs to be transposed before download, unsure if it starts on first or third row?
         Species spec;
         int r = -1;
@@ -542,7 +542,7 @@ bool Animal::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
     //else if item has a source (wood comes from trees, rock comes from stone terrain, water is from water terrain, bones from animals, etc
     //then acquire source
     if (it.item_type == "material") {
-        ItemSys::Material m = ItemSys::material_presets[it.item_name];
+        ItemSys::Material m = it2.material_presets[it.item_name];
         acquire(m.source);
     }
 

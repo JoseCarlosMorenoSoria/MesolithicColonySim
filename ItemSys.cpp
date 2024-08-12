@@ -11,14 +11,7 @@ map<int, ItemSys::Tool> ItemSys::tool_item_list;
 map<int, ItemSys::Material> ItemSys::material_item_list;
 map<int, ItemSys::Container> ItemSys::container_item_list;
 int ItemSys::item_id_iterator = 0; 
-map<string, ItemSys::Item*> ItemSys::presets;
-map<string, ItemSys::Item> ItemSys::misc_presets;
-map<string, ItemSys::Weapon> ItemSys::weapon_presets;
-map<string, ItemSys::Apparel> ItemSys::apparel_presets;
-map<string, ItemSys::Tool> ItemSys::tool_presets;
-map<string, ItemSys::Material> ItemSys::material_presets;
-map<string, ItemSys::Structure> ItemSys::structure_presets;
-map<string, ItemSys::Container> ItemSys::container_presets;
+
 
 void ItemSys::update_item_list() {
     for (auto i : weapon_item_list) {
@@ -227,17 +220,35 @@ void ItemSys::delete_item(int id) {//to reduce need for updating master list, ca
 }
 
 void ItemSys::ItemPresetsCSVPull() {
-    vector<vector<string>> data = get_data("misc item csv");    //FIX THIS, DATA NOT YET IMPLEMENTED
+    vector<vector<string>> data = get_data("My Game CSVs - Misc Items.csv");
     {
-        int item_id = -1;
-        string item_name = "";
-        string image = "";
-        vector<string> tags;//include tags such as "food", "tool", "building", etc
-        vector<string> ingredients;//includes tools (and later station) needed to craft item. Later can add quantity requirements for ingredients, etc
-        bool consumable_ingredient = true;//true means item is consumed when used as an ingredient to craft something, false means it isn't
-        bool can_pick_up = true;
+        for (int i = 21; i < data.size(); i++) {
+            Item it;
+            int r = -1;
+            it.item_name = data[i][++r];
+            it.image = data[i][++r];
+            for (int j = 0; j < 2; j++) {
+                if (data[i][r] == "") {
+                    ++r;
+                    continue;
+                }
+                it.tags.push_back(data[i][++r]);//include tags such as "food", "tool", "building", etc
+            }
+            for (int j = 0; j < 3; j++) {
+                if (data[i][r] == "") {
+                    ++r;
+                    continue;
+                }
+                it.ingredients.push_back(data[i][++r]);//includes tools (and later station) needed to craft item. Later can add quantity requirements for ingredients, etc
+            }
+            it.consumable_ingredient = (data[i][++r] == "TRUE") ? true : false;//true means item is consumed when used as an ingredient to craft something, false means it isn't
+            it.can_pick_up = (data[i][++r] == "TRUE") ? true : false;
+            misc_presets.insert({ it.item_name,it });
+            //misc_presets[it.item_name] = it;
+            presets.insert({ it.item_name,&misc_presets[it.item_name] });
+        }
     }
-    data = get_data("weapons csv");
+    data = get_data("My Game CSVs - Weapons.csv");
     {
         for (int i = 21; i < data.size(); i++) {//starts at row 22 (i==21) because the above rows are comments/labels/notes
             Weapon w;
@@ -258,7 +269,7 @@ void ItemSys::ItemPresetsCSVPull() {
             w.range = stoi(data[i][++r]);
             w.mass = stoi(data[i][++r]);
             w.speed = stoi(data[i][++r]);
-            for (int j = 0; j < 3; j++) {
+            for (int j = 0; j < 3 && r<data[i].size()-1; j++) {
                 if (data[i][r] == "") {
                     break;
                 }
@@ -268,7 +279,7 @@ void ItemSys::ItemPresetsCSVPull() {
             presets.insert({ w.item_name, &weapon_presets[w.item_name]});//store reference in master list
         }
     }
-    data = get_data("clothing and armor csv");
+    data = get_data("My Game CSVs - ClothingAndArmor.csv");
     {
         for (int i = 14; i < data.size(); i++) {
             Apparel a;
@@ -288,7 +299,7 @@ void ItemSys::ItemPresetsCSVPull() {
             a.body_part = data[i][++r];
             a.insulation_cold = stoi(data[i][++r]);
             a.beauty = stoi(data[i][++r]);
-            for (int j = 0; j < 2; j++) {
+            for (int j = 0; j < 2 && r < data[i].size() - 1; j++) {
                 if (data[i][r] == "") {
                     break;
                 }
@@ -298,7 +309,7 @@ void ItemSys::ItemPresetsCSVPull() {
             presets.insert({ a.item_name, &apparel_presets[a.item_name] });
         }
     }
-    data = get_data("storage item csv");
+    data = get_data("My Game CSVs - StorageItems.csv");
     {
         for (int i = 6; i < data.size(); i++) {
             Container c;
@@ -329,7 +340,7 @@ void ItemSys::ItemPresetsCSVPull() {
             presets.insert({ c.item_name, &container_presets[c.item_name] });
         }
     }
-    data = get_data("structures csv");
+    data = get_data("My Game CSVs - Structures.csv");
     {
         for (int i = 7; i < data.size(); i++) {
             Structure s;
@@ -338,6 +349,8 @@ void ItemSys::ItemPresetsCSVPull() {
             s.consumable_ingredient = false;
             int r = -1;
             s.item_name=data[i][++r];
+            s.image = data[i][++r];
+            ++r;//material, unsure why it's in csv
             s.use = data[i][++r];
             s.ingredients.push_back(data[i][++r]);
             s.insulation_cold = stoi(data[i][++r]);
@@ -345,7 +358,7 @@ void ItemSys::ItemPresetsCSVPull() {
             presets.insert({ s.item_name, &structure_presets[s.item_name] });
         }
     }
-    data = get_data("materials");
+    data = get_data("My Game CSVs - Materials.csv");
     {
         for (int i = 4; i < data.size(); i++) {
             Material m;
@@ -365,7 +378,7 @@ void ItemSys::ItemPresetsCSVPull() {
             presets.insert({ m.item_name, &material_presets[m.item_name] });
         }
     }
-    data = get_data("tools");
+    data = get_data("My Game CSVs - Tools.csv");
     {
         for (int i = 6; i < data.size(); i++) {
             Tool t;
@@ -388,7 +401,7 @@ void ItemSys::ItemPresetsCSVPull() {
             presets.insert({ t.item_name, &tool_presets[t.item_name] });
         }
     }
-    data = get_data("food");    //FIX THIS, STRUCT NOT YET IMPLEMENTED
+    data = get_data("My Game CSVs - Food.csv");    //FIX THIS, STRUCT NOT YET IMPLEMENTED
     {
         for (int i = 0; i < data.size(); i++) {
 

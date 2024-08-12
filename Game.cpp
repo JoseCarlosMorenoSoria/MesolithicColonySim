@@ -53,12 +53,12 @@ void Game::load_images_from_csv() {
 	fin.open("Images.csv", ios::in);// Open an existing file 
 	vector<string> row;// Read the Data from the file as String Vector 
 	string line, word;
-	bool firstrowdone = false;
-	bool start_count_tags = false;//for counting the max number of tag columns
-	int count_tags = 0;
-	bool start_count_ingredients = false;//for counting the max number of ingredient columns
-	int count_ingredients = 0;
+	int skiprows = 0;
 	while (getline(fin, line)) {// read an entire row and store it in a string variable 'line' 
+		if (skiprows < 37) {
+			skiprows++;
+			continue;
+		}
 		row.clear();
 		stringstream s(line);// used for breaking words 
 		while (getline(s, word, ',')) {// read every column data of a row and store it in a string variable, 'word' 

@@ -11,7 +11,7 @@ ItemSys it;//used to access member functions and variables of ItemSys
 
 
 void Environment::csv_fill_terrains() {
-	vector<vector<string>> data = get_data("terrain csv");
+	vector<vector<string>> data = get_data("My Game CSVs - Terrain.csv");
 	for (int i = 11; i < data.size();i++) {
 		Terrain ter;
 		int r = -1;

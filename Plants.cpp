@@ -135,7 +135,7 @@ void Plants::check_death() {
 
 void Plants::fill_presets() {
 	//fill from plants csv
-	vector<vector<string>> data = get_data("plants csv");
+	vector<vector<string>> data = get_data("My Game CSVs - Plants.csv");
 	for (int i = 8; i < data.size(); i++) {
 		SpeciesPreset spp;
 		int r = -1;

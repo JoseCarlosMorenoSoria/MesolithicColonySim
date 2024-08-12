@@ -584,7 +584,7 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
     */
     else if (item_categories.find(target) != item_categories.end()) {//target general item category name
         if (target == "weapon") {
-            for (auto w : ItemSys::weapon_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
+            for (auto w : it2.weapon_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
                 if (acquire(w.first)) {
                     return true;//done
                 }
@@ -592,7 +592,7 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
             return false;//in progress
         }
         else if (target == "apparel") {
-            for (auto w : ItemSys::apparel_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
+            for (auto w : it2.apparel_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
                 if (acquire(w.first)) {
                     return true;//done
                 }
@@ -600,7 +600,7 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
             return false;//in progress
         }
         else if (target == "container") {
-            for (auto w : ItemSys::container_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
+            for (auto w : it2.container_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
                 if (acquire(w.first)) {
                     return true;//done
                 }
@@ -608,7 +608,7 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
             return false;//in progress
         }
         else if (target == "material") {
-            for (auto w : ItemSys::material_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
+            for (auto w : it2.material_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
                 if (acquire(w.first)) {
                     return true;//done
                 }
@@ -700,7 +700,7 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
     //else if item has a source (wood comes from trees, rock comes from stone terrain, water is from water terrain, bones from animals, etc
     //then acquire source
     if (it.item_type == "material") {
-        ItemSys::Material m = ItemSys::material_presets[it.item_name];
+        ItemSys::Material m = it2.material_presets[it.item_name];
         acquire(m.source);
     }
 

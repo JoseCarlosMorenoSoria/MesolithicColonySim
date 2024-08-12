@@ -109,7 +109,7 @@ void Player::update() {//this should always be 0 (first in pl list) but for now 
 	int insulation_cold = 0;//unsure if insulation from heat makes sense, except from hats and maybe light white clothing? Only insulation from cold used for now.
 	for (auto const& i : pl[p].equipped.equipment) {
 		if (i.second != -1) {
-			insulation_cold += ItemSys::apparel_item_list[ItemSys::apparel_by_id(i.second)].insulation_cold;
+			insulation_cold += static_cast<ItemSys::Apparel*>(it2.item_list[i.second])->insulation_cold;
 		}
 	}
 	if (Environment::Map[pl[p].pos.y][pl[p].pos.x].temperature > pl[p].my_temperature) {//like other needs, having this update every tick is not ideal and should be changed.
@@ -292,7 +292,7 @@ void Player::pick_up_item_pc() {
 	pc = &pl[p];
 	int item_id = Environment::Map[pl[p].pos.y][pl[p].pos.x].item_id;
 	if (item_id != -1) {
-		ItemSys::Item item = ItemSys::as_item_by_id(item_id);
+		ItemSys::Item item = *it2.item_list[item_id];
 		if (item.can_pick_up) {//fix this, need to add it to NPC as well
 			pick_up_item(Environment::Map[pl[p].pos.y][pl[p].pos.x].item_id, pl[p].pos);//need to add a constraint for items that shouldn't be able to be picked up, such as active traps, trees and tents, etc.
 		}
@@ -358,7 +358,7 @@ void Player::equip_pc(int index) {
 	p = pcindex;
 	pc = &pl[p];
 	int item_id = pl[p].item_inventory[index];
-	ItemSys::Item item = ItemSys::as_item_by_id(item_id);
+	ItemSys::Item item = *it2.item_list[item_id];
 	for (string t : item.tags) {//NEED TO FIX THIS: check by item type not by tag
 		if (t == "food") {
 			eat_pc(index);//if item being equipped is food, eat item.
@@ -559,7 +559,7 @@ vector<string> Player::view_inventory() {
 	pc = &pl[p];
 	vector<string> inventory;
 	for (int& i : pc->item_inventory) {
-		ItemSys::Item item = ItemSys::as_item_by_id(i);
+		ItemSys::Item item = *it2.item_list[i];
 		inventory.push_back(item.item_name + " : ");
 	}//need to remove last colon after loop is done
 	if (inventory.empty()) {
@@ -575,7 +575,7 @@ vector<string> Player::view_equipment() {
 	for (auto& i : pc->equipped.equipment) {
 		string s = i.first + ": ";
 		if (i.second != -1) {
-			ItemSys::Apparel& item = ItemSys::apparel_item_list[ItemSys::apparel_by_id(i.second)];//FIX THIS: need to handle case where equippment is not apparel
+			ItemSys::Apparel& item = *static_cast<ItemSys::Apparel*>(it2.item_list[i.second]);//FIX THIS: need to handle case where equippment is not apparel
 			s += item.item_name + " - Insulation = " + to_string(item.insulation_cold);
 			equipment.push_back(s);
 		}
@@ -624,7 +624,7 @@ vector<string> Player::view_craftable() {//this function is very inefficient, ma
 	pc = &pl[p];
 	vector<string> craftable;
 	for (int& i : pc->item_inventory) {
-		ItemSys::Item item = ItemSys::as_item_by_id(i);
+		ItemSys::Item item = *it2.item_list[i];
 		for (string j : it2.ingredients[item.item_name]) {
 			craftable.push_back(j);
 		}
