@@ -35,7 +35,6 @@ Plants::Plant Plants::new_plant(string species, Position pos) {
 
 void Plants::update_all(int hour) {
 	for (int i = 0; i < pln.size(); i++) {
-		//pli = i;
 		p = &pln[i];
 		s = &species_presets[p->species];
 		update(hour);
@@ -87,8 +86,8 @@ void Plants::update(int hour) {
 		p->light_hunger++;
 	}
 	else if (p->light_hunger > 0) {
-		p->light_hunger--;//might be useful to create a bounded int replacement such that the variable can never increase beyond a max or below a min
-	}//a bounded int could be more cleanly/efficiently done by using AND to bitmask the int to be within bounds
+		p->light_hunger--;
+	}
 }
 
 void Plants::reproduce() {//for now, have reproduce() also trigger the replenishment and production of components such as leaves/fruit/etc
@@ -124,6 +123,7 @@ void Plants::check_death() {
 }
 void Plants::fill_presets() {
 	//fill from plants csv
+
 }
 
 

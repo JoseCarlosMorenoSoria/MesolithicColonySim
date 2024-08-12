@@ -2,21 +2,12 @@
 using namespace std;
 
 vector<People::Person> People::pl; //pl, using the name pl because of the frequency of use, used to store all Person instances
-vector<People::Message> People::message_list;
-vector<int> People::Message_Map[Environment::map_y_max][Environment::map_x_max];
 int People::p = -1;//index for accessing current person. Using index to access instead of a pointer because list may change such as when a new person is born or dies which invalidates pointers to pl (people_list)
-ItemSys People::it2;//used to access member functions and variables of ItemSys
-int People::ox = -1;
-int People::oy = -1;
 int People::pday_count;
 int People::phour_count;
 int People::people_id_iterator = 0;
-Animal People::anim1;//to access Animal class functions
-int People::TILE_PIXEL_SIZE=32;//can be modified by Game() class. Was originally 16, not sure if changing it to 32 made a difference. FIX THIS
-int People::WALK_SPEED = TILE_PIXEL_SIZE / 8;
-int People::STEALTH_SPEED = TILE_PIXEL_SIZE / 16;
-int People::SPRINT_SPEED = TILE_PIXEL_SIZE / 4;
-
+Animal::Species& con = Animal::species["human"];//access to human constants
+vector<int> People::people_in_stealth;//unsure if need a separate people and animal list of these, also need to implement both animal and people not seeing or reduced seeing probability of those in stealth
 //Need to unit test every function and also test the frequency that each function executes, average value for all variables, and different scenarios (resource/people density, size, environment, etc)
 
 //Currently, an npc wins the game on average in 750 ticks, nearly 8 days. Might be less such as 600 or more such as 950. Only ran 3 tests to check tick amount.
@@ -24,48 +15,35 @@ int People::SPRINT_SPEED = TILE_PIXEL_SIZE / 4;
 //note: readability might be increased by creating null constants for things like int (-1) and Position (-1,-1), etc.
 //could also maybe just overload and use the operator! as a return true or false if null function
 
-//TO DO TODAY
-//update Animal class with current People class plus the unique Animal variables/functions
-//implement player functionality and UI
-//then implement more simple programmer art, animations and items/terrain/cosmetics (like weather), etc.
-
 
 People::People(){}
 
-People::People(int initint) {
+People::People(int init) {
     
-    Person p1 = { new_person_id(), {50,25}, true};
+    Person p1;
+    p1.p_id = new_person_id();
+    p1.pos = { 50,25 };
+    p1.sex = true;
     p1.age = 11;
     pl.push_back(p1);
-    Environment::Map[p1.pos.y][p1.pos.x].person_id = p1.id;
+    Environment::Map[p1.pos.y][p1.pos.x].person_id = p1.p_id;
 
     
-    Person p2 = { new_person_id(), {51,26}, false};
+    Person p2;
+    p2.p_id = new_person_id();
+    p2.pos = { 51,26 };
+    p2.sex = false;
     p2.age = 11;
     pl.push_back(p2);
-    Environment::Map[p2.pos.y][p2.pos.x].person_id = p2.id;
+    Environment::Map[p2.pos.y][p2.pos.x].person_id = p2.p_id;
     
-    Person p3 = { new_person_id(), {50,24}, true };
-    p3.age = 11;
-    pl.push_back(p3);
-    Environment::Map[p3.pos.y][p3.pos.x].person_id = p3.id;
-    Person p4 = { new_person_id(), {52,23}, true };
-    p4.age = 11;
-    pl.push_back(p4);
-    Environment::Map[p4.pos.y][p4.pos.x].person_id = p4.id;
-    Person p5 = { new_person_id(), {53,22}, false };
-    p5.age = 11;
-    pl.push_back(p5);
-    Environment::Map[p5.pos.y][p5.pos.x].person_id = p5.id;
-    Person p6 = { new_person_id(), {54,21}, false };
-    p6.age = 11;
-    pl.push_back(p6);
-    Environment::Map[p6.pos.y][p6.pos.x].person_id = p6.id;
+   
     
 }
 
 int ticks = 0;
 void People::update_all(int day_count, int hour_count, int hours_in_day) {
+    a_p_flip = false;
     //if (game_won) {//for debugging, checking if game is winnable
     //    cout << "Number of ticks: " << ticks << "\n";
     //    return;
@@ -81,16 +59,16 @@ void People::update_all(int day_count, int hour_count, int hours_in_day) {
     //STEALTH_SPEED = TILE_PIXEL_SIZE / 8;
     //SPRINT_SPEED = TILE_PIXEL_SIZE / 2;
 
-    Environment::people_in_stealth.clear();//clears every tick for simpler implementation. This needs to be rewritten in a better method instead of using Environment to communicate with Animal
+    people_in_stealth.clear();//clears every tick for simpler implementation. This needs to be rewritten in a better method instead of using Environment to communicate with Animal
 
     int top_auth = 0;
     for(int i = 1; i < pl.size(); i++) {//i starts at 1 because for now, the first Person in the list is reserved for player control
         p = i;
-        ox = pl[p].pos.x;
-        oy = pl[p].pos.y;
+        Position::ox = pl[p].pos.x;
+        Position::oy = pl[p].pos.y;
         update(day_count, hour_count, hours_in_day);
         if (pl[p].in_stealth) {
-            Environment::people_in_stealth.push_back(pl[p].id);
+            people_in_stealth.push_back(pl[p].p_id);
         }
         if (pl[p].authority > top_auth) {
             top_auth = pl[p].authority;
@@ -98,16 +76,6 @@ void People::update_all(int day_count, int hour_count, int hours_in_day) {
     }
     //cout << top_auth << "\n";
     
-    //clear global message list every other update. One issue with npcs cooperating or communicating is sequence order, 
-    //as in if npc1 updates before npc2, anything npc2 says or does won't be witnessed unless it is still there on the next update, NEED TO FIX
-    if (message_clear_flag) {
-        for (int y = 0; y < Environment::map_y_max; y++) {//unsure if this is the most efficient way to clear Message_Map
-            for (int x = 0; x < Environment::map_x_max; x++) {
-                Message_Map[y][x].clear();
-            }
-        }
-    }
-    message_clear_flag = !message_clear_flag;
     //for debugging
     if (day_count == -1) {//kill all people. set to -1 to prevent execution
         for (Person& pip : pl) {
@@ -127,91 +95,35 @@ void People::update_all(int day_count, int hour_count, int hours_in_day) {
     */
 }
 
-bool People::check_death() {
-    //for testing winnability, no death at all
-    return false;
-
-    bool starvation = pl[p].hunger_level > STARVATION_LEVEL;
-    bool dehydration = pl[p].thirst_level > DEHYDRATION_LEVEL;
-    bool old_age = pl[p].age > MAX_AGE;
-    bool freeze_death = pl[p].my_temperature <= COLD_DEATH_TEMPERATURE;
-    bool heat_death = pl[p].my_temperature >= HEAT_DEATH_TEMPERATURE;
-    bool fatal_injury = pl[p].injured_time == INJURED_TIME_DEATH;
-    bool fatal_sickness = pl[p].sick_time == SICK_TIME_DEATH;
-
-    bool death = !pl[p].is_alive || starvation || dehydration || old_age || freeze_death || heat_death || fatal_injury || fatal_sickness;
-    if (death) {
-        pl[p].is_alive = false;
-        add_func_record("dead");
-        pl[p].current_image = "pics/human_dead.png";
-        if (pl[p].age < MAX_INFANT_AGE) {
-            pl[p].current_image = "human_infant_dead";
-        }
-        //if have spouse, free spouse to remarry, need a more realistic way to handle this rather than instant long distance unlinking
-        if (pl[p].spouse_id != -1) {
-            pl[p_by_id(pl[p].spouse_id)].spouse_id = -1;//unlink from spouse
-        }
-        //set these to -1 to prevent others referencing them
-        pl[p].hunger_level = -1;
-        pl[p].thirst_level = -1;
-        pl[p].hungry_time = -1;
-        pl[p].reproduction_cooldown = -1;
-        if(!pl[p].printed){
-            //print record of function history for debugging
-            cout << "\n______\n"<<pl[p].id<<" ~ ";
-            for (int i = 0; i < pl[p].function_record.size(); i++) {
-                cout << pl[p].function_record[i] << " - " << pl[p].function_record_nums[i] << " ::: ";
-            }
-            cout<<"\n"
-            <<"\nsex: " << pl[p].sex
-            << "\nhunger_level: " << pl[p].hunger_level
-            << "\nhungry_time: " << pl[p].hungry_time
-            << "\ntired_level: " << pl[p].tired_level
-            << "\nitem_inventory size: " << pl[p].item_inventory.size()
-            << "\nCampsite pos: x- " << pl[p].campsite_pos.x <<" y-"<<pl[p].campsite_pos.y
-            << "\ncampsite_age: " << pl[p].campsite_age
-            << "\nreproduction_cooldown: " << pl[p].reproduction_cooldown
-            << "\nfound_messages size: " << pl[p].found_messages.size();
-
-            pl[p].printed = true;
-        }
-        return true;
-    }
-    return false;
-}
-
 void People::update(int day_count, int hour_count, int hours_in_day) {
     if (check_death()) {
         return;
     }
 
     if (pl[p].speed_type == "walking") {//adjusts in case tile size changed
-        pl[p].speed = WALK_SPEED;
+        pl[p].speed = con.WALK_SPEED;
     }
     else if (pl[p].speed_type == "sprinting") {
-        pl[p].speed = SPRINT_SPEED;
+        pl[p].speed = con.SPRINT_SPEED;
     }
     else if (pl[p].speed_type == "stealth") {
-        pl[p].speed = STEALTH_SPEED;
+        pl[p].speed = con.STEALTH_SPEED;
     }
 
 
 	if (hour_count == 0) { //once a day check
-		if (pl[p].hunger_level > HUNGRY_LEVEL) { //tracks for continuous hungry days at the start of every day
+		if (pl[p].hunger_level > con.HUNGRY_LEVEL) { //tracks for continuous hungry days at the start of every day
 			pl[p].hungry_time++;
 		}
 		else {
 			pl[p].hungry_time = 0;
 		}
-        //if (pl[p].function_record.size() >= 5) {
-        //    pl[p].function_record.erase(pl[p].function_record.begin(), pl[p].function_record.end() - 5);//once a day, erases all function records except the last 5
-        //}
         pl[p].age++;
     }
-    if (pl[p].age < MAX_INFANT_AGE) {//is infant. Currently that means it doesn't do anything except get hungry and needs to be fed
+    if (pl[p].age < con.MAX_INFANT_AGE) {//is infant. Currently that means it doesn't do anything except get hungry and needs to be fed
         pl[p].current_image = "human_infant";
         pl[p].hunger_level++;
-        if (pl[p].hunger_level > HUNGRY_LEVEL) {
+        if (pl[p].hunger_level > con.HUNGRY_LEVEL) {
             speak("requesting food",-1);
         }
         if (pl[p].being_carried) {//if being carried, then position is the position of the carrier offset by 1
@@ -247,7 +159,8 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
     int insulation_cold = 0;//unsure if insulation from heat makes sense, except from hats and maybe light white clothing? Only insulation from cold used for now.
     for (auto const& i : pl[p].equipped.equipment) {
         if (i.second != -1) {
-            insulation_cold += ItemSys::item_list[ItemSys::item_by_id(i.second)].insulation_from_cold;
+            //FIX THIS. Need to adjust to new Item system
+            //insulation_cold += ItemSys::item_list[ItemSys::item_by_id(i.second)].insulation_from_cold;
         }
     }
     if (Environment::Map[pl[p].pos.y][pl[p].pos.x].temperature > pl[p].my_temperature) {//like other needs, having this update every tick is not ideal and should be changed.
@@ -320,10 +233,10 @@ void People::utility_function() {//is currently actually just a behavior tree no
     
 
     if (pl[p].animal_id_ambush != -1) {
-        Animal::animal& a = Animal::al[anim1.a_by_id(pl[p].animal_id_ambush)];
+        Animal::animal& a = Animal::al[a_by_id(pl[p].animal_id_ambush)];
         if (Position::distance({a.pos.x, a.pos.y},pl[p].pos) > pl[p].sightline_radius) {//if lost sight of prey being ambushed, return to regular speed and no stealth
             pl[p].animal_id_ambush = -1;
-            pl[p].speed = WALK_SPEED;
+            pl[p].speed = con.WALK_SPEED;
             pl[p].speed_type = "walking";
             pl[p].in_stealth = false;
         }
@@ -359,7 +272,7 @@ void People::utility_function() {//is currently actually just a behavior tree no
     else if (eating() || pl[p].protected_func == 7) { pl[p].protected_func = 7; }//if don't have food, searches for food. Therefore the structure of utility_function is focused on which needs to satsify first (sleep, hunger, campsite, reproduction, etc)
     else if (search_for_new_campsite() || pl[p].protected_func == 8) { pl[p].protected_func = 8; }
     //Commented out until carry infants is fixed due to changes in Renderer
-    //else if (reproduce() || pl[p].protected_func == 9) { pl[p].protected_func =9; } //avoid execution of this function to focus on other features without worrying about population size
+    else if (reproduce() || pl[p].protected_func == 9) { pl[p].protected_func =9; } //avoid execution of this function to focus on other features without worrying about population size
     else if (answer_item_request() || pl[p].protected_func == 10) { pl[p].protected_func = 10; }
     else if (hygiene() || pl[p].protected_func == 11) { pl[p].protected_func = 11; }
     else if (recreation() || pl[p].protected_func == 12) { pl[p].protected_func = 12; }
@@ -368,39 +281,10 @@ void People::utility_function() {//is currently actually just a behavior tree no
     //DO THIS: (this (authority pursuit AI) might be too complex for this version, maybe organic leaders is better and add behavior that makes it likelier for some npcs to get to victory condition?) need to add authority as a need/goal to be pursued. Which means starting and winning fights with new people to increase number of submissives, and gaining favor with more people and increasing favor with existing friends/allies
 }
 
-bool People::child_birth() {
-    if (pl[p].sex) {
-        return false;//am male
-    }
-    if (pl[p].pregnancy.progress == 0) {
-        return false;//not pregnant
-    }
-    if (pl[p].pregnancy.progress_func()) {//advance pregnancy until done, if done create child
-        int sex = rand() % 2;
-        Position child_pos;
-        if (pl[p].search_results.find("no people") != pl[p].search_results.end()) {
-            if (Position::distance(pl[p].search_results["no people"][0], pl[p].pos) == 1) {//if empty adjacent tile
-                child_pos = pl[p].search_results["no people"][0];
-            }
-        }
-        if (child_pos.x == -1) {//if no empty adjacent tile found
-            pl[p].general_search_called = true;
-            return true;//in progress
-        }
-        Person child = { new_person_id(), child_pos, sex };
-        Environment::Map[child.pos.y][child.pos.x].person_id = child.id;
-        pl.push_back(child);
-        pl[p].children_id.push_back(child.id);
-        pl[p_by_id(pl[p].spouse_id)].children_id.push_back(child.id);
-        return true;//done
-    }
-}
-
 bool People::reproduce() {//later, add marriage ceremony/customs, options for polygamy, infidelity, premarital sex, widow status, age and family restrictions on potential mates, family size limits, divorce, etc
-    if (!(pl[p].reproduction_cooldown > REPRODUCTION_TRIGGER)) {//function trigger
+    if (!(pl[p].reproduction_cooldown > con.REPRODUCTION_TRIGGER)) {//function trigger
         return false;
     }
-    add_func_record("reproduce");
     vector<Position>& pos_list1 = pl[p].search_results["people"];//note: using reference (&) reduces copying
     int p2 = -1;
     for (int i = 0; i < pos_list1.size(); i++) {//filter out valid mates from people found list
@@ -410,15 +294,15 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
             return true;//try again
         }
         int pid = p_by_id(pers_id);
-        if (pl[pid].sex != pl[p].sex && pl[pid].age > MIN_ADULT_AGE && pl[pid].is_alive) {
+        if (pl[pid].sex != pl[p].sex && pl[pid].age > con.MIN_ADULT_AGE && pl[pid].is_alive) {
             bool is_my_child = false;
             for (int i = 0; i < pl[p].children_id.size(); i++) {
-                if (pl[p].children_id[i] == pl[pid].id) {
+                if (pl[p].children_id[i] == pl[pid].p_id) {
                     is_my_child = true;
                     break;
                 }
             }
-            if (!is_my_child && ((pl[pid].spouse_id == -1 && pl[p].spouse_id == -1) || (pl[pid].spouse_id == pl[p].id && pl[p].spouse_id == pl[pid].id))) {//if not my child AND both unmarried or if married to each other
+            if (!is_my_child && ((pl[pid].spouse_id == -1 && pl[p].spouse_id == -1) || (pl[pid].spouse_id == pl[p].p_id && pl[p].spouse_id == pl[pid].p_id))) {//if not my child AND both unmarried or if married to each other
                 p2 = p_by_id(pers_id);//mate found
                 break;
             }
@@ -426,7 +310,7 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
     }
     bool mate_willing = false;
     if (p2 != -1) {
-        if (pl[p2].reproduction_cooldown > REPRODUCTION_TRIGGER && pl[p2].sex != pl[p].sex) {
+        if (pl[p2].reproduction_cooldown > con.REPRODUCTION_TRIGGER && pl[p2].sex != pl[p].sex) {
             mate_willing = true;
         }
         if (mate_willing && (Position::distance(pl[p].pos, pl[p2].pos) == 1 || move_to(pl[p2].pos, "going to mate"))) {//go to tile adjacent to p2
@@ -436,8 +320,8 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
                 pl[p].reproduction_cooldown = 0;//reset
                 pl[p2].reproduction_cooldown = 0;//unsure if this is the best way to handle interaction between 2 people, speaking or some other function might be better to avoid 2 people not being in sync
                 if (pl[p].spouse_id == -1 && pl[p2].spouse_id == -1) {//if don't have spouse, set as spouse
-                    pl[p].spouse_id = pl[p2].id;
-                    pl[p2].spouse_id = pl[p].id;
+                    pl[p].spouse_id = pl[p2].p_id;
+                    pl[p2].spouse_id = pl[p].p_id;
                 }
                 //remove campsite and adopt male's campsite as own.
                 pl[p].adopt_spouse_campsite = true;
@@ -454,25 +338,8 @@ bool People::reproduce() {//later, add marriage ceremony/customs, options for po
     return true;//in progress
 }
 
-//can this function also be folded into the find_all function somehow to further reduce for loops searching on the map?
-//might also need to add some restriction so that each person doesn't blast out too many messages at once? Or maybe that's ok?
-void People::speak(string message_text, int receiver_id) {//if receiver_id == -1, then the message is for everyone
-    //current valid messages include: need to list valid messages here
-    //the outward ring method might make more sense in this function to allow certain objects such as walls to block sound, might implement later but not currently
-    Message m = { new_message_id(), pl[p].id, receiver_id, message_text, pl[p].pos };//creates message
-    for (int y = pl[p].pos.y - pl[p].audioline_radius; y < pl[p].pos.y + pl[p].audioline_radius; y++) {//creates copies of message for each map position it reaches then adds to global message list
-        for (int x = pl[p].pos.x - pl[p].audioline_radius; x < pl[p].pos.x + pl[p].audioline_radius; x++) {
-            if (valid_position({ x,y })) {
-                Message_Map[y][x].push_back(m.message_id);
-                message_list.push_back(m);
-            }
-        }
-    }
-}
-
 //fix this, this function has magic numbers but they are random percents, need to decide how to handle them
 bool People::idle() {
-    add_func_record("idle");
     int option = rand() % 100;
     if (pl[p].dispositions.empty()) {
         option = 51;
@@ -544,7 +411,6 @@ bool People::craft(string product) {//later add station requirements such as cam
         }
     }
     if (missing_ingredients.empty()) {//have all items, therefore craft product
-        add_func_record("crafting " + product);
         pl[p].current_image = "human_crafting";
         //pl[p].immobile = true;//prevents moving while crafting?? doesn't work?
         if (pl[p].crafting.find(product) == pl[p].crafting.end()) {//key not found
@@ -647,7 +513,6 @@ bool People::answer_item_request() {
     }
     string target = items_requested[m_ind];//currently simply selects the first item request in list to answer. Fix this, no condition on when or when not to answer has been implemented
     int receiver_id = request_messages[m_ind].sender_id;//id of person who requested the item
-    add_func_record("answering request for " + target);
     pl[p].current_image = "pics/human_giving_food.png";
     speak("answering request for " + target, receiver_id);
     //move to requester's position, adjacent
@@ -660,7 +525,7 @@ bool People::answer_item_request() {
         pl[p].clean_image = true;
         int op = p;//temp reassign main p
         p = p_by_id(receiver_id);
-        change_disposition(pl[op].id, 10, "recieved item requested");
+        change_disposition(pl[op].p_id, 10, "recieved item requested");
         p = op;
         return true;//done
     }
@@ -686,7 +551,7 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
         //else if item is a station = "station" / "adjacency"   (campfire)
         //else if item is a building = "building"
     }
-    else if (anim1.species_names.find(target) != anim1.species_names.end()) {//target is an animal name
+    else if (species.find(target) != species.end()) {//target is an animal name
         if (hunting(target)) {//call hunting function
             return true;//done
         }
@@ -755,7 +620,7 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
         if (!pl[p].found_messages.empty()) {
             for (int m_id : pl[p].found_messages) {
                 Message& m = message_list[message_by_id(m_id)];
-                if (m.reciever_id == pl[p].id && m.messsage == "answering request for " + target) {
+                if (m.reciever_id == pl[p].p_id && m.messsage == "answering request for " + target) {
                     request_answered = true;
                     answerer_id = m.sender_id;
                     break;
@@ -789,7 +654,7 @@ bool People::health() {
 
     //if sick, get medicine and rest/sleep
     if (pl[p].sick_time > 100) {//very sick, go to bed and be bedridden
-        pl[p].tired_level = SLEEP_TRIGGER;
+        pl[p].tired_level = con.SLEEP_TRIGGER;
         sleeping();
         return true;//bedridden or going to bed
     }
@@ -807,7 +672,7 @@ bool People::health() {
 
     //if injured, get bandage and medicine and rest/sleep
     if (pl[p].injured_time > 100) {//very injured, go to bed and be bedridden
-        pl[p].tired_level = SLEEP_TRIGGER;
+        pl[p].tired_level = con.SLEEP_TRIGGER;
         sleeping();
         return true;//bedridden or going to bed
     }
@@ -966,8 +831,8 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
         return false;//prevent searching for a new campsite if married, only for females
     }
     
-    bool cond2 = pl[p].campsite_pos.x == -1 || pl[p].hungry_time >= DAYS_HUNGRY_MOVE_CAMP;//AND: have no campsite OR have been hungry too long
-    bool cond3 = pl[p].campsite_age > NEW_CAMP_PROBATION_TIME || pl[p].campsite_age==-1;//AND: campsite is old enough to move again. Unsure if this might have an issue if the null campsite has an age
+    bool cond2 = pl[p].campsite_pos.x == -1 || pl[p].hungry_time >= con.DAYS_HUNGRY_MOVE_CAMP;//AND: have no campsite OR have been hungry too long
+    bool cond3 = pl[p].campsite_age > con.NEW_CAMP_PROBATION_TIME || pl[p].campsite_age==-1;//AND: campsite is old enough to move again. Unsure if this might have an issue if the null campsite has an age
     bool start = (cond2 && cond3) || pl[p].adopt_spouse_campsite;
     //currently only creates a campsite after having been hungry 3 days. Still need to figure out when and when not to create a campsite, such as for trips away from home or extreme high mobility nomad
     //function trigger
@@ -1020,7 +885,6 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
     }
 
     if (food_pos_list.size() >= 4) {//if there are 4 food items within sight, select area for campsite, else keep searching
-        add_func_record("set up camp");
         pl[p].campsite_age = 0; //resets campsite age
         //place tent
         vector<Position> pos_list = pl[p].search_results["no item"];
@@ -1046,35 +910,6 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
     }
 
     pl[p].general_search_called = true;
-    return true;//in progress
-}
-
-bool People::sleeping(){
-    bool tired = pl[p].tired_level > SLEEP_TRIGGER;
-    bool start_moving_to_bed = pl[p].awake && tired && pl[p].campsite_pos.x != -1 && pl[p].hunger_level<HUNGRY_LEVEL && pl[p].thirst_level<THIRSTY_LEVEL;
-    if (start_moving_to_bed) {
-        add_func_record("moving to bed");
-        if(move_to(pl[p].campsite_pos,"to bed")) { //go to campsite.
-            //go to sleep, continue
-        }
-        else {
-            return true;//done and in progress
-        }
-    }
-    bool very_tired = pl[p].tired_level > FORCE_SLEEP_LEVEL;//might need to cap sleep such that a person can't ever have a tired_level over x_level as well as under y_level
-    bool cond1 = tired && (pl[p].pos == pl[p].campsite_pos || pl[p].campsite_pos.x == -1);//if tired AND either at campsite or have no campsite
-    if (!(!pl[p].awake || cond1 || very_tired)) {//function trigger
-        return false;
-    }
-    add_func_record("sleeping");
-    pl[p].current_image = "pics/human_sleeping.png";
-    pl[p].awake = false;
-    pl[p].tired_level-=SLEEP_REST_RATE; //every call to this function reduces tired by 11, this means need 5 hours/updates to stop sleeping and sleep every 50 hours/updates. Is -11 so as to do -10 per hour and also -1 to negate the +1 tired in the regular update function
-    if (pl[p].tired_level <= 0) {//fix this, need to cap at 0, also need cap for upper limit?
-        pl[p].current_image = "pics/human.png";
-        pl[p].awake = true;
-        return true;//done
-    }
     return true;//in progress
 }
 
@@ -1108,7 +943,7 @@ void People::chat() {//if make this a speak() action, can affect dispositions of
     if (pl[p].search_results.find("people") != pl[p].search_results.end()) {
     int topic = rand() % 100;
     int p2_ind = p_by_id(Environment::Map[pl[p].search_results["people"][0].y][pl[p].search_results["people"][0].x].person_id);
-    int p2_id = pl[p2_ind].id;
+    int p2_id = pl[p2_ind].p_id;
     if (topic < 50) {//compliment or insult
             int comment = (rand() % 30) - 15;
             if (pl[p].dispositions.find(p2_id) == pl[p].dispositions.end()) {//fix this every instance, these are unnecessary as it is more readable to just call change_disposition with an amount of 0 to do the same (insert key if key not found)
@@ -1136,7 +971,7 @@ void People::chat() {//if make this a speak() action, can affect dispositions of
             string valence;//valence should be the int and comment should be the string, switch, fix this, just for clarity
 
             (comment < 0) ? valence = "insult" : valence = "compliment";
-            change_disposition(pl[op].id, comment, valence);//positive is compliment, negative is insult
+            change_disposition(pl[op].p_id, comment, valence);//positive is compliment, negative is insult
             p = op;
 
         }
@@ -1153,14 +988,14 @@ void People::authority_calc() {
     int num_submissives = 0;
     bool am_sovereign = true;
     for (int i = 0; i < pl.size(); i++) {
-        if (pl[i].dispositions.find(pl[p].id) != pl[i].dispositions.end()) {
-            if (pl[i].dispositions[pl[p].id] > 0) {
+        if (pl[i].dispositions.find(pl[p].p_id) != pl[i].dispositions.end()) {
+            if (pl[i].dispositions[pl[p].p_id] > 0) {
                 num_people_liked_by++;
-                amount_liked += pl[i].dispositions[pl[p].id];
+                amount_liked += pl[i].dispositions[pl[p].p_id];
             }
         }
-        if (pl[i].submissive_to.find(pl[p].id) != pl[i].submissive_to.end()) {
-            if (pl[i].submissive_to[pl[p].id].submissive_to) {
+        if (pl[i].submissive_to.find(pl[p].p_id) != pl[i].submissive_to.end()) {
+            if (pl[i].submissive_to[pl[p].p_id].submissive_to) {
                 num_submissives++;
             }
         }
@@ -1261,7 +1096,7 @@ void People::build_monument() {
     //temp implementation
     create_item("monument", { -1,-1 });
     drop_item(inventory_has("monument")[0]);
-    //cout << pl[p].id << " HAS WON THE GAME\n";
+    //cout << pl[p].p_id << " HAS WON THE GAME\n";
 }
 
 //this needs to trigger the attempt to acquire storage containers and inventory expanders (baskets and bags)
@@ -1300,16 +1135,19 @@ bool People::extinguish_fire() {
     //if it is 1 tile, attempt to stomp out, if it is 2 tile radius, hit it with blankets/clothing if have any, if 3 tile radius, if have containers, attempt to fill them with soil/sand or water and throw on tiles on fire, if 4 tile radius, do 3 tile response and also create fire breaks.
     //need to add cooperative action such as spreading out to extinguish fire and bucket chains for water/soil
     //if fire is 5 tile radius, flee. If fire is near home/belongings/family then rescue them before fleeing.
+    return false;
 }
 
 bool People::carry() {//should also have a push/pull action for larger/heavier items such as a large stone block for a monument
     //receive whether it is an item or person
     //recieve its id and store it
     //set current image to "carrying" and the current image and state of target person if a person to "carried", tie the position of the carried item/person to the tile in front of the carrier but also offset into the tile of the carrier so the images overlap
+    return false;
 }
 
 bool People::drop() {
     //if carrying something/someone, remove the pixel offset of the carried item/person and reset images of carrier and carried, remove id of carried from carrier and reset the state of carried to false
+    return false;
 }
 
 bool People::adjacency_acquire_handler() {//for cutting down trees, mining rock, digging out dirt, collecting water, etc
@@ -1324,11 +1162,12 @@ bool People::adjacency_acquire_handler() {//for cutting down trees, mining rock,
     //ex: campfire for cooking
 
     //Construction is a variation on crafting but done by emplacing something on a tile with the resources adjacent to that tile or self rather than in one's inventory.
+    return false;
 }
 
 bool People::coerce() {
     //Coerce: intimidate, punish, threaten, etc a person into compliance with a request, is used for managing slaves, tributaries, subordinates, bullying, parenting, governance, etc. 
-
+    return false;
 }
 
 

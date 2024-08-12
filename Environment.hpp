@@ -87,7 +87,6 @@ public:
 	static void rain();
 	static void track_manager();
 
-	static vector<int> people_in_stealth;//used so that Animal knows if any person is in stealth
 };
 
 #endif

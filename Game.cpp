@@ -294,7 +294,7 @@ void Game::render() {
 		center_y = Environment::map_y_max/2;
 	}
 	else {
-		if (People::Position::distance({0, player.pl[player.pcindex].pos.y }, { 0,Environment::map_y_max - 1 }) < (max_y_screen_tiles / 2)) {
+		if (Position::distance({0, player.pl[player.pcindex].pos.y }, { 0,Environment::map_y_max - 1 }) < (max_y_screen_tiles / 2)) {
 			center_y = Environment::map_y_max - (max_y_screen_tiles / 2);
 		}
 		else if (player.pl[player.pcindex].pos.y < (max_y_screen_tiles / 2)) {
@@ -303,7 +303,7 @@ void Game::render() {
 		else {
 			center_y = player.pl[player.pcindex].pos.y;
 		}
-		if (People::Position::distance({ player.pl[player.pcindex].pos.x,0 }, { Environment::map_x_max - 1,0 }) < (max_x_screen_tiles / 2)) {
+		if (Position::distance({ player.pl[player.pcindex].pos.x,0 }, { Environment::map_x_max - 1,0 }) < (max_x_screen_tiles / 2)) {
 			center_x = Environment::map_x_max - (max_x_screen_tiles / 2);
 		}
 		else if (player.pl[player.pcindex].pos.x < (max_x_screen_tiles / 2)) {
@@ -490,7 +490,7 @@ void Game::render_entities(int min_x, int max_x, int min_y, int max_y, bool keep
 			if (Environment::Map[y][x].person_id > -1) {
 				People::Person& p = People::pl[peep.p_by_id(Environment::Map[y][x].person_id)];
 
-				if (player.pl[player.pcindex].id != p.id) {
+				if (player.pl[player.pcindex].p_id != p.p_id) {
 					destR.x += p.px_x;
 					destR.y += p.px_y;
 				}
@@ -511,10 +511,10 @@ void Game::render_entities(int min_x, int max_x, int min_y, int max_y, bool keep
 
 				if (mousedown_right && mouse_in_rect(destR)) {
 					if (player.fight_mode) {
-						player.attack_person(p.id);
+						player.attack_person(p.p_id);
 					}
 					else {
-						player.chat_pc(p.id);
+						player.chat_pc(p.p_id);
 					}
 
 					mousedown_right = false;

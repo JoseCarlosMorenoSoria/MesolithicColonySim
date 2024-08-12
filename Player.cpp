@@ -9,7 +9,7 @@
 //create save system
 
 #include "Player.hpp"
-
+Animal::Species& con = Animal::species["human"];//access to human constants
 
 //once player is done, test if can win game, then improve player by turning actions into context actions or tooltip actions to reduce need to go into menu
 
@@ -17,12 +17,15 @@
 Player::Player(){}
 
 Player::Player(int a) {
-	Person newpc = { new_person_id(), {50,10}, true };//unsure if player is actually inserted into index 0, if it doesn't matter then need to fix People's update_all to also update index 0
+	Person newpc;//unsure if player is actually inserted into index 0, if it doesn't matter then need to fix People's update_all to also update index 0
+	newpc.p_id = new_person_id();
+	newpc.pos = { 50,10 };
+	newpc.sex = true;
 	newpc.age = 11;
 	pl.push_back(newpc);//unsure if need a variable in Person that marks which Person is a Player to prevent update_all from updating it.
-	Environment::Map[newpc.pos.y][newpc.pos.x].person_id = newpc.id;
-	pcindex = p_by_id(newpc.id);
-	cout << "Player id is " << newpc.id << "\n";//id should be 1 //player should be the first person in list
+	Environment::Map[newpc.pos.y][newpc.pos.x].person_id = newpc.p_id;
+	pcindex = p_by_id(newpc.p_id);
+	cout << "Player id is " << newpc.p_id << "\n";//id should be 1 //player should be the first person in list
 	
 }
 
@@ -39,13 +42,13 @@ void Player::update() {//this should always be 0 (first in pl list) but for now 
 
 	check_death();
 
-	if (!pl[p].awake || pl[p].tired_level >= FORCE_SLEEP_LEVEL) {
+	if (!pl[p].awake || pl[p].tired_level >= con.FORCE_SLEEP_LEVEL) {
 		//pl[p].awake = false;
 		sleeping();
 	}
 
-	if (pl[p].sprint_stamina >= SPRINT_LIMIT) {
-		pl[p].speed = WALK_SPEED;
+	if (pl[p].sprint_stamina >= con.SPRINT_LIMIT) {
+		pl[p].speed = con.WALK_SPEED;
 		speed_toggle = 0;
 	}
 
@@ -204,15 +207,15 @@ void Player::toggle_speed_pc() {//not sure if working properly
 	speed_toggle++;
 	speed_toggle %= 3;
 	if (speed_toggle == 0) {
-		pl[p].speed = WALK_SPEED;
+		pl[p].speed = con.WALK_SPEED;
 	}
 	else if (speed_toggle == 1) {
-		if (pl[p].speed != SPRINT_SPEED && pl[p].sprint_stamina < SPRINT_LIMIT) {
-			pl[p].speed = SPRINT_SPEED;
+		if (pl[p].speed != con.SPRINT_SPEED && pl[p].sprint_stamina < con.SPRINT_LIMIT) {
+			pl[p].speed = con.SPRINT_SPEED;
 		}
 	}
 	else if (speed_toggle == 2) {
-		pl[p].speed = STEALTH_SPEED;
+		pl[p].speed = con.STEALTH_SPEED;
 	}
 }
 
@@ -221,7 +224,7 @@ void Player::move_to_pc(Position dest) {
 	p = pcindex;
 	pc = &pl[p];
 
-	if (!valid_position(dest)) {
+	if (!Position::valid_position(dest)) {
 		continue_func = -1;
 		return;
 	}
@@ -304,7 +307,7 @@ void Player::drink_pc() {//if next to water, drink water
 	pc = &pl[p];
 	find_all();
 	if (Position::distance(pl[p].pos, pl[p].search_results["water"][0]) == 1) {
-		pl[p].thirst_level -= THIRST_REDUCTION_RATE;
+		pl[p].thirst_level -= con.THIRST_REDUCTION_RATE;
 		continue_func = 3;
 		if (pl[p].thirst_level == 0) {
 			continue_func = -1;
@@ -337,7 +340,7 @@ void Player::eat_pc(int index) {//might be better to break up NPC functions such
 		int index = pl[p].eating_food_index;
 		int food_id = pl[p].item_inventory[index];
 		delete_item(food_id, { -1,-1 }, index);//delete food from game
-		pl[p].hunger_level -= HUNGER_REDUCTION_RATE; //reduce hungry level by 10, therefore need 2 meals a day to stay at 0 hunger_level average
+		pl[p].hunger_level -= con.HUNGER_REDUCTION_RATE; //reduce hungry level by 10, therefore need 2 meals a day to stay at 0 hunger_level average
 		pl[p].clean_image = true; //when this function ends, return to default image on next update
 		continue_func = -1;
 	}
@@ -405,7 +408,7 @@ void Player::cut_down_tree_pc() {//temporary implementation, cuts down tree if n
 void Player::attack_person(int pid) {
 	p = pcindex;
 	pc = &pl[p];
-	if (pid == -1 || pid == pl[p].id) {
+	if (pid == -1 || pid == pl[p].p_id) {
 		return;//not sure why it recieves a -1 sometimes
 	}
 
@@ -435,7 +438,7 @@ void Player::chat_pc(int pid) {
 
 	//player gives either compliment or insult to a specific npc
 	int p2_ind = p_by_id(pid);
-	int p2_id = pl[p2_ind].id;
+	int p2_id = pl[p2_ind].p_id;
 	//compliment or insult
 	int comment = (rand() % 15);
 	if (!valence) {//if valence==false, set topic to negative (slight/insult). 
@@ -462,7 +465,7 @@ void Player::chat_pc(int pid) {
 	p = p2_ind;
 	string comment_type;
 	(comment < 0) ? comment_type = "insult" : comment_type = "compliment";
-	change_disposition(pl[op].id, comment, comment_type);//positive is compliment, negative is insult
+	change_disposition(pl[op].p_id, comment, comment_type);//positive is compliment, negative is insult
 	p = op;
 }
 

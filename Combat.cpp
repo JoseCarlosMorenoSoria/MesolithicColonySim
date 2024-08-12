@@ -1,4 +1,5 @@
 #include "People.hpp"
+#include "Animal.hpp"
 using namespace std;
 
 
@@ -11,9 +12,9 @@ bool People::hostile_detection() {
         for (Position pos : pl[p].search_results["people"]) {
             Person& p2 = pl[p_by_id(Environment::Map[pos.y][pos.x].person_id)];
             for (int i : p2.active_hostile_towards) {
-                if (i == pl[p].id) {//if a person nearby is actively hostile to self
-                    pl[p].active_hostile_towards.push_back(p2.id);
-                    pl[p].hostile_towards.push_back(p2.id);
+                if (i == pl[p].p_id) {//if a person nearby is actively hostile to self
+                    pl[p].active_hostile_towards.push_back(p2.p_id);
+                    pl[p].hostile_towards.push_back(p2.p_id);
                     found_hostiles = true;
                 }
             }
@@ -100,13 +101,13 @@ bool People::fight() {//Order of execution for people here might necessitate hav
                     won = true;
                     tie = false;
                     for (int i = 0; i < pl[p].active_hostile_towards.size(); i++) {//win or lose, need to move myself or other from active_hostile to hostile list to no longer be targeted in fight
-                        if (pl[p].active_hostile_towards[i] == pl[p2].id) {
+                        if (pl[p].active_hostile_towards[i] == pl[p2].p_id) {
                             pl[p].active_hostile_towards.erase(pl[p].active_hostile_towards.begin() + i);
                             break;
                         }
                     }
                     for (int i = 0; i < pl[p2].active_hostile_towards.size(); i++) {
-                        if (pl[p2].active_hostile_towards[i] == pl[p].id) {
+                        if (pl[p2].active_hostile_towards[i] == pl[p].p_id) {
                             pl[p2].active_hostile_towards.erase(pl[p2].active_hostile_towards.begin() + i);
                             break;
                         }
@@ -117,13 +118,13 @@ bool People::fight() {//Order of execution for people here might necessitate hav
                     won = false;
                     tie = false;
                     for (int i = 0; i < pl[p].active_hostile_towards.size(); i++) {
-                        if (pl[p].active_hostile_towards[i] == pl[p2].id) {
+                        if (pl[p].active_hostile_towards[i] == pl[p2].p_id) {
                             pl[p].active_hostile_towards.erase(pl[p].active_hostile_towards.begin() + i);
                             break;
                         }
                     }
                     for (int i = 0; i < pl[p2].active_hostile_towards.size(); i++) {
-                        if (pl[p2].active_hostile_towards[i] == pl[p].id) {
+                        if (pl[p2].active_hostile_towards[i] == pl[p].p_id) {
                             pl[p2].active_hostile_towards.erase(pl[p2].active_hostile_towards.begin() + i);
                             break;
                         }
@@ -162,35 +163,35 @@ bool People::fight() {//Order of execution for people here might necessitate hav
         if (battle_won) {
             pl[p].num_fights_won++;
             for (int i = 0; i < pl[p].hostile_towards.size(); i++) {//enemies submit. If I lose then when enemy updates they will modify my own list to submit to them
-                if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.find(pl[p].id) != pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.end()) {
-                    pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost++;
-                    if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost >= 3) {
-                        pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].submissive_to = true;
+                if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.find(pl[p].p_id) != pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.end()) {
+                    pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].p_id].fights_lost++;
+                    if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].p_id].fights_lost >= 3) {
+                        pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].p_id].submissive_to = true;
                     }
                 }
                 else {
-                    pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.insert({ pl[p].id,{false,1} });
+                    pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.insert({ pl[p].p_id,{false,1} });
                 }
             }
         }
         else {
             //pl[p].num_fights_won--;
             for (int i = 0; i < pl[p].hostile_towards.size(); i++) {//reduces enemy submission level to me
-                if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.find(pl[p].id) != pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.end()) {
-                    //pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost--;
-                    if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].fights_lost < 3) {
-                        pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].id].submissive_to = false;
+                if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.find(pl[p].p_id) != pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.end()) {
+                    //pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].p_id].fights_lost--;
+                    if (pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].p_id].fights_lost < 3) {
+                        pl[p_by_id(pl[p].hostile_towards[i])].submissive_to[pl[p].p_id].submissive_to = false;
                     }
                 }
                 else {
-                    pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.insert({ pl[p].id,{false,-1} });
+                    pl[p_by_id(pl[p].hostile_towards[i])].submissive_to.insert({ pl[p].p_id,{false,-1} });
                 }
             }
         }
 
         for (int i = 0; i < pl[p].hostile_towards.size(); i++) {//for every person I'm hostile to, remove me from their hostile list. Clean up this code to make more readable
             for (int j = 0; j < pl[p_by_id(pl[p].hostile_towards[i])].hostile_towards.size(); j++) {
-                if (pl[p_by_id(pl[p].hostile_towards[i])].hostile_towards[j] == pl[p].id) {
+                if (pl[p_by_id(pl[p].hostile_towards[i])].hostile_towards[j] == pl[p].p_id) {
                     pl[p_by_id(pl[p].hostile_towards[i])].hostile_towards.erase(pl[p_by_id(pl[p].hostile_towards[i])].hostile_towards.begin() + j);
                     break;
                 }

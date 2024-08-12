@@ -1,82 +1,70 @@
 #include "Animal.hpp"
+#include "People.hpp"
 using namespace std;
 
-//need to isolate any unique parts of Animal both in the hpp and cpp, then import the latest version of People and strip it to create an updated Animal and add back in the unique parts saved prior.
+/*
+if (al[a].fleeing) {
+    int chance = rand() % 2;//50/50 chance that animal sprints away rather than simply moving away
+    if (chance == 0) {
+        al[a].speed = 2;
+    }
+}
+else {
+    al[a].speed = 1;
+}
+if (Position::distance(al[a].pos, dest) == 1) {//prevents overshooting destination if fleeing
+    al[a].speed = 1;
+}
+*/
 
-vector<Animal::animal> Animal::al;
+//^^^ need to isolate any unique parts of Animal both in the hpp and cpp, then import the latest version of People and strip it to create an updated Animal and add back in the unique parts saved prior.
+
+vector<Animal::animal> Animal::al; //pl, using the name pl because of the frequency of use, used to store all Person instances
 vector<Animal::Message> Animal::message_list;
 vector<int> Animal::Message_Map[Environment::map_y_max][Environment::map_x_max];
-int a = -1;//index for accessing current animal. Using index to access instead of a pointer because list may change such as when a new animal is born or dies which invalidates pointers to pl (people_list)
-ItemSys it3;//used to access member functions and variables of ItemSys
-int Animal::ox = -1;
-int Animal::oy = -1;
-set<string> Animal::species_names = { "deer","rabbit" };
+int Animal::a = -1;//index for accessing current person. Using index to access instead of a pointer because list may change such as when a new person is born or dies which invalidates pointers to pl (people_list)
+ItemSys Animal::it2;//used to access member functions and variables of ItemSys
+int Animal::pday_count;
+int Animal::phour_count;
 int Animal::animal_id_iterator = 0;
+int Animal::TILE_PIXEL_SIZE = 32;//can be modified by Game() class. Was originally 16, not sure if changing it to 32 made a difference. FIX THIS
+vector<int> Animal::animals_in_stealth;
+//Need to unit test every function and also test the frequency that each function executes, average value for all variables, and different scenarios (resource/people density, size, environment, etc)
 
-Animal::Animal() {};
+//note: readability might be increased by creating null constants for things like int (-1) and Position (-1,-1), etc.
+//could also maybe just overload and use the operator! as a return true or false if null function
+
+//need to go through all parts of code that affect current_image to ensure there are no missing or wrong calls
+
+Animal::Animal() {}
+
 Animal::Animal(int init) {
 
-    animal p1 = { new_animal_id(), {45,25}, true };
-    p1.age = 11;
-    p1.species = "deer";
-    p1.current_image = p1.species;
-    al.push_back(p1);
-    Environment::Map[p1.pos.y][p1.pos.x].animal_id = p1.id;
-    animal p2 = { new_animal_id(), {46,26}, false };
-    p2.age = 11;
-    p2.species = "deer";
-    p2.current_image = p2.species;
-    al.push_back(p2);
-    Environment::Map[p2.pos.y][p2.pos.x].animal_id = p2.id;
 
-    animal p3 = { new_animal_id(), {45,35}, true };
-    p3.age = 11;
-    p3.species = "rabbit";
-    p3.current_image = p3.species;
-    al.push_back(p3);
-    Environment::Map[p3.pos.y][p3.pos.x].animal_id = p3.id;
-    animal p4 = { new_animal_id(), {44,34}, false };
-    p4.age = 11;
-    p4.species = "rabbit";
-    p4.current_image = p4.species;
-    al.push_back(p4);
-    Environment::Map[p4.pos.y][p4.pos.x].animal_id = p4.id;
-}
-
-int Animal::new_animal_id() {//unsure if this function is redundant with how int++ works or if there's a better method
-    animal_id_iterator++;
-    return animal_id_iterator;
-}
-
-int Animal::new_message_id() {//unsure if this function is redundant with how int++ works or if there's a better method
-    message_id_iterator++;
-    return message_id_iterator;
-}
-
-int Animal::message_by_id(int id) {//uses binary search to find and return index to message in list
-    int low = 0;
-    int high = message_list.size() - 1;
-    while (low <= high) {
-        int mid = low + (high - low) / 2;
-        if (message_list[mid].message_id == id) {
-            return mid;
-        }
-        (message_list[mid].message_id < id) ? low = mid + 1 : high = mid - 1;
-    }
-    return -1;//not found
 }
 
 void Animal::update_all(int day_count, int hour_count, int hours_in_day) {
-//    cout << al.size() << "\n";
-    for (int i = 0; i < al.size(); i++) {
+    a_p_flip = true;
+    pday_count = day_count;
+    phour_count = hour_count;
+
+    //updates these constants if zoom level changes
+    //WALK_SPEED = TILE_PIXEL_SIZE / 4;
+    //STEALTH_SPEED = TILE_PIXEL_SIZE / 8;
+    //SPRINT_SPEED = TILE_PIXEL_SIZE / 2;
+
+    animals_in_stealth.clear();//clears every tick for simpler implementation. This needs to be rewritten in a better method instead of using Environment to communicate with Animal
+
+    for (int i = 1; i < al.size(); i++) {//i starts at 1 because for now, the first Person in the list is reserved for player control
         a = i;
-        ox = al[a].pos.x;
-        oy = al[a].pos.y;
+        Position::ox = al[a].pos.x;
+        Position::oy = al[a].pos.y;
         update(day_count, hour_count, hours_in_day);
-        //if (al[a].isdead) {
-        //    al.erase(al.begin() + i);
-        //}
+        if (al[a].in_stealth) {
+            animals_in_stealth.push_back(al[a].a_id);
+        }
     }
+
     //clear global message list every other update. One issue with npcs cooperating or communicating is sequence order, 
     //as in if npc1 updates before npc2, anything npc2 says or does won't be witnessed unless it is still there on the next update, NEED TO FIX
     if (message_clear_flag) {
@@ -86,214 +74,280 @@ void Animal::update_all(int day_count, int hour_count, int hours_in_day) {
             }
         }
     }
-    message_clear_flag = !message_clear_flag;
+    message_clear_flag = !message_clear_flag;//this is handled in Animal only, not People
 }
 
 bool Animal::check_death() {
-    bool rabbit_on_trap = al[a].species == "rabbit" && ItemSys::item_by_id(Environment::Map[al[a].pos.y][al[a].pos.x].item_id)!=-1 && ItemSys::item_list[ItemSys::item_by_id(Environment::Map[al[a].pos.y][al[a].pos.x].item_id)].item_name == "active trap";
-    bool starvation = al[a].hunger_level > 1000;
-    bool death = !al[a].is_alive || starvation || rabbit_on_trap;
+    animal& c = (a_p_flip) ? al[a] : People::pl[People::p];//controls if accessing an animal from animal list or a person from people list (derived from Animal)
+    Species& sp = species[c.species];
+    
+    bool starvation = c.hunger_level > sp.STARVATION_LEVEL;
+    bool dehydration = c.thirst_level > sp.DEHYDRATION_LEVEL;
+    bool old_age = c.age > sp.MAX_AGE;
+    bool freeze_death = c.my_temperature <= sp.COLD_DEATH_TEMPERATURE;
+    bool heat_death = c.my_temperature >= sp.HEAT_DEATH_TEMPERATURE;
+    bool fatal_injury = c.injured_time == sp.INJURED_TIME_DEATH;
+    bool fatal_sickness = c.sick_time == sp.SICK_TIME_DEATH;
+
+    bool death = !c.is_alive || starvation || dehydration || old_age || freeze_death || heat_death || fatal_injury || fatal_sickness;
     if (death) {
-        al[a].is_alive = false;
-       al[a].current_image = al[a].species+"_dead";
-        if (al[a].age < 5) {
-            al[a].current_image = al[a].species+"_infant_dead";
+        c.is_alive = false;
+        c.current_image = c.species+"_dead.png";
+        if (c.age < sp.MAX_INFANT_AGE) {
+            c.current_image = c.species+"_infant_dead";
         }
-        al[a].isdead = true;//signals that death function is done
+        //if have spouse, free spouse to remarry, need a more realistic way to handle this rather than instant long distance unlinking
+        if (c.spouse_id != -1) {
+            if (c.species == "human") {
+                People::pl[People::p_by_id(People::pl[People::p].spouse_id)].spouse_id = -1;//unlink from spouse
+            }
+            else {
+                al[a_by_id(al[a].spouse_id)].spouse_id = -1;//unlink from spouse
+            }
+        }
+        //set these to -1 to prevent others referencing them
+        c.hunger_level = -1;
+        c.thirst_level = -1;
+        c.hungry_time = -1;
+        c.reproduction_cooldown = -1;
         return true;
     }
     return false;
 }
 
 void Animal::update(int day_count, int hour_count, int hours_in_day) {
-    al[a].meat_type = al[a].species + "_meat";
+    animal& an = al[a];
+    Species& sp = species[an.species];
     if (check_death()) {
         return;
     }
+
+    if (an.speed_type == "walking") {//adjusts in case tile size changed
+        an.speed = sp.WALK_SPEED;
+    }
+    else if (al[a].speed_type == "sprinting") {
+        an.speed = sp.SPRINT_SPEED;
+    }
+    else if (an.speed_type == "stealth") {
+        an.speed = sp.STEALTH_SPEED;
+    }
+
     if (hour_count == 0) { //once a day check
-        if (al[a].hunger_level > 150) { //tracks for continuous hungry days at the start of every day
-            al[a].hungry_time++;
+        if (an.hunger_level > sp.HUNGRY_LEVEL) { //tracks for continuous hungry days at the start of every day
+            an.hungry_time++;
         }
         else {
-            al[a].hungry_time = 0;
+            an.hungry_time = 0;
         }
-        //if (al[a].function_record.size() >= 5) {
-        //    al[a].function_record.erase(al[a].function_record.begin(), al[a].function_record.end() - 5);//once a day, erases all function records except the last 5
-        //}
-        al[a].age++;
+        an.age++;
     }
-    
+    if (an.age < sp.MAX_INFANT_AGE) {//is infant. Currently that means it doesn't do anything except get hungry and needs to be fed
+        an.current_image = an.species+"_infant";
+        an.hunger_level++;
+        if (an.hunger_level > sp.HUNGRY_LEVEL) {
+            speak("requesting food", -1);
+        }
+        if (an.being_carried) {//if being carried, then position is the position of the carrier offset by 1
+            an.pos = al[a_by_id(al[a].carried_by_id)].pos;
+            an.pos.x += 1;
+        }
+        an.immobile = true;
+        eating();
+        return;
+    }
+    else {
+        an.immobile = false;
+        an.clean_image = true;
+    }
 
+    an.hunger_level++; //hunger increases by 1 per hour, meaning it must decrease by 20 per day to stay at 0 daily average
+    an.tired_level++; //same for tired level
+    an.campsite_age++;
+    an.reproduction_cooldown++; //for when to find mate and create new person
+    an.thirst_level++;
 
-    al[a].hunger_level++; //hunger increases by 1 per hour, meaning it must decrease by 20 per day to stay at 0 daily average
-    al[a].tired_level++; //same for tired level
+    if (an.am_injured) {
+        an.injured_time++;
+    }
+    if (an.am_sick) {
+        an.sick_time++;
+    }
+    if (Environment::Map[an.pos.y][an.pos.x].temperature > an.my_temperature) {//like other needs, having this update every tick is not ideal and should be changed.
+        an.my_temperature++;//fix this, need to make increase/decrease a percent of the difference between my_temp and tile_temp. Such that a large difference causes a large change in my_temp but a small one does not. Do the same for the clothing insulation below.
 
-    al[a].reproduction_cooldown++; //for when to find mate and create new animal
+    }
+    else if (Environment::Map[an.pos.y][an.pos.x].temperature < an.my_temperature) {
+        an.my_temperature--;
+    }
 
-    if (al[a].clean_image) {
-        al[a].current_image = al[a].species;
-        al[a].clean_image = false;
+    if (an.clean_image) {
+        an.current_image = an.species;//default image
+        an.clean_image = false;
     }
 
     find_all();//gets all items, people, etc from within sight/earshot to then react to or inform next action
+
     utility_function();
-    al[a].found_messages.clear();
-    al[a].search_results.clear();
+    if (!an.move_already && an.general_search_called) {
+        general_search_walk("");//ensures this function only executes once per update and also only after all other move_to's have been considered. This prioritizes intentional movement (moving to a target) rather than random movement
+    }
 
+    an.found_messages.clear();
+    an.search_results.clear();
+
+    //check to ensure that spouses share campsite
+    if (!an.sex && !an.adopt_spouse_campsite && an.spouse_id != -1) {
+        an.campsite_pos = al[a_by_id(al[a].spouse_id)].campsite_pos;
+    }
+
+    an.move_already = false;
+    an.general_search_called = false;
 
 }
 
-bool Animal::valid_position(Position pos) {
-    bool valid_x = 0 <= pos.x && pos.x < Environment::map_x_max;
-    bool valid_y = 0 <= pos.y && pos.y < Environment::map_y_max;
-    if (valid_x && valid_y) {
-        return true;
-    }
-    return false;
-}
-
-//animal sometimes stops moving, need to check functions that call move_to to make sure they aren't asking to move to the same tile animal is on
-bool Animal::move_to(Position dest) {//need to add speed of moving from one tile to another and how many tiles at a time. Also need to add a check to prevent it being called more than once per animal per update.
-    //if (al[a].search_active) {//prevents function getting called more than once per update
-    //    return false;
-    //}
-
-    if (!valid_position(dest)) { //for debugging, kill npc if it tries to go off map or is asked to move to the spot it is already at
-        al[a].is_alive = false;
-        al[a].current_image = "pics/debug.png";
-        return true;
+void Animal::utility_function() {//is currently actually just a behavior tree not a utility function. Selects what action to take this tick.
+    //this implementation allows functions to be interrupted by higher priority ones on every update, however this means that a function may not properly reset or preserve as needed for when it gets called again later, need to fix
+    //if(func()==false) go to next func(), if(func()==true) executed this func() for both in progress and done cases
+    animal& an = al[a];
+    Species& sp = species[an.species];
+    if (an.mov) {
+        move_to(an.dest, "continue");
+        return;
     }
 
-    if (al[a].fleeing) {
-        int chance = rand() % 2;//50/50 chance that animal sprints away rather than simply moving away
-        if (chance == 0) {
-            al[a].speed = 2;
+    //initializing function locks so that if a function starts execution, it is allowed to run for at least a few ticks before getting preempted
+
+    /* Not yet implemented for Animal
+    if (an.animal_id_ambush != -1) {
+        Animal::animal& an2 = Animal::al[a_by_id(an.animal_id_ambush)];//need to fix, as this needs to also allow ambushing humans, not just animals?
+        if (Position::distance(an2.pos, an.pos) > an.sightline_radius) {//if lost sight of prey being ambushed, return to regular speed and no stealth
+            an.animal_id_ambush = -1;
+            an.speed = sp.WALK_SPEED;
+            an.speed_type = "walking";
+            an.in_stealth = false;
+        }
+        else {
+            hunting(an2.species);//continue to hunt this type of animal. Need to change to specifically this target, also need to allow interruption by high priority functions such as being attacked/injured/etc
+            return;
         }
     }
-    else {
-        al[a].speed = 1;
+    */
+
+    if (an.progress_states.find("utility preemption protector") == an.progress_states.end()) {
+        an.progress_states.insert({ "utility preemption protector",{15} });//protects a function for at most 5 ticks
     }
 
-    if (al[a].pos != al[a].last_position) {
-        al[a].last_position = al[a].pos;
+    if (an.protected_func != -1) {
+        if (an.progress_states["utility preemption protector"].progress_func()) {//not sure if it actually helped
+            an.protected_func = -1;//release
+        }
     }
+    if (need_light() || an.protected_func == 0) { an.protected_func = 0; }
+    else if (child_birth() || an.protected_func == 1) { an.protected_func = 1; }//pregnancy advancement should be moved to update function, not child_birth()
+    //else if (health() || an.protected_func == 3) { an.protected_func = 3; }
+    else if (exposure() || an.protected_func == 4) { an.protected_func == 4; }
+    else if (sleeping() || an.protected_func == 5) { an.protected_func = 5; }//need to move collapsing from sleep to update function instead of sleeping()
+    else if (drinking() || an.protected_func == 6) { an.protected_func = 6; }
+    else if (eating() || an.protected_func == 7) { an.protected_func = 7; }//if don't have food, searches for food. Therefore the structure of utility_function is focused on which needs to satsify first (sleep, hunger, campsite, reproduction, etc)
+    //for nests, dens, beehives, etc. Need to implement
+    //else if (search_for_new_campsite() || an.protected_func == 8) { an.protected_func = 8; }
+    else if (reproduce() || an.protected_func == 9) { an.protected_func =9; } //avoid execution of this function to focus on other features without worrying about population size
+    //else if (answer_item_request() || an.protected_func == 10) { an.protected_func = 10; }
+    else { idle(); }
+}
 
-    if (Position::distance(al[a].pos, dest) == 1) {//prevents overshooting destination if fleeing
-        al[a].speed = 1;
+bool Animal::child_birth() {
+    animal& c = (a_p_flip) ? al[a] : People::pl[People::p];//controls if accessing an animal from animal list or a person from people list (derived from Animal)
+    Species& sp = species[c.species];
+    if (c.sex) {
+        return false;//am male
     }
+    if (c.pregnancy.progress == 0) {
+        return false;//not pregnant
+    }
+    if (c.pregnancy.progress_func()) {//advance pregnancy until done, if done create child
+        int sex = rand() % 2;
+        Position child_pos;
+        string no_type = (c.species == "human") ? "no people" : "no animal";
+        if (c.search_results.find(no_type) != c.search_results.end()) {
+            if (Position::distance(c.search_results[no_type][0], c.pos) == 1) {//if empty adjacent tile
+                child_pos = c.search_results[no_type][0];
+            }
+        }
+        if (child_pos.x == -1) {//if no empty adjacent tile found
+            c.general_search_called = true;
+            return true;//in progress
+        }
+        if (c.species == "human") {
+            People::Person child;
+            child.p_id = People::new_person_id();
+            child.pos = child_pos;
+            child.sex = sex;
+            Environment::Map[child.pos.y][child.pos.x].person_id = child.p_id;
+            People::pl.push_back(child);
+            c.children_id.push_back(child.p_id);
+            People::pl[People::p_by_id(c.spouse_id)].children_id.push_back(child.p_id);
+        }
+        else {
+            animal child;
+            child.a_id = new_animal_id();
+            child.pos = child_pos;
+            child.sex = sex;
+            Environment::Map[child.pos.y][child.pos.x].animal_id = child.a_id;
+            al.push_back(child);
+            c.children_id.push_back(child.a_id);
+            al[a_by_id(c.spouse_id)].children_id.push_back(child.a_id);
+        }
+        return true;//done
+    }
+}
 
-    Position old_pos = al[a].pos;
-    Environment::Map[al[a].pos.y][al[a].pos.x].animal_id = -1;//remove animal from Map
-    if (al[a].pos.x < dest.x) {//for future optimization, see: https://stackoverflow.com/questions/14579920/fast-sign-of-integer-in-c
-        al[a].pos.x+=al[a].speed;
+bool Animal::reproduce() {
+    animal& an = al[a];
+    Species& sp = species[an.species];
+    if (!(an.reproduction_cooldown > sp.REPRODUCTION_TRIGGER)) {//function trigger
+        return false;
     }
-    else if (al[a].pos.x > dest.x) {
-        al[a].pos.x-= al[a].speed;
-    }
-
-    if (al[a].pos.y < dest.y) {
-        al[a].pos.y+= al[a].speed;
-    }
-    else if (al[a].pos.y > dest.y) {
-        al[a].pos.y-= al[a].speed;
-    }
-    
-    bool reached = false;
-    if (Environment::Map[al[a].pos.y][al[a].pos.x].animal_id == -1) {//if no other animal on this tile
-        Environment::Map[al[a].pos.y][al[a].pos.x].animal_id = al[a].id;//add animal back to animal_Map at new location
-        reached = al[a].pos == dest;
-    }
-    else {
-        al[a].pos = old_pos;//NEED TO FIX: need to handle case where someone else is blocking path or occuppying destination
-        //move to a random adjacent tile. Temporary fix
-        //potential fix would be to have a direction attribute for animal and a function to handle turning right or left to then simply turn perpendicular to the obstacle until no obstacle is in the way.
-        Position test_pos;
-        for (int y = -1;y <= 1;y++) {
-            for (int x = -1;x <= 1;x++) {
-                test_pos.x = old_pos.x + x;
-                test_pos.y = old_pos.y + y;
-                if (valid_position(test_pos) && test_pos != al[a].pos && Environment::Map[test_pos.y][test_pos.x].animal_id == -1) {
-                    al[a].pos = test_pos;
-                    break;//need to handle if no adjacent tile is empty, fix this
+    vector<Position>& pos_list1 = an.search_results[an.species];//note: using reference (&) reduces copying
+    int a2 = -1;
+    for (int i = 0; i < pos_list1.size(); i++) {//filter out valid mates from found list
+        int anim_id = Environment::Map[pos_list1[i].y][pos_list1[i].x].animal_id;
+        if (anim_id == -2) {
+            cout << "error: anim_id==-2\n";//don't know why this is happening, already checked find_all() but it's the only place it could be inserted
+            return true;//try again
+        }
+        int aid = a_by_id(anim_id);
+        if (al[aid].sex != an.sex && al[aid].age > sp.MIN_ADULT_AGE && al[aid].is_alive) {
+            bool is_my_child = false;
+            for (int i = 0; i < an.children_id.size(); i++) {
+                if (an.children_id[i] == al[aid].a_id) {
+                    is_my_child = true;
+                    break;
                 }
+            }
+            if (!is_my_child && ((al[aid].spouse_id == -1 && an.spouse_id == -1) || (al[aid].spouse_id == an.a_id && an.spouse_id == al[aid].a_id))) {//if not my child AND both unmarried or if married to each other
+                a2 = a_by_id(anim_id);//mate found
+                break;
             }
         }
     }
-
-    if (al[a].pos != al[a].last_position) {
-        int x=0;
-        int y=0;
-        if (al[a].pos.x < al[a].last_position.x) {
-            x = -1;
-        }
-        else if (al[a].pos.x > al[a].last_position.x) {
-            x = 1;
-        }
-        if (al[a].pos.y < al[a].last_position.y) {
-            y = -1;
-        }
-        else if (al[a].pos.y > al[a].last_position.y) {
-            y = 1;
-        }
-        Position dir = {x,y};
-        create_tracks(dir);
-    }
-    
-    return reached;
-}
-
-int Animal::a_by_id(int id) {//uses binary search to find and return index to animal in people list (pl)
-    int low = 0;
-    int high = al.size() - 1;
-    while (low <= high) {
-        int mid = low + (high - low) / 2;
-        if (al[mid].id == id) {
-            return mid;
-        }
-        (al[mid].id < id) ? low = mid + 1 : high = mid - 1;
-    }
-    return -1;//not found
-}
-
-bool Animal::reproduce() {//later, add marriage ceremony/customs, options for polygamy, infidelity, premarital sex, widow status, age and family restrictions on potential mates, family size limits, divorce, etc
-    if (al[a].reproduction_cooldown < 1000) {//function trigger
-        return false;
-    }
-    vector<Position>& pos_list1 = al[a].search_results[al[a].species];//note: using reference (&) reduces copying
-    int p2 = -1;
-    for (int i = 0; i < pos_list1.size(); i++) {//filter out valid mates from people found list
-        int pers_id = Environment::Map[pos_list1[i].y][pos_list1[i].x].animal_id;
-        int pid = a_by_id(pers_id);
-        if (al[pid].species==al[a].species && al[pid].sex != al[a].sex && al[pid].age > 10) {
-            p2 = pid;
-        }
-    }
     bool mate_willing = false;
-    if (p2 != -1) {
-        if (al[p2].reproduction_cooldown > 1000 && al[p2].sex != al[a].sex) {
+    if (a2 != -1) {
+        if (al[a2].reproduction_cooldown > sp.REPRODUCTION_TRIGGER && al[a2].sex != an.sex) {
             mate_willing = true;
         }
-        if (mate_willing && (Position::distance(al[a].pos, al[p2].pos) == 1 || move_to(al[p2].pos))) {//go to tile adjacent to p2
+        if (mate_willing && (Position::distance(an.pos, al[a2].pos) == 1 || move_to(al[a2].pos, "going to mate"))) {//go to tile adjacent to a2
             //create a new human, add pregnancy later, only female creates child
-            if (!al[a].sex) {
-                int sex = rand() % 2;
-                Position child_pos;
-                if (al[a].search_results.find("no animal") != al[a].search_results.end()) {
-                    if (Position::distance(al[a].search_results["no animal"][0], al[a].pos) == 1) {//if empty adjacent tile
-                        child_pos = al[a].search_results["no animal"][0];
-                    }
+            if (!an.sex) {//if female
+                an.pregnancy.progress = 1;//am now pregnant
+                an.reproduction_cooldown = 0;//reset
+                al[a2].reproduction_cooldown = 0;//unsure if this is the best way to handle interaction between 2 people, speaking or some other function might be better to avoid 2 people not being in sync
+                if (an.spouse_id == -1 && al[a2].spouse_id == -1) {//if don't have spouse, set as spouse
+                    an.spouse_id = al[a2].a_id;
+                    al[a2].spouse_id = an.a_id;
                 }
-                if (child_pos.x == -1) {//if no empty adjacent tile found
-                    move_to(walk_search_random_dest());//move to a random adjacent tile
-                    return true;//in progress
-                }
-                animal child = { new_animal_id(), child_pos, sex };
-                child.species = al[a].species;
-                Environment::Map[child.pos.y][child.pos.x].animal_id = child.id;
-                al.push_back(child);
-                al[a].reproduction_cooldown = 0;//reset
-                al[p2].reproduction_cooldown = 0;//unsure if this is the best way to handle interaction between 2 people, speaking or some other function might be better to avoid 2 people not being in sync
-                
+                //remove campsite and adopt male's campsite as own.
+                an.adopt_spouse_campsite = true;
                 return true;//male will simply no longer call reproduce() given the cooldown==0, so only female needs to return true
             }
             else {
@@ -302,264 +356,22 @@ bool Animal::reproduce() {//later, add marriage ceremony/customs, options for po
         }
     }
     else {//if no mate found, walk to search
-            general_search_walk("mate");
-        
+        an.general_search_called = true;
     }
     return true;//in progress
 }
 
-void Animal::find_all() {//returns all things (items, people, messages, etc) found, sorted according into Position lists for each thing type
-    int radius_options[2] = {//all radius options
-        al[a].sightline_radius, al[a].audioline_radius
-    };
-    if (al[a].radiusmax == -1) {//used to store result instead of calling every time, only resets if one of the radius options changes such as damaged eyesight, etc
-        for (int i = 0; i < 2; i++) {//selects largest radius
-            if (i == 0) {
-                al[a].radiusmax = radius_options[i];
-            }
-            else if (al[a].radiusmax < radius_options[i]) {
-                al[a].radiusmax = radius_options[i];
-            }
-        }
-    }
-    map<string, vector<Position>> search_results;
-    Position o = al[a].pos;//origin
-    vector<int> target_quantity_current;
-    for (int radius = 0; radius <= al[a].radiusmax; radius++) { //this function checks tilemap in outward rings by checking top/bottom and left/right ring boundaries
-        if (radius == 0) {//avoids double checking origin
-            if (radius <= al[a].sightline_radius) {
-                if (Environment::Map[o.y][o.x].item_id != -1) {
-                    ItemSys::Item& item = ItemSys::item_list[ItemSys::item_by_id(Environment::Map[o.y][o.x].item_id)];
-                    search_results.insert({ item.item_name,{o} });
-                }
-                else {//creates list of tiles without any item, for use when placing an item on the map
-                    search_results.insert({ "no item",{o} });
-                }
-                //don't check if animal is on origin tile, because that animal is self
-            }
-            if (radius <= al[a].audioline_radius) {
-                //check for messages
-                check_tile_messages(o);
-            }
-        }
-        int xmin = o.x - radius;
-        int xmax = o.x + radius;
-        int ymin = o.y - radius + 1;//+1 and -1 to avoid double checking corners
-        int ymax = o.y + radius - 1;
-        for (int x = xmin, y = ymin; x <= xmax; x++, y++) {
-            for (int sign = -1; sign <= 1; sign += 2) {//sign == -1, then sign == 1
-                Position pos1 = { x,o.y + (sign * radius) };
-                Position pos2 = { o.x + (sign * radius), y };
-                //check for animals
-                if (valid_position(pos1)) {
-                    if (Environment::Map[pos1.y][pos1.x].animal_id != -1) {
-                        string species = al[a_by_id(Environment::Map[pos1.y][pos1.x].animal_id)].species;
-                        if (search_results.find(species) != search_results.end()) {//check if key exists
-                            //key found
-                            search_results[species].push_back({ pos1 });
-                        }
-                        else {
-                            //key not found
-                            search_results.insert({ species,{pos1} });
-                        }
-                    }
-                    else {//creates list of tiles without any item, for use when placing an item on the map
-                        if (search_results.find("no animal") != search_results.end()) {//check if key exists
-                            //key found
-                            search_results["no animal"].push_back({ pos1 });
-                        }
-                        else {
-                            //key not found
-                            search_results.insert({ "no animal",{pos1} });
-                        }
-                    }
-                }
-                if (y <= ymax) {
-                    if (valid_position(pos2)) {
-                        if (Environment::Map[pos2.y][pos2.x].animal_id != -1) {
-                            string species = al[a_by_id(Environment::Map[pos2.y][pos2.x].animal_id)].species;
-                            if (search_results.find(species) != search_results.end()) {//check if key exists
-                                //key found
-                                search_results[species].push_back({ pos2 });
-                            }
-                            else {
-                                //key not found
-                                search_results.insert({ species,{pos2} });
-                            }
-                        }
-                        else {//creates list of tiles without any item, for use when placing an item on the map
-                            if (search_results.find("no animal") != search_results.end()) {//check if key exists
-                                //key found
-                                search_results["no animal"].push_back({ pos2 });
-                            }
-                            else {
-                                //key not found
-                                search_results.insert({ "no animal",{pos2} });
-                            }
-                        }
-                    }
-                }
-                
-                //check for items
-                if (valid_position(pos1)) {
-                    if (Environment::Map[pos1.y][pos1.x].item_id != -1) {
-                        string item_name = ItemSys::item_list[ItemSys::item_by_id(Environment::Map[pos1.y][pos1.x].item_id)].item_name;
-                        if (search_results.find(item_name) != search_results.end()) {//check if key exists
-                            //key found
-                            search_results[item_name].push_back({ pos1 });
-                        }
-                        else {
-                            //key not found
-                            search_results.insert({ item_name,{pos1} });
-                        }
-                    }
-                    else {//creates list of tiles without any item, for use when placing an item on the map
-                        if (search_results.find("no item") != search_results.end()) {//check if key exists
-                            //key found
-                            search_results["no item"].push_back({ pos1 });
-                        }
-                        else {
-                            //key not found
-                            search_results.insert({ "no item",{pos1} });
-                        }
-                    }
-                }
-                if (y <= ymax) {
-                    if (valid_position(pos2)) {
-                        if (Environment::Map[pos2.y][pos2.x].item_id != -1) {
-                            string item_name = ItemSys::item_list[ItemSys::item_by_id(Environment::Map[pos2.y][pos2.x].item_id)].item_name;
-                            if (search_results.find(item_name) != search_results.end()) {//check if key exists
-                                //key found
-                                search_results[item_name].push_back({ pos2 });
-                            }
-                            else {
-                                //key not found
-                                search_results.insert({ item_name,{pos2} });
-                            }
-                        }
-                        else {//creates list of tiles without any item, for use when placing an item on the map
-                            if (search_results.find("no item") != search_results.end()) {//check if key exists
-                                //key found
-                                search_results["no item"].push_back({ pos2 });
-                            }
-                            else {
-                                //key not found
-                                search_results.insert({ "no item",{pos2} });
-                            }
-                        }
-                    }
-                }
-                //check for people
-                if (valid_position(pos1)) {
-                    if (Environment::Map[pos1.y][pos1.x].person_id != -1) {
-                        bool detect = true;
-                        for (int pid : Environment::people_in_stealth) {
-                            if (pid == Environment::Map[pos1.y][pos1.x].person_id) {
-                                detect = false;//don't detect
-                                break;
-                            }
-                        }
-                        if (detect) {
-                            if (search_results.find("people") != search_results.end()) {//check if key exists
-                                //key found
-                                search_results["people"].push_back({ pos1 });
-                            }
-                            else {
-                                //key not found
-                                search_results.insert({ "people",{pos1} });
-                            }
-                        }
-                    }
-                    else {//creates list of tiles without any item, for use when placing an item on the map
-                        if (search_results.find("no people") != search_results.end()) {//check if key exists
-                            //key found
-                            search_results["no people"].push_back({ pos1 });
-                        }
-                        else {
-                            //key not found
-                            search_results.insert({ "no people",{pos1} });
-                        }
-                    }
-                }
-                if (y <= ymax) {
-                    if (valid_position(pos2)) {
-                        if (Environment::Map[pos2.y][pos2.x].person_id != -1) {
-                            bool detect = true;
-                            for (int pid : Environment::people_in_stealth) {
-                                if (pid == Environment::Map[pos2.y][pos2.x].person_id) {
-                                    detect = false;//don't detect
-                                    break;
-                                }
-                            }
-                            if (detect) {
-                                if (search_results.find("people") != search_results.end()) {//check if key exists
-                                    //key found
-                                    search_results["people"].push_back({ pos2 });
-                                }
-                                else {
-                                    //key not found
-                                    search_results.insert({ "people",{pos2} });
-                                }
-                            }
-                        }
-                        else {//creates list of tiles without any item, for use when placing an item on the map
-                            if (search_results.find("no people") != search_results.end()) {//check if key exists
-                                //key found
-                                search_results["no people"].push_back({ pos2 });
-                            }
-                            else {
-                                //key not found
-                                search_results.insert({ "no people",{pos2} });
-                            }
-                        }
-                    }
-                }
-
-                //check for messages
-                if (valid_position(pos1)) {
-                    check_tile_messages(pos1);
-                }
-                if (y <= ymax) {
-                    if (valid_position(pos2)) {
-                        check_tile_messages(pos2);
-                    }
-                }
-            }
-        }
-    }
-    al[a].search_results = search_results;
-}
-
-void Animal::check_tile_messages(Position pos) {
-    //might also serve as a generic for reacting to sounds
-    for (int m_id : Message_Map[pos.y][pos.x]) {//check all messages in this tile
-        if (!al[a].found_messages.empty()) {
-            bool repeated_message = false;
-            for (int m1_id : al[a].found_messages) {
-                if (m_id == m1_id) {//avoids copying messages that differ only in their location
-                    repeated_message = true;
-                    break;
-                }
-            }
-            if (!repeated_message && message_list[message_by_id(m_id)].sender_id != al[a].id) {
-                al[a].found_messages.push_back(m_id);
-            }
-        }
-        else if (message_list[message_by_id(m_id)].sender_id != al[a].id) {
-            al[a].found_messages.push_back(m_id);
-        }
-    }
-}
-
 //can this function also be folded into the find_all function somehow to further reduce for loops searching on the map?
-//might also need to add some restriction so that each animal doesn't blast out too many messages at once? Or maybe that's ok?
+//might also need to add some restriction so that each person doesn't blast out too many messages at once? Or maybe that's ok?
 void Animal::speak(string message_text, int receiver_id) {//if receiver_id == -1, then the message is for everyone
+    animal& c = (a_p_flip) ? al[a] : People::pl[People::p];//controls if accessing an animal from animal list or a person from people list (derived from Animal)
+    Species& sp = species[c.species];
     //current valid messages include: need to list valid messages here
     //the outward ring method might make more sense in this function to allow certain objects such as walls to block sound, might implement later but not currently
-    Message m = { new_message_id(), al[a].id, receiver_id, message_text, al[a].pos };//creates message
-    for (int y = al[a].pos.y - al[a].audioline_radius; y < al[a].pos.y + al[a].audioline_radius; y++) {//creates copies of message for each map position it reaches then adds to global message list
-        for (int x = al[a].pos.x - al[a].audioline_radius; x < al[a].pos.x + al[a].audioline_radius; x++) {
-            if (valid_position({ x,y })) {
+    Message m = { new_message_id(), (c.species=="human")?People::pl[People::p].p_id:c.a_id, c.species, receiver_id, message_text, c.pos};//creates message
+    for (int y = c.pos.y - c.audioline_radius; y < c.pos.y + c.audioline_radius; y++) {//creates copies of message for each map position it reaches then adds to global message list
+        for (int x = c.pos.x - c.audioline_radius; x < c.pos.x + c.audioline_radius; x++) {
+            if (Position::valid_position({ x,y })) {
                 Message_Map[y][x].push_back(m.message_id);
                 message_list.push_back(m);
             }
@@ -567,127 +379,43 @@ void Animal::speak(string message_text, int receiver_id) {//if receiver_id == -1
     }
 }
 
-Animal::Position Animal::walk_search_random_dest() {
-    Position dest = { -1,-1 };
-    bool valid_dest = false;
-    int tries = 0;//tracks how many times a destination roll has been tried, used to limit number of loops, need to find a better method
-    while (!valid_dest) {//set destination by setting a direction and duration
-        int max_x = Environment::map_x_max;//unsure if this is should be map_x_max or map_x_max-1 
-        int min_x = 0;
-        int max_y = Environment::map_y_max;
-        int min_y = 0;
-        
-
-        
-        dest.x = (rand() % (max_x - min_x)) + min_x;
-        dest.y = (rand() % (max_y - min_y)) + min_y;
-        dest = make_position_valid(dest, max_x, min_x, max_y, min_y);
-        if (!valid_position(dest)) {
-            valid_dest = false;
-            tries++;//might no longer be necessary, the destination should be valid on the first try
-        }
-        else {
-            valid_dest = true;
-        }
-    }
-    return dest;
-}
-
-Animal::Position Animal::make_position_valid(Position dest, int ux, int lx, int uy, int ly) {//bounds: u==upper, l==lower
-    if (dest.x < lx) {
-        dest.x = lx;
-    }
-    else if (dest.x >= ux) {
-        dest.x = ux - 1;
-    }
-    if (dest.y < ly) {
-        dest.y = 0;
-    }
-    else if (dest.y >= uy) {
-        dest.y = uy - 1;
-    }
-    return dest;
-}
-
+//fix this, this function has magic numbers but they are random percents, need to decide how to handle them
 bool Animal::idle() {
+    animal& an = al[a];
+    Species& sp = species[an.species];
     //flip between idle and default image
-    int option = rand() % 100;
-    if (option < 50) {
-        al[a].current_image = al[a].species + "_resting";
+    if (an.current_image == an.species) {
+        an.current_image = an.species+"_idle.png"; //need to make image, just have human with raised hands
     }
-    else {
-        al[a].current_image = al[a].species;
-        general_search_walk("wandering");
+    else if (an.current_image == an.species+"_idle.png") {
+        an.current_image = an.species;
     }
-    al[a].clean_image = true;
     return true;
 }
 
-int Animal::Position::distance(Position pos1, Position pos2) {
-    int xd = abs(pos1.x - pos2.x);
-    int yd = abs(pos1.y - pos2.y);
-    int max = -1;
-    (xd > yd) ? max = xd : max = yd;
-    return max;
-}
+//Need to implement
+//bool Animal::answer_item_request() {}
 
-void Animal::create_item(string item_type, Position pos) {
-    ItemSys::Item new_item = it3.presets[item_type];
-    new_item.item_id = ItemSys::new_item_id();
-    ItemSys::item_list.push_back(new_item);
-    
-        Environment::Map[pos.y][pos.x].item_id = new_item.item_id;//create item, then place on map and global item list
-    
-}
-
-
-
-void Animal::delete_item(int item_id, Position pos, int index) {
-    if (item_id == -1) {//don't know what's causing this issue but need this check to work
-        return;
-    }
-    int item_index = ItemSys::item_by_id(item_id);
-    ItemSys::item_list.erase(ItemSys::item_list.begin() + item_index);//remove item from global item_list
-    if (pos.x != -1) {//if pos.x == -1, then the item was not on the map and was probably in a animal's inventory from which it was deleted separately
-        Environment::Map[pos.y][pos.x].item_id = -1; //removes item from map
-    }
-}
-
-void Animal::general_search_walk(string target) {
-    //walk to search
-    if (al[a].general_search_dest.x == -1 || move_to(al[a].general_search_dest)) {//initialize function object or reinitialize if reached destination
-        al[a].general_search_dest = walk_search_random_dest();
-    }//the move_to function triggers in the conditional
-    //al[a].search_active = true;
-}
-
-//for filtering search results by tag such as food
-vector<Animal::Position> Animal::filter_search_results(string target) {
-    set<Position> unique_results;//used to store unique positions only
-    for (string i : it3.tags[target]) {
-        if (al[a].search_results.find(i) != al[a].search_results.end()) {
-            for (Position pos : al[a].search_results[i]) {
-                unique_results.insert(pos);
-            }
-        }
-    }
-    vector<Position> final_results;//unsure if it's worth converting to a vector or whether it should return a set
-    for (Position pos : unique_results) {
-        final_results.push_back(pos);
-    }
-    return final_results;
-}
-
-bool Animal::acquire(string target) {
-    //add_func_record("acquiring " + target);
+//FIX THIS
+bool Animal::acquire(string target) {//target_type: animal/plant/pickup/adjaceny/craftable/person/information/permission
+    //First, determine the type of target to be acquired
+    animal& an = al[a];
+    Species& sp = species[an.species];
+    string target_type;
     //check if target is an item name or item tag
-    if (it3.presets.find(target) != it3.presets.end()) {
-        //target is an item name
+    if (it2.presets.find(target) != it2.presets.end()) {//target is an item name
+        //if item can be picked up: target_type = "pickup"      animals can't pickup but can eat/carry regular items
+        //else if item is a source = "source" / "adjacency"     (terrain/plant/animal)  for digging out tubers or eating grass?
+        //else if item is a building = "building"   for nests/beehives
     }
-    else if (it3.tags.find(target) != it3.tags.end()) {
-        //target is a tag name
-        for (string item_name : it3.tags[target]) {//for every item with this tag, attempt to acquire item, if one is acquired then tag is acquired therefore return true
-            //cout << item_name;
+    else if (species.find(target) != species.end()) {//target is an animal name
+        //if (hunting(target)) {//call hunting function
+        //    return true;//done
+        //}
+        //return false;//in progress
+    }
+    else if (it2.tags.find(target) != it2.tags.end()) {//target is a tag name
+        for (string item_name : it2.tags[target]) {//for every item with this tag, attempt to acquire item, if one is acquired then tag is acquired therefore return true
             if (acquire(item_name)) {
                 return true;//done
             }
@@ -695,110 +423,284 @@ bool Animal::acquire(string target) {
         return false;//in progress
     }
     else {
-        return false;//target isn't valid
+        return false;//target isn't valid. Need to throw exception
     }
 
+    //Second, determine if already have the target or if it is nearby
+
+    //if item has prereqs for acquiring, such as if item is a source (tree) and requires an axe to obtain, then fulfill prereq first (acquire(axe)) before continuing. Same for animals/plants, acquire spear/sickle
+
     //look around self for item
-    if (al[a].search_results.find(target) != al[a].search_results.end()) {//key found, if key exists then at least 1 was found
-        if (al[a].search_results[target].empty()) {//don't know why it was out of vector range on first element if the above had passed, temp fix
-            return false;//error, fix this
-        }
-        Position pos = al[a].search_results[target][0];
+    //if found, move to item (or adjacent according to target_type) (or hunting action if living animal)
+    //call pickup if item can be picked up or adjacency_handler otherwise
+
+    if (an.search_results.find(target) != an.search_results.end()) {//key found, if key exists then at least 1 was found
+        Position pos = an.search_results[target][0];
         int item_id = Environment::Map[pos.y][pos.x].item_id;
-        if (move_to(pos)) {//if item is found, move to it and pick it up
+        if (move_to(pos, "found item" + target)) {//if item is found, move to it and pick it up
+            //eat or carry item, need to add?
             return true;//item picked up
         }
         return false;//if still moving towards item, continue to next tick
     }
+    //if not found in immediate vicinity, then according to target_type:
+    //hunting and well/tuber digging have special actions if the target isn't found (tracking,setting traps,digging) so need to execute those if target not found
+
+    //if item is buildable, build it
+
+    //else if item has a source (wood comes from trees, rock comes from stone terrain, water is from water terrain, bones from animals, etc
+    //then acquire source
     
     //if all fails, move in search pattern. Search pattern is shared, to reduce erratic movement from various instances of search patterns
-   general_search_walk(target); 
+    an.general_search_called = true;
     return false;//searching
 }
 
-void Animal::utility_function() {//is currently actually just a behavior tree not a utility function. Selects what action to take this tick.
-    if (al[a].search_results.find("people") != al[a].search_results.end()) {
-        //if people seen and am ambushable animal, flee
-        if (al[a].species == "chicken") {
-            al[a].fleeing = true;
-            move_to(walk_search_random_dest());
-            return;
-        }
-    }
-    
-    if (sleeping()) {}
-    else if (eating()) {}//if don't have food, searches for food. Therefore the structure of utility_function is focused on which needs to satsify first (sleep, hunger, campsite, reproduction, etc)
-    else if (reproduce()) {}
-    else { idle(); }
-}
-
-bool Animal::sleeping() {
-    bool tired = al[a].tired_level > 50;//might need to cap sleep such that a animal can't ever have a tired_level over x_level as well as under y_level
-    if (!(!al[a].awake || tired)) {//function trigger
+//continue improving this   Need to implement
+/*
+bool Animal::health() {
+    if (!pl[p].am_injured && !pl[p].am_sick) {//sickness and injury need triggers
         return false;
     }
-    al[a].current_image = al[a].species+"_sleeping";
-    al[a].awake = false;
-    al[a].tired_level -= 11; //every call to this function reduces tired by 11, this means need 5 hours/updates to stop sleeping and sleep every 50 hours/updates. Is -11 so as to do -10 per hour and also -1 to negate the +1 tired in the regular update function
-    if (al[a].tired_level <= 0) {//fix this, need to cap at 0, also need cap for upper limit?
-        al[a].clean_image = true;
-        al[a].awake = true;
+
+    //if sick, get medicine and rest/sleep
+    if (pl[p].sick_time > 100) {//very sick, go to bed and be bedridden
+        pl[p].tired_level = SLEEP_TRIGGER;
+        sleeping();
+        return true;//bedridden or going to bed
+    }
+    else if (pl[p].sick_time > 20) {//slightly sick, get medicine
+        if (!acquire("medicine")) {
+            return true;//getting medicine
+        }
+        else {
+            //if have medicine, heal self and consume medicine
+            delete_item(inventory_has("medicine")[0], { -1,-1 }, 0);
+            pl[p].am_sick = false;
+            pl[p].sick_time = 0;
+        }
+    }
+
+    //if injured, get bandage and medicine and rest/sleep
+    if (pl[p].injured_time > 100) {//very injured, go to bed and be bedridden
+        pl[p].tired_level = SLEEP_TRIGGER;
+        sleeping();
+        return true;//bedridden or going to bed
+    }
+    else if (pl[p].injured_time > 20) {//slightly injured, get bandage
+        if (!acquire("bandage")) {
+            return true;//getting bandage
+        }
+        else {
+            //if have bandage, heal self and consume bandage
+            delete_item(inventory_has("bandage")[0], { -1,-1 }, 0);
+            pl[p].am_injured = false;
+            pl[p].injured_time = 0;
+        }
+    }
+    //if can't help self, request help
+
+    //need triggers for illness and injury. Both contagious and not. Each symptom or illness should have a different medicine.
+}
+*/
+//DO THIS later
+bool Animal::need_light() {
+    return false;
+    //if too dark, either move to light or create or get light source such as candle/torch/campfire
+}
+
+bool Animal::exposure() {//protection from heat/sun and cold/wind/rain. Only temperature protection for now.
+    animal& an = al[a];
+    Species& sp = species[an.species];
+    if (an.my_temperature == an.my_preffered_temperature) {//fix this, needs to be a distance from ideal temp, not exactly ideal temp
+        return false;//temperature is fine
+    }
+    bool better_temp_found = false;
+    if (an.my_temperature > an.my_preffered_temperature) {//need to add impact on thirst by heat in update function
+        //seek cold, am too hot
+        for (auto const& i : an.search_results) {
+            if (stoi(i.first) < an.my_temperature) {//the only keys that are numbers will be tile temperatures, so find the first tile that has a lower temperature and go there
+                move_to(i.second[0], "towards cold");
+                better_temp_found = true;
+                return true;
+            }
+        }
+        if (!better_temp_found) {
+            //implement these 3 later
+            //seek darkness/shade
+            //go in water
+            //move less, be lazy
+        }
+        //if no method to improve temp, search
+        an.general_search_called = true;
+    }
+    else if (an.my_temperature < an.my_preffered_temperature) {
+        //seek heat, am too cold
+        for (auto const& i : an.search_results) {
+            if (stoi(i.first) > an.my_temperature) {//inverse of "towards cold"
+                move_to(i.second[0], "towards heat");
+                better_temp_found = true;
+            }
+        }
+        if (!better_temp_found) {
+            //implement later
+            //move more, be active
+        }
+        //if no method to improve temp, search
+        an.general_search_called = true;
+    }
+    //if am wet or in rain or in strong wind, seek shelter. Need to implement these. Fix this
+    return false;//?
+}
+
+//need to simplify this function.
+/*
+bool Animal::search_for_new_campsite() { //need to bias search direction in the direction of wherever there is more food rather than waiting to randomly stumble on a site with enough food for campsite. Also need to add a system of not searching the same tile within too short a time frame.
+    if (!pl[p].sex && pl[p].spouse_id != -1 && pl[p].campsite_pos == pl[p_by_id(pl[p].spouse_id)].campsite_pos) {
+        return false;//prevent searching for a new campsite if married, only for females
+    }
+
+    bool cond2 = pl[p].campsite_pos.x == -1 || pl[p].hungry_time >= DAYS_HUNGRY_MOVE_CAMP;//AND: have no campsite OR have been hungry too long
+    bool cond3 = pl[p].campsite_age > NEW_CAMP_PROBATION_TIME || pl[p].campsite_age == -1;//AND: campsite is old enough to move again. Unsure if this might have an issue if the null campsite has an age
+    bool start = (cond2 && cond3) || pl[p].adopt_spouse_campsite;
+    //currently only creates a campsite after having been hungry 3 days. Still need to figure out when and when not to create a campsite, such as for trips away from home or extreme high mobility nomad
+    //function trigger
+    if (!start) {
+        return false;
+    }
+
+
+    if (pl[p].campsite_pos.x != -1) { //if have campsite, remove. //Later add an option to just abandon a campsite without removing the house. Should only decontruct if going to carry it to new location such as a tent/sleeping bag/lean to/etc.
+        if (move_to(pl[p].campsite_pos, "to campsite")) {//walk to campsite to remove
+            int item_id = Environment::Map[pl[p].campsite_pos.y][pl[p].campsite_pos.x].item_id;
+            delete_item(item_id, pl[p].campsite_pos, -1);
+            pl[p].campsite_pos = { -1,-1 };
+            pl[p].campsite_age = -1;
+            pl[p].friend_camp_check = true;
+            if (pl[p].adopt_spouse_campsite) {
+                pl[p].campsite_pos = pl[p_by_id(pl[p].spouse_id)].campsite_pos;
+                pl[p].adopt_spouse_campsite = false;//reset for if spouse dies later
+                return true;//in progress
+            }
+        }
+        else {
+            return true;//in progress
+        }
+    }
+    //if have infants, carry them
+    pickup_infants();
+
+    vector<Position> food_pos_list = filter_search_results("food"); //gets results, assigns 1 result to food_pos
+    Position food_pos = { -1,-1 };
+    bool found_food = false;
+    if (!food_pos_list.empty()) {
+        food_pos = food_pos_list[0];
+        found_food = true;
+    }
+
+    if (pl[p].friend_camp_check) {//encourages campsite congregation between people who like each other (forgot to check if other person likes self, fix this)
+        for (auto const& i : pl[p].dispositions) {
+            if (i.second > LOVED_THRESHOLD) {
+                if (pl[p_by_id(i.first)].campsite_pos.x != -1) {//if have a friend with a campsite and am finding a new campsite, move to within 10 tiles of friend to search for campsite location there
+                    if (Position::distance(pl[p].pos, pl[p_by_id(i.first)].campsite_pos) < NEW_CAMP_CLOSE_TO_FRIEND || move_to(pl[p_by_id(i.first)].campsite_pos, "to friend's campsite")) {
+                        pl[p].friend_camp_check = false;
+                    }
+                    else {
+                        return true;//in progress
+                    }
+                }
+            }
+        }
+    }
+
+    if (food_pos_list.size() >= 4) {//if there are 4 food items within sight, select area for campsite, else keep searching
+        add_func_record("set up camp");
+        pl[p].campsite_age = 0; //resets campsite age
+        //place tent
+        vector<Position> pos_list = pl[p].search_results["no item"];
+        if (!pos_list.empty()) {
+            create_item("tent", pos_list[0]);//create and place tent
+            pl[p].campsite_pos = pos_list[0]; //store campsite location
+
+            //if have infants, drop them
+            if (!drop_infants()) {
+                return true;//in progress
+            }
+
+            return true; //done. need to add an actual animation/progress to building the tent rather than immediate placement
+        }
+        else {
+            pl[p].general_search_called = true;
+            return true;//in progress
+        }
+        return true;//done
+    }
+    else if (!food_pos_list.empty()) {
+        //need to add a method of investigating if any food found might have more food just out of current sightline, but this probably will require more complex modifiable pathfinding, as in have it be a detour from the current destination rather than a change in destination.
+    }
+
+    pl[p].general_search_called = true;
+    return true;//in progress
+}
+*/
+
+bool Animal::sleeping() {
+    animal& c = (a_p_flip) ? al[a] : People::pl[People::p];//controls if accessing an animal from animal list or a person from people list (derived from Animal)
+    Species& sp = species[c.species];
+    bool tired = c.tired_level > sp.SLEEP_TRIGGER;
+    bool start_moving_to_bed = c.awake && tired && c.campsite_pos.x != -1 && c.hunger_level < sp.HUNGRY_LEVEL && c.thirst_level < sp.THIRSTY_LEVEL;
+    if (start_moving_to_bed) {
+        if (move_to(c.campsite_pos, "to bed")) { //go to campsite.
+            //go to sleep, continue
+        }
+        else {
+            return true;//done and in progress
+        }
+    }
+    bool very_tired = c.tired_level > sp.FORCE_SLEEP_LEVEL;//might need to cap sleep such that a person can't ever have a tired_level over x_level as well as under y_level
+    bool cond1 = tired && (c.pos == c.campsite_pos || c.campsite_pos.x == -1);//if tired AND either at campsite or have no campsite
+    if (!(!c.awake || cond1 || very_tired)) {//function trigger
+        return false;
+    }
+    c.current_image = c.species+"_sleeping.png";
+    c.awake = false;
+    c.tired_level -= sp.SLEEP_REST_RATE; //every call to this function reduces tired by 11, this means need 5 hours/updates to stop sleeping and sleep every 50 hours/updates. Is -11 so as to do -10 per hour and also -1 to negate the +1 tired in the regular update function
+    if (c.tired_level <= 0) {//fix this, need to cap at 0, also need cap for upper limit?
+        c.current_image = c.species;
+        c.awake = true;
         return true;//done
     }
     return true;//in progress
 }
 
-bool Animal::eating() {
-    bool hungry = al[a].hunger_level > 150;
-    bool has_food = false;
-    if (al[a].diet == "") {
-        if (al[a].species == "deer") {
-            al[a].diet = "grain";
-        }
-        else if (al[a].species == "rabbit") {
-            al[a].diet = "berrybush";
-        }
-    }
-    vector<Position> food_pos_list = al[a].search_results[al[a].diet];
+//NOTE: for implementing cooperation, conduct through speak() requests and answers. Person 1 proposes joint action, Person 2 decides whether to agree or not. If a 3rd person or more are involved, then need to set a meeting location and time to conduct the proposition -> up/down vote and an option to continue action with those who said yes only. Later add option to be able to coerce those who said no into complying.
 
-    Position food_pos;
-    if (!food_pos_list.empty()) {
-        if (Position::distance(food_pos_list[0], al[a].pos) <= 1) {
-            has_food = true;
-            food_pos = food_pos_list[0];
-            //cout << "food found";
-        }
-    }
+//new funcs
 
-    if (hungry && !has_food) {
-        if (acquire(al[a].diet)) {
-            //done
-            return true;
-        }
-        else {
-            return true;
-        }
-    }
-
-    if (!(hungry && has_food)) {//function trigger
-        return false;
-    }
-   if (al[a].eating_progress.progress == 0) {
-        al[a].current_image = al[a].species+"_eating";
-    }
-    if (al[a].eating_progress.progress_func()) {//makes eating take more than 1 frame
-        int food_id = Environment::Map[food_pos.y][food_pos.x].item_id;
-        delete_item(food_id, food_pos, -1);//delete food from game
-        al[a].hunger_level -= 150; //reduce hungry level by 10, therefore need 2 meals a day to stay at 0 hunger_level average
-        al[a].clean_image = true; //when this function ends, return to default image on next update
-        return true;//done eating
-    }
-    return true;//in progress
+bool People::carry() {//should also have a push/pull action for larger/heavier items such as a large stone block for a monument
+    //receive whether it is an item or person
+    //recieve its id and store it
+    //set current image to "carrying" and the current image and state of target person if a person to "carried", tie the position of the carried item/person to the tile in front of the carrier but also offset into the tile of the carrier so the images overlap
+    return false;
 }
 
-void Animal::create_tracks(Position pos) {
-    if (al[a].last_position.x != -1) {
-        Environment::Tracks t = { al[a].species, 0, pos.x, pos.y };
-        Environment::Map[al[a].last_position.y][al[a].last_position.x].track = t;
-    }
+bool People::drop() {
+    return false;
+    //if carrying something/someone, remove the pixel offset of the carried item/person and reset images of carrier and carried, remove id of carried from carrier and reset the state of carried to false
 }
+
+bool People::adjacency_acquire_handler() {//for cutting down trees, mining rock, digging out dirt, collecting water, etc
+    //accept target from acquire()
+    //acquire should only call this func if person is next to target source
+    return false;
+    //if tree, if have axe, chop tree animation
+
+    //if stone, if have pickaxe, mining animation
+
+    //if it's a station passed as an ingredient/requisite to craft something, then "acquiring" the station counts as either being next to it or building it first
+    //ex: campfire for cooking
+
+    //Construction is a variation on crafting but done by emplacing something on a tile with the resources adjacent to that tile or self rather than in one's inventory.
+}
+
+

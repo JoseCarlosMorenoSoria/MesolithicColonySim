@@ -1,53 +1,71 @@
 #include "People.hpp"
+#include "Animal.hpp"
 using namespace std;
-
+People peep;//to access People functions in Animal functions
+Animal::Species& con = Animal::species["human"];//access to human constants
 //Any main functions that regard obtaining and processing food and water for People
 
-bool People::eating() {
-    if (pl[p].hungry_time > DAYS_HUNGRY_MOVE_CAMP && pl[p].campsite_pos.x != 1 && pl[p].campsite_age > NEW_CAMP_PROBATION_TIME) {//allows search for campsite to trigger but not before new camp is at least a few ticks old
+bool Animal::eating() {
+    animal& c = (a_p_flip) ? al[a] : People::pl[People::p];//controls if accessing an animal from animal list or a person from people list (derived from Animal)
+    Species& sp = species[c.species];
+    if (c.hungry_time > sp.DAYS_HUNGRY_MOVE_CAMP && c.campsite_pos.x != 1 && c.campsite_age > sp.NEW_CAMP_PROBATION_TIME) {//allows search for campsite to trigger but not before new camp is at least a few ticks old
         return false;
     }
 
-    bool hungry = pl[p].hunger_level > HUNGRY_LEVEL;
+    bool hungry = c.hunger_level > sp.HUNGRY_LEVEL;
     bool has_food = false;
-    vector<int> food_indexes1 = inventory_has("ready food");//should these return sets instead? would remove the need for converting to sets when set operations are needed. Duplicate indexes are never relevant.
-    if (!food_indexes1.empty()) {
-        has_food = true;
-        pl[p].eating_food_index = food_indexes1[0];
-    }
-
-    if ((hungry && !has_food) /* || food_indexes1.size() < MIN_EXTRA_FOOD_IN_INVENTORY*/) {//ensures that person has 2 food items in inventory for self or to share
-        if (acquire("ready food")) {
-            add_func_record("acquired ready food");
-            //done
-            return true;
+    vector<int> food_indexes1;
+    if (c.species == "human") {
+        food_indexes1 = peep.inventory_has("ready food");
+        if (!food_indexes1.empty()) {
+            has_food = true;
+            c.eating_food_index = food_indexes1[0];
         }
-        else {
-            return true;
+        if ((hungry && !has_food) /* || food_indexes1.size() < MIN_EXTRA_FOOD_IN_INVENTORY*/) {//ensures that person has 2 food items in inventory for self or to share
+            if (acquire("ready food")) {
+                return true;//done
+            }
+            else {
+                return true;
+            }
+        }
+    }//should these return sets instead? would remove the need for converting to sets when set operations are needed. Duplicate indexes are never relevant.
+    else {
+        if (hungry) {//unlike for humans, an animal acquires an item by being next to it, given it doesn't have an inventory
+            if (acquire("food")) {//FIX THIS, Needs to take diet specific tag
+                has_food = true;//continue
+            }
+            else {
+                return true;//in progress
+            }
         }
     }
 
     if (!(hungry && has_food)) {//function trigger
         return false;
     }
-    add_func_record("eating");
-    if (pl[p].eating_progress.progress == 0) {
-        pl[p].current_image = "pics/human_eating.png";
+    if (c.eating_progress.progress == 0) {
+        c.current_image = c.species+"_eating.png";
     }
-    if (pl[p].age < MAX_INFANT_AGE) {
-        pl[p].current_image = "human_infant";
+    if (c.age < sp.MAX_INFANT_AGE) {
+        c.current_image = c.species+"_infant";
     }
-    if (pl[p].eating_progress.progress_func()) {//makes eating take more than 1 frame
-        int index = pl[p].eating_food_index;
-        int food_id = pl[p].item_inventory[index];
-        delete_item(food_id, { -1,-1 }, index);//delete food from game
-        pl[p].hunger_level -= HUNGER_REDUCTION_RATE; //reduce hungry level by 10, therefore need 2 meals a day to stay at 0 hunger_level average
-        pl[p].clean_image = true; //when this function ends, return to default image on next update
+    if (c.eating_progress.progress_func()) {//makes eating take more than 1 frame
+        int index = c.eating_food_index;
+        if (c.species == "human") {
+            int food_id = People::pl[People::p].item_inventory[index];
+            peep.delete_item(food_id, { -1,-1 }, index);//delete food from game
+        }
+        else {
+            int food_id = Environment::Map[c.food_to_eat.y][c.food_to_eat.x].item_id;
+            peep.delete_item(food_id, c.food_to_eat, -1);//delete food from game
+        }
+        c.hunger_level -= sp.HUNGER_REDUCTION_RATE; //reduce hungry level by 10, therefore need 2 meals a day to stay at 0 hunger_level average
+        c.clean_image = true; //when this function ends, return to default image on next update
         return true;//done eating
     }
     return true;//in progress
 }
-
 
 //continue fixing/improving this
 bool People::hunting(string species) {//need to add a percentage success/fail chance to all hunting
@@ -77,8 +95,8 @@ bool People::hunting(string species) {//need to add a percentage success/fail ch
         pl[p].search_results[species] = pos_list;
     }
 
-    Animal::animal a_null = { -1 };
-    Animal::animal& a = (!pos_list.empty()) ? anim1.al[anim1.a_by_id(Environment::Map[pl[p].search_results[species][0].y][pl[p].search_results[species][0].x].animal_id)] : a_null;//the assignment of the first animal in animal list is simply because &a can't be NULL
+    Animal::animal a_null;
+    Animal::animal& a = (!pos_list.empty()) ? al[a_by_id(Environment::Map[pl[p].search_results[species][0].y][pl[p].search_results[species][0].x].animal_id)] : a_null;//the assignment of the first animal in animal list is simply because &a can't be NULL
 
 
 
@@ -126,7 +144,7 @@ bool People::tracking(string species) {
         //if tracks belong to trappable animals, set traps
         Position track_pos = pl[p].search_results["animal tracks"][0];
         if (Environment::Map[track_pos.y][track_pos.x].track.creature == "rabbit") {//need to make these species checks tag checks on the species instead
-            Animal::animal& a = anim1.al[0];//need to pass an &a, so use this as a "NULL". "set" doesn't use &a currently
+            Animal::animal& a = al[0];//need to pass an &a, so use this as a "NULL". "set" doesn't use &a currently
             trap("set",species,a);
         }
         //tracks should hold direction info so hunter knows what direction to follow
@@ -163,8 +181,8 @@ bool People::persistence_and_pick_up(string species, Animal::animal& a) {
                 return false;//in progress
             }
             Environment::Map[a.pos.y][a.pos.x].animal_id = -1;//remove dead animal from map. Might make more sense to have animal contain body parts and components such as feathers and bones and when all have been removed from corpse, then the corpse is removed.
-            create_item(a.meat_type, { a.pos.x, a.pos.y });//add meat in its place   <- fix this, Might make more sense to have animals contain a list of items they turn into when butchered and go through the list
-            anim1.al.erase(anim1.al.begin() + anim1.a_by_id(a.id));//erase animal from global animal list
+            create_item(Animal::species[a.species].meat_type, { a.pos.x, a.pos.y });//add meat in its place   <- fix this, Might make more sense to have animals contain a list of items they turn into when butchered and go through the list
+            al.erase(al.begin() + a_by_id(a.a_id));//erase animal from global animal list
             return true;//done
         }
 }
@@ -173,14 +191,14 @@ bool People::ambush(string species, Animal::animal& a) {
     //when ranged attack is added, include throwing a net to catch animal as well as regular ranged attack
     //FIX THIS: need to add relevant changes to Animal to make this work
     //ambush hunted animals such as chickens (includes spearfishing) (stalk animal, when close enough and still unnoticed, rush to attack and catch or kill)
-        if (Position::distance({ a.pos.x, a.pos.y }, pl[p].pos) == STEALTH_DISTANCE || move_to({ a.pos.x, a.pos.y }, "to prey - stealth")) {
-            pl[p].animal_id_ambush = a.id;
-            pl[p].speed = STEALTH_SPEED;
+        if (Position::distance({ a.pos.x, a.pos.y }, pl[p].pos) == con.STEALTH_DISTANCE || move_to({ a.pos.x, a.pos.y }, "to prey - stealth")) {
+            pl[p].animal_id_ambush = a.a_id;
+            pl[p].speed = con.STEALTH_SPEED;
             pl[p].speed_type = "stealth";
             pl[p].in_stealth = true;
-            if (Position::distance({ a.pos.x, a.pos.y }, pl[p].pos) == AMBUSH_DISTANCE || move_to({ a.pos.x, a.pos.y }, "to prey - ambush")) {
+            if (Position::distance({ a.pos.x, a.pos.y }, pl[p].pos) == con.AMBUSH_DISTANCE || move_to({ a.pos.x, a.pos.y }, "to prey - ambush")) {
                 if (pl[p].sprint_stamina == 0) {//0 means sprint cooldown is done
-                    pl[p].speed = SPRINT_SPEED;//sprint once close enough to prey
+                    pl[p].speed = con.SPRINT_SPEED;//sprint once close enough to prey
                     pl[p].speed_type = "sprinting";
                     pl[p].in_stealth = false;
                     if (move_to({ a.pos.x, a.pos.y }, "to prey - ambush kill")) {
@@ -194,8 +212,8 @@ bool People::ambush(string species, Animal::animal& a) {
                             return false;//in progress
                         }
                         Environment::Map[a.pos.y][a.pos.x].animal_id = -1;//remove dead animal from map
-                        create_item(a.meat_type, { a.pos.x, a.pos.y });//add meat in its place   <- fix this, Might make more sense to have animals contain a list of items they turn into when butchered and go through the list
-                        anim1.al.erase(anim1.al.begin() + anim1.a_by_id(a.id));//erase animal from global animal list
+                        create_item(Animal::species[a.species].meat_type, { a.pos.x, a.pos.y });//add meat in its place   <- fix this, Might make more sense to have animals contain a list of items they turn into when butchered and go through the list
+                        al.erase(al.begin() + a_by_id(a.a_id));//erase animal from global animal list
                         return true;//done
                     }
                 }
@@ -249,15 +267,15 @@ bool People::angling(string species, Animal::animal& a) {
         return false;//waiting for fish to bite
     }
     else {
-        Animal::animal& a2 = anim1.al[anim1.a_by_id(fish_id)];
+        Animal::animal& a2 = al[a_by_id(fish_id)];
         if (!a2.is_alive) {//something is dead on the hook, caught something. Distance doesn't matter because not moving to animal because it's "reeled in"
             //remove active hook ("reel it in")
             delete_item(Environment::Map[pl[p].active_fish_hook_pos.y][pl[p].active_fish_hook_pos.x].item_id, pl[p].active_fish_hook_pos, -1);
             pl[p].time_waited = 0;
             pl[p].active_fish_hook_pos = { -1,-1 };
             Environment::Map[a2.pos.y][a2.pos.x].animal_id = -1;//remove dead animal from map
-            create_item(a2.meat_type, { a2.pos.x,a2.pos.y });//add meat in its place
-            anim1.al.erase(anim1.al.begin() + anim1.a_by_id(a2.id));//erase animal from global animal list
+            create_item(Animal::species[a2.species].meat_type, { a2.pos.x,a2.pos.y });//add meat in its place
+            al.erase(al.begin() + a_by_id(a2.a_id));//erase animal from global animal list
             return true;//done
         }
     }
@@ -278,7 +296,7 @@ bool People::trap(string set_or_check, string species, Animal::animal& a) {
                 }
             }
         }//checks traps and then continues so as to react if prey is found in trap
-        if (a.id == -1) {
+        if (a.a_id == -1) {
             return false;//animal not found, only moved to check traps
         }
         //this serves as the trapping method, need to add a bit of variety for if prey is fish or not. FIX THIS
@@ -293,8 +311,8 @@ bool People::trap(string set_or_check, string species, Animal::animal& a) {
             if (move_to({ a.pos.x,a.pos.y }, "to trapped small game")) {
                 Environment::Map[a.pos.y][a.pos.x].animal_id = -1;//remove dead animal from map
                 delete_item(Environment::Map[a.pos.y][a.pos.x].item_id, { a.pos.x,a.pos.y }, -1);//delete active trap
-                create_item(a.meat_type, { a.pos.x,a.pos.y });//add meat in its place
-                anim1.al.erase(anim1.al.begin() + anim1.a_by_id(a.id));//erase animal from global animal list
+                create_item(Animal::species[a.species].meat_type, { a.pos.x,a.pos.y });//add meat in its place
+                al.erase(al.begin() + a_by_id(a.a_id));//erase animal from global animal list
                 return true;//done
             }
         }
@@ -324,34 +342,25 @@ bool People::trap(string set_or_check, string species, Animal::animal& a) {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-bool People::drinking() {
-    if (pl[p].thirst_level < THIRSTY_LEVEL && pl[p].drinking.progress == 0) {
+//Need to add alternative methods of obtaining water for humans, such as filling containers, digging wells, cisterns, reservoirs, irrigation, rain barrels, etc.
+bool Animal::drinking() {
+    animal& c = (a_p_flip) ? al[a] : People::pl[People::p];//controls if accessing an animal from animal list or a person from people list (derived from Animal)
+    Species& sp = species[c.species];
+    if (c.thirst_level < sp.THIRSTY_LEVEL && c.drinking.progress == 0) {
         return false;
     }
-    if (pl[p].search_results.find("water") != pl[p].search_results.end()) {
-        if (Position::distance(pl[p].pos, pl[p].search_results["water"][0]) == 1 || move_to(pl[p].search_results["water"][0], "to water")) {
-            pl[p].thirst_level -= THIRST_REDUCTION_RATE;
-            pl[p].drinking.progress_done = pl[p].thirst_level / THIRST_REDUCTION_RATE;//drink until practically no longer any thirst
-            if (pl[p].drinking.progress_func()) {//drinking delay. add animation
+    if (c.search_results.find("water") != c.search_results.end()) {
+        if (Position::distance(c.pos, c.search_results["water"][0]) == 1 || move_to(c.search_results["water"][0], "to water")) {
+            c.thirst_level -= sp.THIRST_REDUCTION_RATE;
+            c.drinking.progress_done = c.thirst_level / sp.THIRST_REDUCTION_RATE;//drink until practically no longer any thirst
+            if (c.drinking.progress_func()) {//drinking delay. add animation
                 return true;//done
             }
             return true;//in progress
         }
     }
     else {
-        pl[p].general_search_called = true;
+        c.general_search_called = true;
     }
     return true;//in progress
 }

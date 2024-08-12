@@ -1,7 +1,6 @@
 #include "Environment.hpp"
 
 using namespace std;
-vector<int> Environment::people_in_stealth;//used so that Animal knows if any person is in stealth
 
 Environment::Tile Environment::Map[50][100]; //this somehow resolved link error of People not accessing the Map, but might have unintended consequences?
 vector<Environment::sky_tile> Environment::Sky;

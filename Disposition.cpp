@@ -20,11 +20,11 @@ void People::share_disposition(int p2_ind) {
     int disp = pl[p].dispositions[subjectp_id];
 
     int their_opinion_of_me;
-    if (pl[p2_ind].dispositions.find(pl[p].id) != pl[p2_ind].dispositions.end()) {
-        their_opinion_of_me = pl[p2_ind].dispositions[pl[p].id];
+    if (pl[p2_ind].dispositions.find(pl[p].p_id) != pl[p2_ind].dispositions.end()) {
+        their_opinion_of_me = pl[p2_ind].dispositions[pl[p].p_id];
     }
     else {
-        pl[p2_ind].dispositions.insert({ pl[p].id,0 });
+        pl[p2_ind].dispositions.insert({ pl[p].p_id,0 });
         their_opinion_of_me = 0;
     }
 
@@ -38,10 +38,10 @@ void People::share_disposition(int p2_ind) {
         disp = (their_opinion_of_me / 10) * (disp / 10);//if like the person, disposition towards 3rd party goes up/down by a fraction, greater change proportional to how much one likes the sharer
         change_disposition(subjectp_id, disp, "shared disposition");
         if ((pl[p2_ind].dispositions[subjectp_id] >= 0 && pl[op].dispositions[subjectp_id] >= 0) || (pl[p2_ind].dispositions[subjectp_id] <= 0 && pl[op].dispositions[subjectp_id] <= 0)) {
-            change_disposition(pl[op].id, 1, "shared friend/enemy");
+            change_disposition(pl[op].p_id, 1, "shared friend/enemy");
         }
         else {
-            change_disposition(pl[op].id, -1, "different friend/enemy");
+            change_disposition(pl[op].p_id, -1, "different friend/enemy");
         }
         p = op;
     }
@@ -51,10 +51,10 @@ void People::share_disposition(int p2_ind) {
         disp = -1 * (disp / 10) * (their_opinion_of_me / 10);//if dislike the person, same as above but inverted
         change_disposition(subjectp_id, disp, "shared disposition");
         if ((pl[p2_ind].dispositions[subjectp_id] >= 0 && pl[op].dispositions[subjectp_id] >= 0) || (pl[p2_ind].dispositions[subjectp_id] <= 0 && pl[op].dispositions[subjectp_id] <= 0)) {
-            change_disposition(pl[op].id, 1, "shared friend/enemy");
+            change_disposition(pl[op].p_id, 1, "shared friend/enemy");
         }
         else {
-            change_disposition(pl[op].id, -1, "different friend/enemy");
+            change_disposition(pl[op].p_id, -1, "different friend/enemy");
         }
         p = op;
     }
@@ -66,7 +66,7 @@ void People::change_disposition(int p_id, int amount, string reason) {
     if (p_id == 0) {
         throw std::invalid_argument("pid is 0");
     }
-    if (pl[p].id == p_id) {
+    if (pl[p].p_id == p_id) {
         return;
     }
     if (pl[p].dispositions.find(p_id) != pl[p].dispositions.end()) {
