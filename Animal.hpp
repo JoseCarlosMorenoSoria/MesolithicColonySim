@@ -21,6 +21,7 @@ using namespace proj_util;
 class Animal{
 public:
 	Environment envi;//to access environment functions
+	Plants plant_ac;
 
 	//Animals only send food request and alarm messages. Humans have a far wider variety of Messages
 	struct Message {//need to tie Messages to tiles in map instead of current Message list
@@ -150,7 +151,7 @@ public:
 	//some conditions should be chronic or from birth, such as asthma, blindness, etc.
 //Need to fix such that Animal refers to Animal versions of the following functions and People only refers to its own versions when not using Animal's
 //=====================================================================================================================
-	//People.cpp Functions:
+	//Animal.cpp Functions:
 	Animal();
 	Animal(int init);
 	bool check_death();
@@ -168,6 +169,8 @@ public:
 	bool answer_item_request();//only for giving kids food, but there's probably a simpler version if that's all an animal will do
 	bool child_birth();
 	bool exposure();
+
+	bool acquire_plant();//temporary function to replace acquire for having an animal get plant for food, fix acquire() later
 
 	//new funcs
 	bool carry();//item or person, should merge with pick_up_item() though this is for carrying not placing in one's inventory
@@ -244,7 +247,8 @@ public:
 	static vector<int> Message_Map[Environment::map_y_max][Environment::map_x_max];//a map layer that holds messages by id according to their tile location. Makes clearing the map easier by being a separate layer. Each tile can have multiple messages.
 	bool message_clear_flag = false;
 	static int a;//animal index of currently updating animal
-
+	animal& anim(int id);
+	void add_animal(string species, Position pos, bool sex);//for initializing animals on map
 //balancing numbers. Everything should be relative to the length of a day, so need x calories per day, x water per day, etc.
 //number one consumer of time is getting from A to B. Affected by density and distance of needed resources/people/places
 //second consumer is amount of time in animation (crafting, sleeping, etc)

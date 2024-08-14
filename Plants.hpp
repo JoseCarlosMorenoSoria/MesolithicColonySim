@@ -67,9 +67,9 @@ public:
 	};
 	Plants();
 	Plants(int a);
-	void update_all(int hour);//hour is recieved from Game
+	void update_all(int hour, int gtick);//hour is recieved from Game
 	//check conditions, react to conditions (growth rate, leaf loss, drying up, drowning, reproduction, image changes, fruit production)
-	void update(int hour);
+	void update(int hour, int gtick);
 	void reproduce();
 	void check_death();
 	void fill_presets();
@@ -77,7 +77,9 @@ public:
 	static vector<Plant> pln;//global list of plants
 	void new_plant(string species, Position pos);
 	int get_by_id(int id);//returns index to plant in global list
+	Plant& plant(int id);
 	Environment envi2;
+	string render_plant(Position pos);
 };
 
 #endif

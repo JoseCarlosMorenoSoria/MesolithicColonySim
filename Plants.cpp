@@ -10,7 +10,19 @@ int Plants::plant_id_iterator = -1;
 Plants::Plants(){}
 
 Plants::Plants(int a) {
+	fill_presets();
 
+
+	new_plant("wheat", { 10,5 });
+	new_plant("berry bushes", { 20,5 });
+	new_plant("medicinal plant", { 30,5 });
+	new_plant("cannabis plant", { 40,5 });
+	new_plant("poisonous plant", { 50,5 });
+	for (int i = 0; i < 30; i++) {
+		new_plant("grass", { 60,5+i });
+	}
+	new_plant("gourd", { 70,5 });
+	new_plant("tree", { 80,5 });
 }
 
 void Plants::new_plant(string species, Position pos) {//need to make sure tile doesn't have plant before calling this function
@@ -30,18 +42,24 @@ void Plants::new_plant(string species, Position pos) {//need to make sure tile d
 	np.age = {0,0,sp.lifespan};
 	np.growth_level=0;
 	t.plant_id = np.plant_id;//tie to Map
+
+	np.current_image = np.species;
+
 	pln.push_back(np);
 }
 
-void Plants::update_all(int hour) {
+int pi = -1;//for resetting p pointer after adding or deleting a plant due to pointer corruption when vector changes size
+void Plants::update_all(int hour, int gtick) {
 	for (int i = 0; i < pln.size(); i++) {
 		p = &pln[i];
 		s = &species_presets[p->species];
-		update(hour);
+		pi = i;
+		update(hour, gtick);
 	}
 }
 
-void Plants::update(int hour) {
+bool once = true;
+void Plants::update(int hour, int gtick) {
 	if (!p->is_alive) {
 		return;
 	}
@@ -65,12 +83,13 @@ void Plants::update(int hour) {
 		p->current_temp--;
 	}
 
+	if (p->age>0 && gtick % s->reproduction_rate == 0) {
+		reproduce();
+	}
 	if (hour == 0) {//once a day
 		p->age++;
 	}
-	if (p->age>0 && p->age % s->reproduction_rate == 0) {
-		reproduce();
-	}
+	
 	//is growth_level redundant? Regardless, this formula is just a placeholder for relevant factors and needs to be rewritten
 	if (p->current_height < s->max_height || p->current_radius < s->max_radius) {
 		p->growth_level += s->growth_rate * p->current_temp * p->current_water * t.light_level * t.soil_fertility_level;
@@ -91,18 +110,48 @@ void Plants::update(int hour) {
 }
 
 void Plants::reproduce() {//for now, have reproduce() also trigger the replenishment and production of components such as leaves/fruit/etc
-	int reproduction_distance;//in tiles, distance plant spreads
-	vector<string> components;//Items: fruit, log, wood, branch, leaves, roots, sap, bark, fibers, etc
+	vector<Position> empty_tiles;
+	Position o = p->pos;//origin
+	int radiusmax = s->reproduction_distance;
+	for (int radius = 0; radius <= radiusmax; radius++) { //this function checks tilemap in outward rings by checking top/bottom and left/right ring boundaries
+		if (radius == 0) {//avoids double checking origin
+			//do nothing
+			continue;
+		}
+		int xmin = o.x - radius;
+		if (xmin < 0) { xmin = 0; }//these reduce iterations when near edges of map
+		int xmax = o.x + radius;
+		if (xmax > Environment::map_x_max - 1) { xmax = Environment::map_x_max - 1; }
+		int ymin = o.y - radius + 1;//+1 and -1 to avoid double checking corners
+		if (ymin < 0) { ymin = 0; }
+		int ymax = o.y + radius - 1;
+		if (ymax > Environment::map_y_max - 1) { ymax = Environment::map_y_max - 1; }
+		for (int x = xmin, y = ymin; x <= xmax; x++, y++) {
+			for (int sign = -1; sign <= 1; sign += 2) {//sign == -1, then sign == 1
+				Position pos1 = { x,o.y + (sign * radius) };//Might be better to turn the for loops into an iterator function that returns the next position to check
+				Position pos2 = { o.x + (sign * radius), y };
+				if (Position::valid_position(pos1) && envi2.tile(pos1).plant_id == -1) {
+					empty_tiles.push_back(pos1);
+				}
+				if (y <= ymax && pos1 != pos2) {//need to figure out why pos1 sometimes == pos2 and rewrite for loops to avoid this
+					if (Position::valid_position(pos2) && envi2.tile(pos2).plant_id == -1) {
+						empty_tiles.push_back(pos2);
+					}
+				}
+			}
+		}
+	}
 
-	int nx = rand() % (s->reproduction_distance * 2) - s->reproduction_distance;
-	int ny = rand() % (s->reproduction_distance * 2) - s->reproduction_distance;
-	nx = p->pos.x + nx;
-	ny = p->pos.y + ny;
-	if (nx < 0) { nx = 0; }
-	if (nx >= Environment::map_x_max) { nx = Environment::map_x_max - 1; }
-	if (ny < 0) { ny = 0; }
-	if (ny >= Environment::map_y_max) { ny = Environment::map_y_max - 1; }
-	new_plant(p->species,{nx,ny});
+	if (empty_tiles.empty()) {//create a better function to avoid excessive loops. fix this
+		return;//no empty tiles found for new plant
+	}
+
+	int max = empty_tiles.size();
+	int choice = rand() % max;
+	
+	vector<string> components;//Items: fruit, log, wood, branch, leaves, roots, sap, bark, fibers, etc
+	new_plant(p->species, empty_tiles[choice]);
+	p = &pln[pi];//reset pointer due to resizing
 }
 
 int Plants::get_by_id(int id) {
@@ -118,6 +167,10 @@ int Plants::get_by_id(int id) {
 	return -1;//not found
 }
 
+Plants::Plant& Plants::plant(int id) {
+	return pln[get_by_id(id)];
+}
+
 void Plants::check_death() {
 	bool dehydration = p->current_water.ismin();
 	bool drowned = p->current_water.ismax();
@@ -127,9 +180,12 @@ void Plants::check_death() {
 	bool old_age_death = p->age.ismax();
 	bool malnourished;//need to implement
 	bool death = dehydration || drowned || light_deprivation || cold_death || heat_death || old_age_death;
+
 	if (death) {
 		p->is_alive = false;
 		//change image to dead plant
+		//decompose
+		//when decompose is done, remove from map and list
 	}
 }
 
@@ -167,4 +223,8 @@ void Plants::fill_presets() {
 	}
 }
 
-
+string Plants::render_plant(Position pos) {
+	int plid = envi2.tile(pos).plant_id;
+	Plant& pl = plant(plid);
+	return pl.current_image;
+}

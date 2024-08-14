@@ -1,11 +1,11 @@
 #include "People.hpp"
 #include "Animal.hpp"
 using namespace std;
+//---Any functions that regard movement:---
 
-//TO DO TODAY: Need to finish the refactoring of Animal and People and determine which functions can be shared and which need their own versions, as well as handling the pl[p] vs al[a] difference in shared functions
 
-//Any functions that regard movement for People
-
+//Note: one part of a solution to a destination tile being occupied is to request access to the tile if the person/animal on it is idle, so that they move out of the way
+//another part of the solution is either to find a different destination tile that satisfies the distance to target (ex: another adjacent tile to target) or choose another target (if the desired water tile has no empty adjacent tiles, search for another water tile) (may cause problem if next closest water tile is too far and the better course of action was to wait your turn)
 
 //FIX: for some reason, people are going into occupied tiles under some specific condition and that removes the other person from the map and therefore also their image from the map
 //need to fix any relevant function that calls move_to() such as general_search/random_walk so as to avoid going near disliked people and avoid even more and at greater distance any hated people.
@@ -177,6 +177,7 @@ Position Animal::walk_search_random_dest() {
         dest = Position::make_position_valid(dest, max_x, min_x, max_y, min_y);
         if (!Position::valid_position(dest)) {
             valid_dest = false;
+            cout << "fail\n";
         }
         else {
             valid_dest = true;

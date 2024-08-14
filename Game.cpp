@@ -48,25 +48,10 @@ void Game::init(const char* title, int xpos, int ypos, int width, int height, bo
 
 map<string, SDL_Texture*> texture_map;
 void Game::load_images_from_csv() {
-	//read from csv into a vector of structs
-	fstream fin;// File pointer 
-	fin.open("Images.csv", ios::in);// Open an existing file 
-	vector<string> row;// Read the Data from the file as String Vector 
-	string line, word;
-	int skiprows = 0;
-	while (getline(fin, line)) {// read an entire row and store it in a string variable 'line' 
-		if (skiprows < 37) {
-			skiprows++;
-			continue;
-		}
-		row.clear();
-		stringstream s(line);// used for breaking words 
-		while (getline(s, word, ',')) {// read every column data of a row and store it in a string variable, 'word' 
-			row.push_back(word);// add all the column data of a row to a vector 
-		}
-		texture_map.insert({row[0], SDL_CreateTextureFromSurface(renderer, IMG_Load(row[1].c_str()))});//insert name as key and convert filename into SDL texture
+	vector<vector<string>> data = get_data("My Game CSVs - Images.csv");
+	for (int i = 26;i < data.size(); i++) {
+		texture_map.insert({ data[i][0], SDL_CreateTextureFromSurface(renderer, IMG_Load(data[i][1].c_str())) });//insert name as key and convert filename into SDL texture
 	}
-	
 }
 
 People peep;
@@ -80,6 +65,7 @@ SDL_Rect srcR, destR;
 int day_count = 0; //temporary measure for counting days passed
 int hour_count = 0; //temporary measure for tracking when a new day starts, 20 updates == 1 day
 int hours_in_day = 24*4;
+int gtick = 0;
 
 int sqdim = 16;
 
@@ -197,6 +183,7 @@ void Game::handleEvents() { //this handles user inputs such as keyboard and mous
 }
 
 void Game::update() {
+	gtick++;
 	People::TILE_PIXEL_SIZE = sqdim;//affects npc speed given that movement between tiles is on a per pixel basis
 	if (!pause_game) {
 		hour_count++;
@@ -206,10 +193,10 @@ void Game::update() {
 		}
 
 		Environment::update(hours_in_day, hour_count, day_count);
-		peep.update_all(day_count, hour_count, hours_in_day);
+		//peep.update_all(day_count, hour_count, hours_in_day);
 		anim.update_all(day_count, hour_count, hours_in_day);
-		plant.update_all(hour_count);
-		player.update();
+		plant.update_all(hour_count, gtick);
+		//player.update();
 	}	
 }
 
@@ -393,6 +380,7 @@ void Game::render_sky(){
 		}
 	}
 }
+
 void Game::render_map(SDL_Rect mouseR, string item_name_moused, int min_x, int max_x, int min_y, int max_y, bool keep_player_centered_x, bool keep_player_centered_y){
 	for (int y = min_y, sy = 0; y < max_y; y++, sy++) {
 		for (int x = min_x, sx = 0; x < max_x; x++, sx++) {
@@ -410,15 +398,15 @@ void Game::render_map(SDL_Rect mouseR, string item_name_moused, int min_x, int m
 				destR.y = (sy + 1) * sqdim;
 			}
 
-
-
 			if (!pause_game && mousedown_left && mouse_in_rect(destR)) {
 				player.move_to_pc({ x,y });
 				mousedown_left = false;
 			}
 
+			Environment::Tile& t = Environment::Map[y][x];
+
 			bool no_item = false;
-			int item_id = Environment::Map[y][x].item_id;
+			int item_id = t.item_id;
 			if (item_id == -1) {
 				no_item = true;
 			}
@@ -432,30 +420,34 @@ void Game::render_map(SDL_Rect mouseR, string item_name_moused, int min_x, int m
 				}
 			}
 			else {
-				if (Environment::Map[y][x].terrain_name == "dirt") {
-					textureManager("pics/dirt.png", destR);
-				}
-				else if (Environment::Map[y][x].terrain_name == "water") {
-					textureManager("pics/shallow_water.png", destR);
-				}
+				string ter = Environment::render_tile({ x,y });
+				textureManager(ter, destR);
 			}
-			if (Environment::Map[y][x].track.track_age != -1) {
+
+
+			if (t.plant_id != -1) {
+				string plant_im = plant.render_plant({ x,y });
+				textureManager(plant_im, destR);
+			}
+
+
+			if (t.track.track_age != -1) {
 				textureManager("tracks", destR);
 			}
-			if (Environment::Map[y][x].has_fire) {//fire should be last thing drawn, needs to be moved to the end of render() FIX THIS
+			if (t.has_fire) {//fire should be last thing drawn, needs to be moved to the end of render() FIX THIS
 				textureManager("fire", destR);
 			}
-			if (Environment::Map[y][x].has_rain) {//same issue regarding draw order as fire, fix this
+			if (t.has_rain) {//same issue regarding draw order as fire, fix this
 				textureManager("rain", destR);
 			}
 			//this (darkness) doesn't seem to work, fix
-			if (Environment::Map[y][x].light_level <= 3) {//this would be better as a for loop, fix
+			if (t.light_level <= 3) {//this would be better as a for loop, fix
 				textureManager("darkness", destR);
-				if (Environment::Map[y][x].light_level <= 2) {
+				if (t.light_level <= 2) {
 					textureManager("darkness", destR);
-					if (Environment::Map[y][x].light_level <= 1) {
+					if (t.light_level <= 1) {
 						textureManager("darkness", destR);
-						if (Environment::Map[y][x].light_level == 0) {
+						if (t.light_level == 0) {
 							textureManager("darkness", destR);
 						}
 					}
@@ -467,6 +459,7 @@ void Game::render_map(SDL_Rect mouseR, string item_name_moused, int min_x, int m
 		}
 	}
 }
+
 void Game::render_entities(int min_x, int max_x, int min_y, int max_y, bool keep_player_centered_x, bool keep_player_centered_y){
 	for (int y = min_y, sy = 0; y < max_y; y++, sy++) {
 		for (int x = min_x, sx = 0; x < max_x; x++, sx++) {
@@ -484,13 +477,16 @@ void Game::render_entities(int min_x, int max_x, int min_y, int max_y, bool keep
 				destR.y = (sy + 1) * sqdim;
 			}
 
+			Environment::Tile& t = Environment::Map[y][x];
 			//people and animals need to be drawn after whole map is drawn given that people and later animals move between tiles, and if drawn with tiles then that means other tiles will be drawn over the people/animals
-			if (Environment::Map[y][x].animal_id != -1) {
-				Animal::animal& a = Animal::al[anim.a_by_id(Environment::Map[y][x].animal_id)];
+			if (t.animal_id > -1) {
+				Animal::animal& a = anim.anim(t.animal_id);
+				destR.x += a.px_x;
+				destR.y += a.px_y;
 				textureManager(a.current_image, destR);
 			}
-			if (Environment::Map[y][x].person_id > -1) {
-				People::Person& p = People::pl[peep.p_by_id(Environment::Map[y][x].person_id)];
+			if (t.person_id > -1) {
+				People::Person& p = peep.person(t.person_id);
 
 				if (player.pl[player.pcindex].p_id != p.p_id) {
 					destR.x += p.px_x;
@@ -536,6 +532,7 @@ void Game::render_entities(int min_x, int max_x, int min_y, int max_y, bool keep
 		}
 	}
 }
+
 void Game::render_menus(){
 	if (pause_game) {
 		destR.x = 10 * sqdim;

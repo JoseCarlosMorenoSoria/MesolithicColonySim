@@ -40,13 +40,34 @@ map<string, Animal::Species> Animal::species;
 Animal::Animal() {}
 
 Animal::Animal(int init) {
+    fill_species_presets();
 
+    add_animal("deer",{25,25},true);
+    add_animal("deer", { 25,26 }, false);
+    add_animal("rabbit", { 35,25 }, true);
+    add_animal("rabbit", { 35,26 }, false);
 
+}
+
+void Animal::add_animal(string species, Position pos, bool sex) {
+    animal a1;
+    a1.a_id = new_animal_id();
+    a1.pos = pos;
+    a1.sex = sex;
+    a1.age = 20;
+    envi.tile(a1.pos).animal_id = a1.a_id;
+    a1.species = species;
+    a1.current_image = a1.species;
+    al.push_back(a1);
+}
+
+Animal::animal& Animal::anim(int id) {
+    return al[a_by_id(id)];
 }
 
 void Animal::fill_species_presets() {
     vector<vector<string>> data = get_data("My Game CSVs - Species_t.csv");
-    for (int i = 0; i < data.size(); i++) {//csv still needs to be transposed before download, unsure if it starts on first or third row?
+    for (int i = 1; i < data.size(); i++) {//csv still needs to be transposed before download, unsure if it starts on first or third row?
         Species spec;
         int r = -1;
         spec.species=data[i][++r];
@@ -112,10 +133,10 @@ void Animal::update_all(int day_count, int hour_count, int hours_in_day) {
 
     animals_in_stealth.clear();//clears every tick for simpler implementation. This needs to be rewritten in a better method instead of using Environment to communicate with Animal
 
-    for (int i = 1; i < al.size(); i++) {//i starts at 1 because for now, the first Person in the list is reserved for player control
+    for (int i = 0; i < al.size(); i++) {
         a = i;
-        ox = al[a].pos.x;
-        oy = al[a].pos.y;
+        Position::ox = al[a].pos.x;
+        Position::oy = al[a].pos.y;
         update(day_count, hour_count, hours_in_day);
         if (al[a].in_stealth) {
             animals_in_stealth.push_back(al[a].a_id);
@@ -146,8 +167,9 @@ bool Animal::check_death() {
     bool fatal_injury = c.injured_time == sp.INJURED_TIME_DEATH;
     bool fatal_sickness = c.sick_time == sp.SICK_TIME_DEATH;
 
-    bool death = !c.is_alive || starvation || dehydration || old_age || freeze_death || heat_death || fatal_injury || fatal_sickness;
+    bool death = !c.is_alive || starvation;// || dehydration || old_age || freeze_death || heat_death || fatal_injury || fatal_sickness;
     if (death) {
+        cout << "dead";
         c.is_alive = false;
         c.current_image = c.species+"_dead.png";
         if (c.age < sp.MAX_INFANT_AGE) {
@@ -198,6 +220,7 @@ void Animal::update(int day_count, int hour_count, int hours_in_day) {
         }
         an.age++;
     }
+    //FIX THIS, animals don't have infant png's
     if (an.age < sp.MAX_INFANT_AGE) {//is infant. Currently that means it doesn't do anything except get hungry and needs to be fed
         an.current_image = an.species+"_infant";
         an.hunger_level++;
@@ -245,20 +268,21 @@ void Animal::update(int day_count, int hour_count, int hours_in_day) {
     find_all();//gets all items, people, etc from within sight/earshot to then react to or inform next action
 
     utility_function();
-    if (!an.move_already && an.general_search_called) {
+    animal& ann = al[a];//in case new animal was added to list, to handle address corruption when vector changes size
+    if (!ann.move_already && ann.general_search_called) {
         general_search_walk("");//ensures this function only executes once per update and also only after all other move_to's have been considered. This prioritizes intentional movement (moving to a target) rather than random movement
     }
 
-    an.found_messages.clear();
-    an.search_results.clear();
+    ann.found_messages.clear();
+    ann.search_results.clear();
 
     //check to ensure that spouses share campsite
-    if (!an.sex && !an.adopt_spouse_campsite && an.spouse_id != -1) {
-        an.campsite_pos = al[a_by_id(al[a].spouse_id)].campsite_pos;
+    if (!ann.sex && !ann.adopt_spouse_campsite && ann.spouse_id != -1) {
+        ann.campsite_pos = al[a_by_id(al[a].spouse_id)].campsite_pos;
     }
 
-    an.move_already = false;
-    an.general_search_called = false;
+    ann.move_already = false;
+    ann.general_search_called = false;
 
 }
 
@@ -290,27 +314,27 @@ void Animal::utility_function() {//is currently actually just a behavior tree no
     }
     */
 
-    if (an.progress_states.find("utility preemption protector") == an.progress_states.end()) {
-        an.progress_states.insert({ "utility preemption protector",{15} });//protects a function for at most 5 ticks
-    }
+   // if (an.progress_states.find("utility preemption protector") == an.progress_states.end()) {
+   //     an.progress_states.insert({ "utility preemption protector",{15} });//protects a function for at most 5 ticks
+    //}
 
-    if (an.protected_func != -1) {
-        if (an.progress_states["utility preemption protector"].progress_func()) {//not sure if it actually helped
-            an.protected_func = -1;//release
-        }
-    }
-    if (need_light() || an.protected_func == 0) { an.protected_func = 0; }
-    else if (child_birth() || an.protected_func == 1) { an.protected_func = 1; }//pregnancy advancement should be moved to update function, not child_birth()
+    //if (an.protected_func != -1) {//FIX THIS: replace with the system of switch-case used in Player
+    //    if (an.progress_states["utility preemption protector"].progress_func()) {//not sure if it actually helped
+   //         an.protected_func = -1;//release
+    //    }
+    //}
+    //if (need_light() || an.protected_func == 0) { an.protected_func = 0; }
+    else if (child_birth()) {}//pregnancy advancement should be moved to update function, not child_birth()
     //else if (health() || an.protected_func == 3) { an.protected_func = 3; }
-    else if (exposure() || an.protected_func == 4) { an.protected_func == 4; }
-    else if (sleeping() || an.protected_func == 5) { an.protected_func = 5; }//need to move collapsing from sleep to update function instead of sleeping()
-    else if (drinking() || an.protected_func == 6) { an.protected_func = 6; }
-    else if (eating() || an.protected_func == 7) { an.protected_func = 7; }//if don't have food, searches for food. Therefore the structure of utility_function is focused on which needs to satsify first (sleep, hunger, campsite, reproduction, etc)
+    //else if (exposure() || an.protected_func == 4) { an.protected_func == 4; }
+    else if (sleeping()) { }//need to move collapsing from sleep to update function instead of sleeping()
+    else if (drinking()) {}
+    else if (eating()) {}//if don't have food, searches for food. Therefore the structure of utility_function is focused on which needs to satsify first (sleep, hunger, campsite, reproduction, etc)
     //for nests, dens, beehives, etc. Need to implement
     //else if (search_for_new_campsite() || an.protected_func == 8) { an.protected_func = 8; }
-    else if (reproduce() || an.protected_func == 9) { an.protected_func =9; } //avoid execution of this function to focus on other features without worrying about population size
+    else if (reproduce()) {} //avoid execution of this function to focus on other features without worrying about population size
     //else if (answer_item_request() || an.protected_func == 10) { an.protected_func = 10; }
-    else { idle(); }
+    else { idle();  }
 }
 
 bool Animal::child_birth() {
@@ -340,20 +364,24 @@ bool Animal::child_birth() {
             child.p_id = People::new_person_id();
             child.pos = child_pos;
             child.sex = sex;
+            child.species = "human";
             envi.tile(child.pos).person_id = child.p_id;
             People::pl.push_back(child);
-            c.children_id.push_back(child.p_id);
-            People::pl[People::p_by_id(c.spouse_id)].children_id.push_back(child.p_id);
+            animal& cn = People::pl[People::p];//get reference again due to address corruption when vector changes size
+            cn.children_id.push_back(child.p_id);
+            People::pl[People::p_by_id(cn.spouse_id)].children_id.push_back(child.p_id);
         }
         else {
             animal child;
             child.a_id = new_animal_id();
             child.pos = child_pos;
             child.sex = sex;
+            child.species = c.species;
             envi.tile(child.pos).animal_id = child.a_id;
             al.push_back(child);
-            c.children_id.push_back(child.a_id);
-            al[a_by_id(c.spouse_id)].children_id.push_back(child.a_id);
+            animal& cn = al[a];//get reference again due to address corruption when vector changes size
+            cn.children_id.push_back(child.a_id);
+            al[a_by_id(cn.spouse_id)].children_id.push_back(child.a_id);
         }
         return true;//done
     }
@@ -405,6 +433,8 @@ bool Animal::reproduce() {
                 }
                 //remove campsite and adopt male's campsite as own.
                 an.adopt_spouse_campsite = true;
+
+
                 return true;//male will simply no longer call reproduce() given the cooldown==0, so only female needs to return true
             }
             else {
@@ -549,6 +579,27 @@ bool Animal::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
     //if all fails, move in search pattern. Search pattern is shared, to reduce erratic movement from various instances of search patterns
     al[a].general_search_called = true;
     return false;//searching
+}
+
+bool Animal::acquire_plant() {
+    animal& an = al[a];
+    Species& sp = species[an.species];
+    if (an.search_results["no plant"].size() == an.search_results["search_space"].size()) {
+        an.general_search_called = true;
+        return false;//no plants found, search in progress
+    }
+    Position plant_found;
+    for (Position pos : an.search_results["search_space"]) {//need to replace Position vectors with sets to make this faster and cleaner
+        if (envi.tile(pos).plant_id!=-1) {
+            plant_found = pos;
+            break;
+        }
+    }
+    an.food_to_eat = plant_found;
+    if (move_to(an.food_to_eat,"to plant food")) {
+        return true;//found
+    }
+    return false;//moving to plant
 }
 
 //continue improving this   Need to implement

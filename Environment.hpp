@@ -47,7 +47,7 @@ public:
 	struct Tile {
 		int person_id = -1;//helps enforce only 1 person per tile. Maybe make an exception for carrying infants or wounded? Or might be better to tie the carried infants/wounded in a the inventory of the carrier 
 		int animal_id = -1;
-		int plant_id=-1;
+		int plant_id = -1;
 		//tent/house/campsite is currently implemented as an item, not a building, implement buildings later
 		int item_id=-1;//holds the id's of item on tile, currently restricted to one per tile, later on add a method to handle stacking items up to a limit, including of different item types
 		string terrain_name;//increase types of terrain: ice/snow/mud/stone type/mineral veins/sand/cracked earth/etc
@@ -63,16 +63,16 @@ public:
 		//need to include events such as natural disaster, floods, blizzards, (landslides?), 
 		//what about heat waves and cold snaps or is there a way to make these organic rather than random and discrete?
 		Tracks track;
-		int light_level = 4;//max light
+		int light_level = 75;//max light
 		int temperature = 75;//temperature should be determined by time of day, time of year and latitude
 		//temperature, rain, wind, etc should be nullified by having a tile be classed as indoors and roofed. These should also affect item degradation / food/corpse rotting
 		//add water level. one level for surface water and another for underground water. (for flooding, wells, mud, cracked earth, plant fertility)
 		//terrain then should have 4 levels, underground, the terrain itself, and the surface of the tile and the sky above the tile and its water level that determines cloud cover, clouds should be able to be at the surface as fog. So the terrain could be soil with a level of underground water of 50% and snow at the surface
 		string underground_terrain;//subsurface minerals/deposits/etc
-		int surface_water_level;//for flooding, runoff, rivers
-		int underground_water_level; //for plant roots and wells
+		int surface_water_level=15;//for flooding, runoff, rivers
+		int underground_water_level=15; //for plant roots and wells
 		//smoke at the surface should cause breathing problems, smoke/fog at the surface should affect sightline radius. Include methane emissions from the ground as disaster?
-		int soil_fertility_level;//should be replenished by plant/animal corpses and manure, depleted by plants growing. What about salinity such as what happened in Mesopotamia?
+		int soil_fertility_level=50;//should be replenished by plant/animal corpses and manure, depleted by plants growing. What about salinity such as what happened in Mesopotamia?
 		//Sunlight level should vary based on cloud/smoke cover, time of day, time of year, and latitude.
 		//tiles should also hold sound and smell, though maybe those are better handled as tracks?
 
@@ -102,6 +102,7 @@ public:
 	static void rain();
 	static void track_manager();
 	Tile& tile(Position pos);//get tile from Map
+	static string render_tile(Position pos);
 };
 
 #endif

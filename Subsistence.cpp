@@ -7,7 +7,7 @@ People peep1;//to access People functions in Animal functions
 bool Animal::eating() {
     animal& c = (a_p_flip) ? al[a] : People::pl[People::p];//controls if accessing an animal from animal list or a person from people list (derived from Animal)
     Species& sp = species[c.species];
-    if (c.hungry_time > sp.DAYS_HUNGRY_MOVE_CAMP && c.campsite_pos.x != 1 && c.campsite_age > sp.NEW_CAMP_PROBATION_TIME) {//allows search for campsite to trigger but not before new camp is at least a few ticks old
+    if (c.hungry_time > sp.DAYS_HUNGRY_MOVE_CAMP && c.campsite_pos.x != -1 && c.campsite_age > sp.NEW_CAMP_PROBATION_TIME) {//allows search for campsite to trigger but not before new camp is at least a few ticks old
         return false;
     }
 
@@ -15,13 +15,13 @@ bool Animal::eating() {
     bool has_food = false;
     vector<int> food_indexes1;
     if (c.species == "human") {
-        food_indexes1 = peep1.inventory_has("ready food");
+        food_indexes1 = peep1.inventory_has("food");
         if (!food_indexes1.empty()) {
             has_food = true;
             c.eating_food_index = food_indexes1[0];
         }
         if ((hungry && !has_food) /* || food_indexes1.size() < MIN_EXTRA_FOOD_IN_INVENTORY*/) {//ensures that person has 2 food items in inventory for self or to share
-            if (acquire("ready food")) {
+            if (acquire("food")) {
                 return true;//done
             }
             else {
@@ -31,7 +31,7 @@ bool Animal::eating() {
     }//should these return sets instead? would remove the need for converting to sets when set operations are needed. Duplicate indexes are never relevant.
     else {
         if (hungry) {//unlike for humans, an animal acquires an item by being next to it, given it doesn't have an inventory
-            if (acquire("food")) {//FIX THIS, Needs to take diet specific tag
+            if (acquire_plant()) {//FIX THIS, Needs to take diet specific tag, only gets any plant for now
                 has_food = true;//continue
             }
             else {
@@ -56,8 +56,10 @@ bool Animal::eating() {
             peep1.delete_item(food_id, { -1,-1 }, index);//delete food from game
         }
         else {
-            int food_id = envi.tile(c.food_to_eat).item_id;
-            peep1.delete_item(food_id, c.food_to_eat, -1);//delete food from game
+            int food_id = envi.tile(c.food_to_eat).plant_id;//only eats plants for now, not items or animals
+            //peep1.delete_item(food_id, c.food_to_eat, -1);//delete food from game //this was for eating an item
+            envi.tile(c.food_to_eat).plant_id = -1;//remove from map
+            plant_ac.pln.erase(plant_ac.pln.begin() + plant_ac.get_by_id(food_id));//delete from plant list //For now, consume whole plant rather than deconstructing it or removing individual components such as leaves, add that later
         }
         c.hunger_level -= sp.HUNGER_REDUCTION_RATE; //reduce hungry level by 10, therefore need 2 meals a day to stay at 0 hunger_level average
         c.clean_image = true; //when this function ends, return to default image on next update
@@ -348,13 +350,15 @@ bool Animal::drinking() {
     if (c.thirst_level < sp.THIRSTY_LEVEL && c.drinking.progress == 0) {
         return false;
     }
-    if (c.search_results.find("water") != c.search_results.end()) {
-        if (Position::distance(c.pos, c.search_results["water"][0]) == 1 || move_to(c.search_results["water"][0], "to water")) {
+    if (c.search_results.find("freshwater") != c.search_results.end()) {
+        if (Position::distance(c.pos, c.search_results["freshwater"][0]) == 1 || move_to(c.search_results["freshwater"][0], "to water")) {
             c.thirst_level -= sp.THIRST_REDUCTION_RATE;
-            c.drinking.progress_done = c.thirst_level / sp.THIRST_REDUCTION_RATE;//drink until practically no longer any thirst
-            if (c.drinking.progress_func()) {//drinking delay. add animation
-                return true;//done
-            }
+            if (c.thirst_level <= 0) { c.drinking.progress = 0; }
+            else { c.drinking.progress = 1; }
+            //c.drinking.progress_done = c.thirst_level / sp.THIRST_REDUCTION_RATE;//drink until practically no longer any thirst
+            //if (c.drinking.progress_func()) {//drinking delay. add animation
+            //    return true;//done
+            //}
             return true;//in progress
         }
     }

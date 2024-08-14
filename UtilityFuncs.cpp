@@ -63,13 +63,14 @@ void Animal::find_all() {//returns all things (items, people, messages, etc) fou
     animal& c = (a_p_flip) ? al[a] : People::pl[People::p];
     auto find_all_helper = [&](Position pos, string type) {//lamda function to avoid having helper functions in the general People scope
         if (!Position::valid_position(pos)) { return; }
+        Environment::Tile& t = envi.tile(pos);
         string key;
         if (type == "temperature") {
-            key = to_string(Environment::Map[pos.y][pos.x].temperature);
+            key = to_string(t.temperature);
         }
         else if (type == "tracks") {
-            if (Environment::Map[pos.y][pos.x].track.track_age != -1) {
-                if (Environment::Map[pos.y][pos.x].track.creature == "human") {
+            if (t.track.track_age != -1) {
+                if (t.track.creature == "human") {
                     key = "human tracks";
                 }
                 else {
@@ -78,21 +79,25 @@ void Animal::find_all() {//returns all things (items, people, messages, etc) fou
             }
         }
         else if (type == "people") {
-            if (Environment::Map[pos.y][pos.x].person_id > -1) { key = "people"; }//the id must be >-1 because -2 is a reserved marker for move to a tile in move_to()
-            else if (Environment::Map[pos.y][pos.x].person_id == -2) { key = "reserved for person movement"; }
+            if (t.person_id > -1) { key = "people"; }//the id must be >-1 because -2 is a reserved marker for move to a tile in move_to()
+            else if (t.person_id == -2) { key = "reserved for person movement"; }
             else { key = "no people"; }
         }
         else if (type == "item") {
-            if (Environment::Map[pos.y][pos.x].item_id != -1) { key = it2.item_list[envi.tile(pos).item_id]->item_name; }
+            if (t.item_id != -1) { key = it2.item_list[t.item_id]->item_name; }
             else { key = "no item"; }
         }
         else if (type == "animal") {
-            if (Environment::Map[pos.y][pos.x].animal_id != -1) { key = Animal::al[a_by_id(Environment::Map[pos.y][pos.x].animal_id)].species; }
-            else if (Environment::Map[pos.y][pos.x].animal_id == -2) { key = "reserved for animal movement"; }
+            if (t.animal_id > -1) { key = anim(t.animal_id).species; }
+            else if (t.animal_id == -2) { key = "reserved for animal movement"; }
             else { key = "no animal"; }
         }
-        else if (type == "terrain") { key = Environment::Map[pos.y][pos.x].terrain_name; }
-
+        else if (type == "plant") {
+            if (t.plant_id != -1) { key = plant_ac.plant(t.plant_id).species; }
+            else { key = "no plant"; }
+        }
+        else if (type == "terrain") { key = t.terrain_name; }
+        else if (type == "search_space") { key = "search_space"; }
         if (c.search_results.find(key) != c.search_results.end()) {//check if key exists
             c.search_results[key].push_back(pos);
         }//key found
@@ -118,7 +123,7 @@ void Animal::find_all() {//returns all things (items, people, messages, etc) fou
     for (int radius = 0; radius <= c.radiusmax; radius++) { //this function checks tilemap in outward rings by checking top/bottom and left/right ring boundaries
         if (radius == 0) {//avoids double checking origin
             if (radius <= c.sightline_radius) {
-                vector<string> types = { string((c.species=="human")?"animal":"people"),"item","terrain", "tracks", "temperature"};
+                vector<string> types = { string((c.species=="human")?"animal":"people"),"item","terrain", "tracks", "temperature","plant","search_space"};
                 for (string s : types) {
                     find_all_helper(o, s);
                 }
@@ -138,10 +143,10 @@ void Animal::find_all() {//returns all things (items, people, messages, etc) fou
         if (ymax > Environment::map_y_max - 1) { ymax = Environment::map_y_max - 1; }
         for (int x = xmin, y = ymin; x <= xmax; x++, y++) {
             for (int sign = -1; sign <= 1; sign += 2) {//sign == -1, then sign == 1
-                Position pos1 = { x,o.y + (sign * radius) };
+                Position pos1 = { x,o.y + (sign * radius) };//Might be better to turn the for loops into an iterator function that returns the next position to check
                 Position pos2 = { o.x + (sign * radius), y };
                 if (radius <= c.sightline_radius) {
-                    vector<string> types = { "people","item","animal","terrain", "tracks", "temperature" };
+                    vector<string> types = { "people","item","animal","terrain", "tracks", "temperature","plant","search_space"};
                     for (string s : types) {
                         find_all_helper(pos1, s);
                         if (y <= ymax && pos1 != pos2) {//need to figure out why pos1 sometimes == pos2 and rewrite for loops to avoid this

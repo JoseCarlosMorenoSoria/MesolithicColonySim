@@ -3,6 +3,8 @@
 #include  "SDL.h"
 #include "SDL_image.h"
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <map>
@@ -15,6 +17,24 @@ using namespace std;
 //FIX THIS: need to go through project and replace separate x_pos and y_pos with Position
 //Project Utility structs and functions
 namespace proj_util {
+	using namespace std;
+	inline vector<vector<string>> get_data(string file_name) {
+		fstream fin;// File pointer 
+		string folder = "CSVs/";
+		fin.open(folder + file_name, ios::in);// Open an existing file 
+		vector<vector<string>> data;
+		vector<string> row;// Read the Data from the file as String Vector 
+		string line, word;
+		while (getline(fin, line)) {// read an entire row and store it in a string variable 'line' 
+			row.clear();
+			stringstream s(line);// used for breaking words 
+			while (getline(s, word, ',')) {// read every column data of a row and store it in a string variable, 'word' 
+				row.push_back(word);// add all the column data of a row to a vector 
+			}
+			data.push_back(row);
+		}
+		return data;
+	};
 
 	//the use of bint might have caused bloat by holding a copy of max and min per instance of plant for each attribute rather than checking against species preset, unsure if turning min and max into pointers would help or not
 	struct bint {//bounded int, never increases beyond max or decreases below min, has functions to check if equal to max or min
@@ -90,16 +110,20 @@ namespace proj_util {
 	};
 
 
-	static int ox;//origin.x for use in distance(). Uses current Person/Animal/etc position
-	static int oy;
-	static int pu_map_x_max;//need to set in Environment class
-	static int pu_map_y_max;
+	
 	struct Position {
 		int x = -1;//was going to use bint to automatically keep these in range, but that would cause problems with getting a getting a position relative to another, such as adding {-1,-1} to a position to get a new position 1 tile SW of the original
 		int y = -1;
 		//bint x = {0,0,map_x_max-1};//automatically keeps position within Map bounds. Makes valid_position redundant? Or can that function have other use cases?
 		//bint y = {0,0,map_y_max-1};
 		//bool init = false;//is used in place of pos.x==-1 to determine if a Position is NULL or not
+
+	public:
+		static int ox;//origin.x for use in distance(). Uses current Person/Animal/etc position
+		static int oy;
+		static int pu_map_x_max;//need to set in Environment class
+		static int pu_map_y_max;
+
 		bool operator==(Position const& pos2) {
 			return this->x == pos2.x && this->y == pos2.y;
 		}
@@ -169,24 +193,70 @@ namespace proj_util {
 			dupe = false;
 		}
 		return v2;
-	}
+	};
 
-	inline vector<vector<string>> get_data(string file_name) {
-		fstream fin;// File pointer 
-		fin.open(file_name, ios::in);// Open an existing file 
-		vector<vector<string>> data;
-		vector<string> row;// Read the Data from the file as String Vector 
-		string line, word;
-		while (getline(fin, line)) {// read an entire row and store it in a string variable 'line' 
-			row.clear();
-			stringstream s(line);// used for breaking words 
-			while (getline(s, word, ',')) {// read every column data of a row and store it in a string variable, 'word' 
-				row.push_back(word);// add all the column data of a row to a vector 
+	//Might be far more efficient to use sets instead of vectors and use inbuilt set operations such as intersection, etc.
+	inline vector<Position> remove_dup(vector<Position> v) {//to remove duplicates from vector but preserve original order
+		vector<Position> v2;
+		bool dupe = false;
+		for (Position i : v) {
+			for (Position j : v2) {
+				if (i == j) {
+					dupe = true;
+					break;
+				}
 			}
-			data.push_back(row);
+			if (!dupe) {
+				v2.push_back(i);
+			}
+			dupe = false;
 		}
-		return data;
-	}
+		return v2;
+	};
+
+
+	/* Finish this later
+	struct radial_search {//iterator that returns next position in a outward radial search
+		int radius = 0;
+		int x;
+		int y;
+
+
+		Position next(Position o, int radiusmax) {//o is origin
+			for (int radius = 0; radius <= radiusmax; radius++) { //this function checks tilemap in outward rings by checking top/bottom and left/right ring boundaries
+				if (radius == 0) {//avoids double checking origin
+					//do something
+					continue;
+				}
+				int xmin = o.x - radius;
+				if (xmin < 0) { xmin = 0; }//these reduce iterations when near edges of map
+				int xmax = o.x + radius;
+				if (xmax > Environment::map_x_max - 1) { xmax = Environment::map_x_max - 1; }
+				int ymin = o.y - radius + 1;//+1 and -1 to avoid double checking corners
+				if (ymin < 0) { ymin = 0; }
+				int ymax = o.y + radius - 1;
+				if (ymax > Environment::map_y_max - 1) { ymax = Environment::map_y_max - 1; }
+				for (int x = xmin, y = ymin; x <= xmax; x++, y++) {
+					for (int sign = -1; sign <= 1; sign += 2) {//sign == -1, then sign == 1
+						Position pos1 = { x,o.y + (sign * radius) };//Might be better to turn the for loops into an iterator function that returns the next position to check
+						Position pos2 = { o.x + (sign * radius), y };
+						if (Position::valid_position(pos1)) {
+							//do something
+						}
+						if (y <= ymax && pos1 != pos2) {//need to figure out why pos1 sometimes == pos2 and rewrite for loops to avoid this
+							if (Position::valid_position(pos2)) {
+								//do something
+							}
+						}
+					}
+				}
+			}
+		}
+	};
+	*/
+
+	
+	
 
 
 

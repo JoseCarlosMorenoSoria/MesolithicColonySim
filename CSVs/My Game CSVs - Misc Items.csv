@@ -1,0 +1,34 @@
+Item Name,Image,Tags,,Ingredients,,,Consumable Ingredient,Can Pick Up
+active trap,trap,,,,,,FALSE,FALSE
+active fish hook,pics/debug.png,,,wood,,,FALSE,FALSE
+monument,monument,,,,,,FALSE,FALSE
+"These aren't items, they're sources and handled in their own classes",,,,,,,,
+Plant,,,,,,,,
+Animal,,,,,,,,
+Terrain,,,,,,Poison should be the attribute of an item instead of an item itself?,,
+Need to pull out material into the parent Item struct given the amount of other items that use it.,,,,,,"wood needs to be a material sourced from branches, logs, etc. rather than just directly sourced from a tree?",,
+"Torches, campfire, candles might be better classed as their own type of item? For spreading light and starting fires and burning and refueling?",,,,,,,,
+,,,,,,,,
+Item Categories (have their own structs but are part of Item list):,,,,,,,,
+Food,,,,,,,TRUE,TRUE
+Material,,,,,,,TRUE,TRUE
+Weapon,,,,,,,FALSE,TRUE
+ClothingArmor,,,,,,,FALSE,TRUE
+Tool,,,,,,,FALSE,TRUE
+Storage Item,,,,,,,FALSE,TRUE
+Structure,,,,,,,FALSE,FALSE
+,,,,,,,,
+Item Name,Image,Tags,,Ingredients,,,Consumable Ingredient,Can Pick Up
+grass cordage,grass cordage,cordage,,grass,,,TRUE,TRUE
+hide cordage,hide cordage,cordage,,hide,,,TRUE,TRUE
+fire,fire,"making campfire, stove fire, oven fire, arson",,wood fire drill,,,FALSE,TRUE
+campfire,campfire,"light, heat and cooking",,from wood and stone ring to prevent spread,,,FALSE,FALSE
+drum,drum,recreation and rituals,,wood,hide,,FALSE,TRUE
+dugout canoe,dugout canoe,vehicle,,log,hammerstone,fire,FALSE,FALSE
+nest,nest,,,,,,FALSE,TRUE
+beehive,beehive,,,,,,FALSE,TRUE
+skull,skull,,,,,,FALSE,TRUE
+feather,feather,,,,,,TRUE,TRUE
+flower,flower,poisonous,,,,,TRUE,TRUE
+log,log,wood,,,,,TRUE,TRUE
+branch,branch,wood,,,,,TRUE,TRUE

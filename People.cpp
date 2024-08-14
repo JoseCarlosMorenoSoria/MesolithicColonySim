@@ -64,8 +64,8 @@ void People::update_all(int day_count, int hour_count, int hours_in_day) {
     int top_auth = 0;
     for(int i = 1; i < pl.size(); i++) {//i starts at 1 because for now, the first Person in the list is reserved for player control
         p = i;
-        ox = pl[p].pos.x;
-        oy = pl[p].pos.y;
+        Position::ox = pl[p].pos.x;
+        Position::oy = pl[p].pos.y;
         update(day_count, hour_count, hours_in_day);
         if (pl[p].in_stealth) {
             people_in_stealth.push_back(pl[p].p_id);

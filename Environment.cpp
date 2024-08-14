@@ -33,25 +33,26 @@ Environment::Tile& Environment::tile(Position pos) {
 Environment::Environment(){}
 
 Environment::Environment(int hours_in_day) {
-	pu_map_x_max = map_x_max;
-	pu_map_y_max = map_y_max;
+	Position::pu_map_x_max = map_x_max;
+	Position::pu_map_y_max = map_y_max;
+	csv_fill_terrains();
 
 	//for testing fire spread
 	//Map[25][50].has_fire = true;
 
 	for (int y = 0; y < map_y_max; y++) {
 		for (int x = 0; x < map_x_max; x++) { //z controls the percent chance of tile having food
-			if (Map[y][x].terrain_name != "water") {
+			if (Map[y][x].terrain_name != "freshwater") {
 				Map[y][x].terrain_name = "dirt";
 			}
 
 			int zw = rand() % 100;
 			if (zw < 1) {
 				if ((x > 5 && y > 5) && (x < map_x_max - 5 && y < map_y_max - 5)) {
-					Map[y][x].terrain_name = "water";
-					Map[y+1][x].terrain_name = "water";
-					Map[y][x+1].terrain_name = "water";
-					Map[y+1][x+1].terrain_name = "water";
+					Map[y][x].terrain_name = "freshwater";
+					Map[y+1][x].terrain_name = "freshwater";
+					Map[y][x+1].terrain_name = "freshwater";
+					Map[y+1][x+1].terrain_name = "freshwater";
 				}
 			}
 			
@@ -62,6 +63,7 @@ Environment::Environment(int hours_in_day) {
 		sky_tile s;
 		Sky.push_back(s);
 	}
+
 }
 
 static int season = 0;
@@ -155,4 +157,8 @@ void Environment::track_manager() {//need to implement: tracks should be removab
 			}
 		}
 	}
+}
+
+string Environment::render_tile(Position pos) {//can be separated later according to layers (ground, fire, rain)
+	return terrains[Map[pos.y][pos.x].terrain_name].image;
 }
