@@ -212,7 +212,7 @@ void Plants::fill_presets() {
 		spp.light_min = stoi(data[i][++r]);//minimum light needed to grow and live
 		spp.light_starvation = stoi(data[i][++r]);//how many max hours plant can survive without light
 		spp.temp_min = stoi(data[i][++r]);
-		spp.temp_ideal = stoi(data[i][++r]);
+		spp.temp_ideal = stoi(data[i][++r]);//these ranges could be saved as const bints
 		spp.temp_max = stoi(data[i][++r]);//temperature limits for growth, death and leaf loss
 		spp.water_min = stoi(data[i][++r]);
 		spp.water_ideal = stoi(data[i][++r]);
@@ -220,7 +220,14 @@ void Plants::fill_presets() {
 		spp.nutrient_requirements = stoi(data[i][++r]);//minimum, this shouldn't have a max?
 		spp.max_height = stoi(data[i][++r]);
 		spp.max_radius = stoi(data[i][++r]);
-		spp.potential_components.push_back(data[i][++r]);//Items: fruit, log, wood, branch, leaves, roots, sap, bark, fibers, etc
+		//Items: fruit, log, wood, branch, leaves, roots, sap, bark, fibers, etc
+		for (int j = 0; j < 2; j++) {
+			if (data[i][r] == "") {
+				++r;
+				continue;
+			}
+			spp.potential_components.push_back(data[i][++r]);//current max is 2
+		}
 		spp.reproduction_rate = stoi(data[i][++r]);//in days
 		spp.reproduction_distance = stoi(data[i][++r]);//in tiles, distance plant spreads
 		spp.lifespan = stoi(data[i][++r]);//also affects if plant is annual or perrenial, etc

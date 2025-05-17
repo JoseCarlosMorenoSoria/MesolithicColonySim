@@ -43,8 +43,9 @@ void ItemSys::update_item_list() {//FIX THIS: need to create equivalent for pres
 }
 
 int ItemSys::create_item(string item_name) {
+    //cout << "Item name: " + item_name + "; \n";
+    if (!presets.count(item_name)) { throw invalid_argument("invalid name"); }
     Item new_item = *presets[item_name];
-
     if (new_item.item_type == "weapon") {
         Weapon w = weapon_presets[item_name];
         w.item_id = new_item_id();
@@ -372,6 +373,7 @@ void ItemSys::ItemPresetsCSVPull() {
         for (int i = 7; i < data.size(); i++) {
             Structure s;
             s.item_id=-1;
+            s.item_type = "structure";
             s.can_pick_up = false;
             s.consumable_ingredient = false;
             int r = -1;
@@ -389,6 +391,7 @@ void ItemSys::ItemPresetsCSVPull() {
     {
         for (int i = 4; i < data.size(); i++) {
             Material m;
+            m.item_type = "material";
             m.can_pick_up = true;
             m.consumable_ingredient = true;
             m.item_id = -1;
@@ -409,6 +412,7 @@ void ItemSys::ItemPresetsCSVPull() {
     {
         for (int i = 6; i < data.size(); i++) {
             Tool t;
+            t.item_type = "tool";
             t.item_id = -1;
             t.can_pick_up = true;
             t.consumable_ingredient = false;
@@ -449,7 +453,7 @@ void ItemSys::ItemPresetsCSVPull() {
             f.calories = stoi(data[i][++r]);
             f.crafting_quality = stoi(data[i][++r]);
             f.taste_quality = stoi(data[i][++r]);
-            for (int j = 0; j < 2; j++) {
+            for (int j = 0; j < 2 && r<data[i].size()-1; j++) {
                 if (data[i][r] == "") {
                     break;
                 }

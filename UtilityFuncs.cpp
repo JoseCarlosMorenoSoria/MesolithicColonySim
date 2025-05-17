@@ -167,6 +167,9 @@ void Animal::find_all() {//returns all things (items, people, messages, etc) fou
             }
         }
     }
+    for (auto& i : c.search_results) {//sort every vector in results (because search is not a spiral but instead outwardly checks points on edges in an alternating manner)
+        sort(i.second.begin(), i.second.end());
+    }
 }
 
 void Animal::check_tile_messages(Position pos) {//might also serve as a generic for reacting to sounds
@@ -197,15 +200,8 @@ vector<int> People::inventory_has(string target) {//return list of indexes of ma
     }
     for (int i = 0; i < pl[p].item_inventory.size(); i++) {
         ItemSys::Item it = *it2.item_list[pl[p].item_inventory[i]];
-        if (it.item_name == target) {
+        if (it.item_name == target || it.item_type==target) {
             indexes.push_back(i);
-        }
-
-        //temp implementation
-        if (target == "food") {
-            if (it.item_name == "fruit") {
-                indexes.push_back(i);
-            }
         }
 
         //FIX THIS: inventory no longer searches tags given changes in Item, need to allow searching both for Item types (apparel, weapon, etc) and other tags/properties
@@ -279,22 +275,26 @@ bool People::drop_item(int index) {
 
 }
 
-//for filtering search results by tag such as food
+//for filtering search results by category such as food, tags to be added later
 vector<Position> Animal::filter_search_results(string target) {
     animal& c = (a_p_flip) ? al[a] : People::pl[People::p];
-    set<Position> unique_results;//used to store unique positions only
-    for (string i : it2.tags[target]) {
-        if (c.search_results.find(i) != c.search_results.end()) {
-            for (Position pos : c.search_results[i]) {
-                unique_results.insert(pos);
+    vector<string> keys;
+    for (auto i : c.search_results) {
+        if (it2.presets.count(i.first)) { 
+            if (it2.presets[i.first]->item_type == target) {
+                keys.push_back(i.first);
+                continue;
             }
         }
     }
-    vector<Position> final_results;//unsure if it's worth converting to a vector or whether it should return a set
-    for (Position pos : unique_results) {
-        final_results.push_back(pos);
+    vector<Position> result;
+    for (string s : keys) {
+        for (Position pos : c.search_results[s]) {
+            result.push_back(pos);
+        }
     }
-    return final_results;
+    sort(result.begin(), result.end());
+    return result;
 }
 
 void People::pickup_infants() {//FIX THIS DUE TO CHANGES IN RENDERER

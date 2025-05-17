@@ -249,8 +249,6 @@ void People::utility_function() {//is currently actually just a behavior tree no
     
     /*
     * To Do Now:
-    * Implement handling Food in eating(), crafting(), inventory_has(), and campsite_eval()
-    * test the relevant functions to ensure Food works
     * Implement and test the seeking out and crafting of clothing if cold and equipping it, and removing it if hot
     * Implement and test the seeking out and crafting of weapons for hunting
     * Implement and test the seeking out and crafting of weapons for fighting and a better fighting system
@@ -261,22 +259,22 @@ void People::utility_function() {//is currently actually just a behavior tree no
 
 
 
-    //if (need_light()) {  }//not done
-     //Done: else if (child_birth()) {  }//pregnancy advancement should be moved to update function, not child_birth()
+    if (need_light()) {  }//not done
+    else if (child_birth()) {  }//pregnancy advancement should be moved to update function, not child_birth()
     //else if (fight()) {  }
    // else if (health()) {  }
     //else if (exposure()) {  }
-    //Done: else if (sleeping()) {}//need to move collapsing from sleep to update function instead of sleeping()
-    //Done: else if (drinking()) {  }
-    if (eating()) {  }//if don't have food, searches for food. Therefore the structure of utility_function is focused on which needs to satsify first (sleep, hunger, campsite, reproduction, etc)
-    //Done: else if (search_for_new_campsite()) { }//need to fix tent image
+    else if (sleeping()) {}//need to move collapsing from sleep to update function instead of sleeping()
+    else if (drinking()) {  }
+    else if (eating()) { }//if don't have food, searches for food. Therefore the structure of utility_function is focused on which needs to satsify first (sleep, hunger, campsite, reproduction, etc)
+    else if (search_for_new_campsite()) { }
     //Commented out until carry infants is fixed due to changes in Renderer
-     //Done: else if (reproduce()) {} //avoid execution of this function to focus on other features without worrying about population size
+    else if (reproduce()) {} //avoid execution of this function to focus on other features without worrying about population size
     //else if (answer_item_request()) {  }
-    //Done - fix bathing image: else if (hygiene()) {}
+    else if (hygiene()) {}
     //else if (recreation()) {  }
     //else if (beauty()) {  }
-    else {idle(); }
+    else { idle(); }
     //DO THIS: (this (authority pursuit AI) might be too complex for this version, maybe organic leaders is better and add behavior that makes it likelier for some npcs to get to victory condition?) need to add authority as a need/goal to be pursued. Which means starting and winning fights with new people to increase number of submissives, and gaining favor with more people and increasing favor with existing friends/allies
 }
 
@@ -348,11 +346,11 @@ bool People::idle() {
     do {
         if (option > 50) {
             //flip between idle and default image
-            if (pl[p].current_image == "pics/human.png") {
-                pl[p].current_image = "pics/human_idle.png"; //need to make image, just have human with raised hands
+            if (pl[p].current_image == "human") {
+                pl[p].current_image = "human_idle"; //need to make image, just have human with raised hands
             }
-            else if (pl[p].current_image == "pics/human_idle.png") {
-                pl[p].current_image = "pics/human.png";
+            else if (pl[p].current_image == "human_idle") {
+                pl[p].current_image = "human";
             }
             have_no_friends = false;
         }
@@ -398,6 +396,7 @@ bool People::idle() {
     return true;
 }
 
+//FIX THIS: Need to ensure all items have a proper path to acquisition/crafting and probable scenario where it occurs. For example, Food right now has no incentive to craft food and so people only eat raw food, need to add some method of judging food according to calories and therefore pursuing higher calorie (cooked) foods, or at least having a random chance of doing so, so as to avoid never eating raw food
 //Cooking is just a variation of crafting involving butchering, milling, mixing, brewing, boiling, etc. Smithing, tailoring, etc are also just variations on crafting.
 bool People::craft(string product) {//later add station requirements such as campfire/stove/oven/furnace
     //if inventory has product.ingredients then craft product (consumes non tool ingredients) and place in inventory
@@ -516,7 +515,7 @@ bool People::answer_item_request() {
     }
     string target = items_requested[m_ind];//currently simply selects the first item request in list to answer. Fix this, no condition on when or when not to answer has been implemented
     int receiver_id = request_messages[m_ind].sender_id;//id of person who requested the item
-    pl[p].current_image = "pics/human_giving_food.png";
+    pl[p].current_image = "human_giving_food";
     speak("answering request for " + target, receiver_id);
     //move to requester's position, adjacent
     Person& p2 = person(receiver_id);
@@ -538,25 +537,24 @@ bool People::answer_item_request() {
 
 //FIX THIS      //need to cache items being actively sought somehow
 bool People::acquire(string target) {//target_type: need to add person/information/permission
+    if (target == "human") { return false; }//no cannibalism or other use case for acquiring human for now
+    
     string target_type = target_type_acquire(target);
 
     //is category/tag   tag not yet added
     if (target_type == "category - plant") {
         for (auto i : plant_ac.species_presets) {
             if (acquire(i.first)) { return true; }
-            else { return false; }
         }
     }
     else if (target_type == "category - animal") {
         for (auto i : species) {
             if (acquire(i.first)) { return true; }
-            else { return false; }
         }
     }
     else if (target_type == "category - item") {//inefficient but cleaner code, need to fix with an alternative
         for (auto i : it2.presets) {
             if (i.second->item_type==target && acquire(i.first)) { return true; }
-            else { return false; }
         }
     }
 
@@ -715,6 +713,7 @@ string People::target_type_acquire(string target) {//acquire() helper
     }
 
     //source check
+    if (target == "human") { return "is human"; }//not currently used but helps avoid conflation of human and animal
     if (species.find(target) != species.end()) { return "is animal"; }//is an animal
     if (plant_ac.species_presets.find(target) != plant_ac.species_presets.end()) { return "is plant"; }//is a plant
     if (envi.terrains.find(target) != envi.terrains.end()) { return "is terrain"; }//is a terrain
@@ -904,7 +903,7 @@ bool People::recreation() {
     string option = "play trumpet";
     if (option == "play trumpet") {//need to first get instrument, fix this. Also need to create instrument item
         if (acquire("trumpet")) {
-            pl[p].current_image = "playing trumpet";
+            pl[p].current_image = "playing_trumpet";
             pl[p].recreation_level -= 50;//each recreation type should have its own reduction value?
             pl[p].clean_image = true;
         }
@@ -988,13 +987,30 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
     return true;//in progress
 }
 
-bool People::campsite_eval() {//FIX THIS: need to check for all possible food sources including plants, items, animals, etc
-    vector<Position> food_pos_list = pl[p].search_results["berry bushes"]; //gets results   temporary implementation
-    if (food_pos_list.size() >= 4){
-        return true;
+bool People::campsite_eval() {
+    vector<Position> food_pos_list = filter_search_results("food");
+    vector<Position> animal_pos_list;
+    set_difference(
+        pl[p].search_results["search space"].begin(), pl[p].search_results["search space"].end(),
+        pl[p].search_results["no animal"].begin(), pl[p].search_results["no animal"].end(),
+        back_inserter(animal_pos_list)
+    );
+    vector<Position> plant_pos_list;
+    for (auto i : pl[p].search_results) {
+        if (i.first == "grass") { continue; }//inedible for humans, skip this plant. Need to add this exclusion to acquire(food) or else human currently will eat grass
+        if (plant_ac.species_presets.count(i.first)) {
+            for (string c : plant_ac.species_presets[i.first].potential_components) {
+                if (it2.presets[c]->item_type == "food") {//later need to add a diet list and check against it, such that for example a human might be able to eat the leaves of one plant but not another
+                    plant_pos_list.insert(plant_pos_list.end(), i.second.begin(), i.second.end());
+                    break;//only need to check if at least 1 component is edible
+                }
+            }
+        }
     }
-    else if (!food_pos_list.empty()) {
-        //need to add a method of investigating if any food found might have more food just out of current sightline, but this probably will require more complex modifiable pathfinding, as in have it be a detour from the current destination rather than a change in destination.
+    //sort(plant_pos_list.begin(), plant_pos_list.end());   only need to sort if the vector will be used other than its size
+    //if current area has enough food or sources of food and at least some water, set up camp
+    if (food_pos_list.size()+ animal_pos_list.size()+ plant_pos_list.size() >= 4 && pl[p].search_results.count("freshwater")) {
+        return true;
     }
     return false;
 }

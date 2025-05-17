@@ -16,15 +16,11 @@
 Player::Player(){}
 
 Player::Player(int a) {
-	Person newpc;//unsure if player is actually inserted into index 0, if it doesn't matter then need to fix People's update_all to also update index 0
-	newpc.p_id = new_person_id();
-	newpc.pos = { 50,10 };
-	newpc.sex = true;
-	newpc.age = 11;
-	pl.push_back(newpc);//unsure if need a variable in Person that marks which Person is a Player to prevent update_all from updating it.
-	Environment::Map[newpc.pos.y][newpc.pos.x].person_id = newpc.p_id;
-	pcindex = p_by_id(newpc.p_id);
-	cout << "Player id is " << newpc.p_id << "\n";//id should be 1 //player should be the first person in list
+	//unsure if player is actually inserted into index 0, if it doesn't matter then need to fix People's update_all to also update index 0
+	add_person({ 50,10 }, true);
+	//unsure if need a variable in Person that marks which Person is a Player to prevent update_all from updating it.
+	pcindex = p_by_id(pl.back().p_id);
+	cout << "Player id is " << pl.back().p_id << "\n";//id should be 1 //player should be the first person in list
 	
 }
 
@@ -123,7 +119,7 @@ void Player::update() {//this should always be 0 (first in pl list) but for now 
 	}
 
 	if (pl[p].clean_image) {
-		pl[p].current_image = "pics/human.png";
+		pl[p].current_image = "human";
 		pl[p].clean_image = false;
 	}
 
@@ -334,7 +330,7 @@ void Player::eat_pc(int index) {//might be better to break up NPC functions such
 	continue_func = 5;
 
 	if (pl[p].eating_progress.progress == 0) {
-		pl[p].current_image = "pics/human_eating.png";
+		pl[p].current_image = "human_eating";
 	}
 	if (pl[p].eating_progress.progress_func()) {//makes eating take more than 1 frame
 		int index = pl[p].eating_food_index;

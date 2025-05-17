@@ -32,7 +32,7 @@ public:
 	bool running();
 
 	static void textureManager(string texture, SDL_Rect destRect, int angle, SDL_Point center);
-	static void textureManager(string texture, SDL_Rect destRect);
+	static void textureManager(string texture, SDL_Rect destRect, string caller);//caller is who/what is attempting to get rendered (person, animal, terrain, item, etc)
 	static SDL_Rect textManager(string text, int size, int x, int y);//returns rectangle of text that was printed
 
 	bool isRunning;

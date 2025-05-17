@@ -42,9 +42,9 @@ Animal::Animal() {}
 Animal::Animal(int init) {
     fill_species_presets();
 
-    //add_animal("deer",{25,25},true);
-    //add_animal("deer", { 25,26 }, false);
-    //add_animal("rabbit", { 35,25 }, true);
+    add_animal("deer",{25,25},true);
+    add_animal("deer", { 25,26 }, false);
+    //add_animal("rabbit", { 35,25 }, true);    //to keep things simple for now and advance on other parts of game, only have deer in game
     //add_animal("rabbit", { 35,26 }, false);
 
 }
@@ -170,7 +170,7 @@ bool Animal::check_death() {
     bool death = !c.is_alive;// || starvation;// || dehydration || old_age || freeze_death || heat_death || fatal_injury || fatal_sickness;
     if (death) {
         c.is_alive = false;
-        if (c.age < sp.MAX_INFANT_AGE) {
+        if (c.age < sp.MAX_INFANT_AGE && c.species=="human") {//temporary human check, to avoid adding more animal images
             c.current_image = c.species+"_infant_dead";
         }
         //if have spouse, free spouse to remarry, need a more realistic way to handle this rather than instant long distance unlinking
@@ -218,8 +218,8 @@ void Animal::update(int day_count, int hour_count, int hours_in_day) {
         }
         an.age++;
     }
-    //FIX THIS, animals don't have infant png's
-    if (an.age < sp.MAX_INFANT_AGE) {//is infant. Currently that means it doesn't do anything except get hungry and needs to be fed
+    //FIX THIS, animals don't have infant png's or relevant behavior
+    if (an.age < sp.MAX_INFANT_AGE && false) {//is infant. Currently that means it doesn't do anything except get hungry and needs to be fed
         an.current_image = an.species+"_infant";
         an.hunger_level++;
         if (an.hunger_level > sp.HUNGRY_LEVEL) {
@@ -470,9 +470,9 @@ bool Animal::idle() {
     Species& sp = species[an.species];
     //flip between idle and default image
     if (an.current_image == an.species) {
-        an.current_image = an.species+"_idle.png"; //need to make image, just have human with raised hands
+        an.current_image = an.species+"_idle"; //need to make image, just have human with raised hands
     }
-    else if (an.current_image == an.species+"_idle.png") {
+    else if (an.current_image == an.species+"_idle") {
         an.current_image = an.species;
     }
     return true;
@@ -806,7 +806,7 @@ bool Animal::sleeping() {
     if (!(!c.awake || cond1 || very_tired)) {//function trigger
         return false;
     }
-    c.current_image = c.species+"_sleeping.png";
+    c.current_image = c.species+"_sleeping";
     c.awake = false;
     c.tired_level -= sp.SLEEP_REST_RATE; //every call to this function reduces tired by 11, this means need 5 hours/updates to stop sleeping and sleep every 50 hours/updates. Is -11 so as to do -10 per hour and also -1 to negate the +1 tired in the regular update function
     if (c.tired_level <= 0) {//fix this, need to cap at 0, also need cap for upper limit?

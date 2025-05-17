@@ -49,7 +49,7 @@ void Game::init(const char* title, int xpos, int ypos, int width, int height, bo
 map<string, SDL_Texture*> texture_map;
 void Game::load_images_from_csv() {
 	vector<vector<string>> data = get_data("My Game CSVs - Images.csv");
-	for (int i = 26;i < data.size(); i++) {
+	for (int i = 24;i < data.size(); i++) {
 		texture_map.insert({ data[i][0], SDL_CreateTextureFromSurface(renderer, IMG_Load(data[i][1].c_str())) });//insert name as key and convert filename into SDL texture
 	}
 }
@@ -59,7 +59,7 @@ Animal anim;
 Player player;
 Plants plant;
 ItemSys ite;
-//Environment envir;
+Environment envir;
 SDL_Rect srcR, destR;
 
 int day_count = 0; //temporary measure for counting days passed
@@ -217,11 +217,11 @@ void Game::textureManager(string texture, SDL_Rect destRect, int angle, SDL_Poin
 //SDL_Surface* tmpSurface;
 //SDL_Texture* tmpTex;
 //vector<SDL_Texture*> tmpTex_list;
-void Game::textureManager(string texture, SDL_Rect destRect) {//textureManager feels like an unclear name, rename this function, this function takes in the image file and the location and size (destRect) to draw it on and adds it to the game's canvass (renderer)
+void Game::textureManager(string texture, SDL_Rect destRect, string caller) {//textureManager feels like an unclear name, rename this function, this function takes in the image file and the location and size (destRect) to draw it on and adds it to the game's canvass (renderer)
 	//tmpSurface = IMG_Load(texture.c_str());
 	//tmpTex = SDL_CreateTextureFromSurface(renderer, tmpSurface);//would it be better to store these in an array and access them from there?
 	//SDL_FreeSurface(tmpSurface); //this might not be necessary, maybe move to the game.clean() function
-
+	if (!texture_map.count(texture)) { throw invalid_argument("image ("+texture+") for "+caller+" not found"); }
 			//SDL_RenderCopy(renderer, tmpTex, NULL, &destRect);
 	SDL_RenderCopy(renderer, texture_map[texture], NULL, &destRect);
 			//SDL_DestroyTexture(tmpTex); //this might not be necessary, maybe move to the game.clean() function
@@ -331,13 +331,13 @@ void Game::render() {
 	
 	//frame around the map, currently used to hide issue I need to fix regarding map rendering and camera movement at the map edges
 	SDL_Rect frame = { 0,sqdim,screen_width,sqdim / 2 };
-	textureManager("blacksq", frame);
+	textureManager("blacksq", frame,"frame");
 	frame.y = screen_height - (sqdim / 2);
-	textureManager("blacksq", frame);
+	textureManager("blacksq", frame, "frame");
 	frame = { 0,sqdim,sqdim / 2,screen_height };
-	textureManager("blacksq", frame);
+	textureManager("blacksq", frame, "frame");
 	frame.x = screen_width - (sqdim / 2);
-	textureManager("blacksq", frame);
+	textureManager("blacksq", frame, "frame");
 
 	//sky is rendered last for the same reason as the black frame
 	render_sky();
@@ -365,17 +365,17 @@ void Game::render_sky(){
 		destR.x = x * sqdim;
 		destR.y = 0;
 		if (Environment::Sky[x].has_sun) {
-			textureManager("pics/sun.png", destR);
+			textureManager("pics/sun.png", destR,"sun");
 		}
 		else if (Environment::Sky[x].has_moon) {
-			textureManager("pics/moon.png", destR);
+			textureManager("pics/moon.png", destR,"moon");
 		}
 		else {
 			if (hour_count < hours_in_day / 2) {
-				textureManager("pics/sky_day.png", destR);
+				textureManager("pics/sky_day.png", destR,"sky day");
 			}
 			else {
-				textureManager("pics/sky_night.png", destR);
+				textureManager("pics/sky_night.png", destR,"sky night");
 			}
 		}
 	}
@@ -405,14 +405,9 @@ void Game::render_map(SDL_Rect mouseR, string item_name_moused, int min_x, int m
 
 			Environment::Tile& t = Environment::Map[y][x];
 
-			bool no_item = false;
-			int item_id = t.item_id;
-			if (item_id == -1) {
-				no_item = true;
-			}
-			if (!no_item) {
-				ItemSys::Item item = *ite.item_list[item_id];
-				textureManager(item.image, destR);
+			if (t.item_id!=-1) {
+				ItemSys::Item item = *ite.item_list[t.item_id];
+				textureManager(item.image, destR, "item: "+item.item_name);
 				if (!pause_game && mouse_in_rect(destR)) {
 					mouseR = destR;
 					mouseR.y = y * sqdim;
@@ -421,37 +416,28 @@ void Game::render_map(SDL_Rect mouseR, string item_name_moused, int min_x, int m
 			}
 			else {
 				string ter = Environment::render_tile({ x,y });
-				textureManager(ter, destR);
+				textureManager(ter, destR, "terrain: " + envir.tile({x,y}).terrain_name);
 			}
 
 
 			if (t.plant_id != -1) {
 				string plant_im = plant.render_plant({ x,y });
-				textureManager(plant_im, destR);
+				textureManager(plant_im, destR, "plant: "+plant.plant(envir.tile({x,y}).plant_id).species);
 			}
 
 
 			if (t.track.track_age != -1) {
-				textureManager("tracks", destR);
+				textureManager("tracks", destR,"tracks");
 			}
 			if (t.has_fire) {//fire should be last thing drawn, needs to be moved to the end of render() FIX THIS
-				textureManager("fire", destR);
+				textureManager("fire", destR,"fire");
 			}
 			if (t.has_rain) {//same issue regarding draw order as fire, fix this
-				textureManager("rain", destR);
+				textureManager("rain", destR,"rain");
 			}
 			//this (darkness) doesn't seem to work, fix
 			if (t.light_level <= 3) {//this would be better as a for loop, fix
-				textureManager("darkness", destR);
-				if (t.light_level <= 2) {
-					textureManager("darkness", destR);
-					if (t.light_level <= 1) {
-						textureManager("darkness", destR);
-						if (t.light_level == 0) {
-							textureManager("darkness", destR);
-						}
-					}
-				}
+				//do something
 			}
 
 
@@ -483,7 +469,7 @@ void Game::render_entities(int min_x, int max_x, int min_y, int max_y, bool keep
 				Animal::animal& a = anim.anim(t.animal_id);
 				destR.x += a.px_x;
 				destR.y += a.px_y;
-				textureManager(a.current_image, destR);
+				textureManager(a.current_image, destR, "animal: "+a.species);
 			}
 			if (t.person_id > -1) {
 				People::Person& p = peep.person(t.person_id);
@@ -519,14 +505,14 @@ void Game::render_entities(int min_x, int max_x, int min_y, int max_y, bool keep
 				}
 
 				//temp adjustment, should be kept inside People class
-				if (p.current_image == "pics/human.png" && p.sex == false) {
+				if (p.current_image == "human" && p.sex == false) {
 					p.current_image = "human_female";
 				}
 
-				textureManager(p.current_image, destR);
+				textureManager(p.current_image, destR,"person");
 
 				if (p.current_image == "human_female") {
-					p.current_image = "pics/human.png";
+					p.current_image = "human";
 				}
 			}
 		}
@@ -539,7 +525,7 @@ void Game::render_menus(){
 		destR.y = 10 * sqdim;
 		destR.w = sqdim * 80;
 		destR.h = sqdim * 30;
-		textureManager("menu_color", destR);
+		textureManager("menu_color", destR,"menu");
 
 		if (menu_num == 0) {
 			vector<string> stats = player.view_own_data();//should menus be moved inside of Player class?
@@ -737,7 +723,7 @@ void Game::animation_testing() {
 	scale = 32;
 
 	SDL_Rect scale_sq = { 0,0,32,32 };
-	textureManager("blacksq", scale_sq);
+	textureManager("blacksq", scale_sq,"animation1-blacksq");
 
 	SDL_Rect head;
 	bone head_bone = { "blacksq",scale,r2,anchor_x,anchor_y};
@@ -768,7 +754,7 @@ void Game::animation_testing() {
 	skeleton2 skelly = { {head_bone,torso_bone,right_arm_bone,left_arm_bone,right_leg_bone,left_leg_bone} };
 	skelly.render_skeleton();
 	//r2+=5;
-	textureManager("head", head);
+	textureManager("head", head,"animation1-head");
 
 	
 

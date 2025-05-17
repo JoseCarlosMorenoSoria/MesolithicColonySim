@@ -56,7 +56,7 @@ public:
 		int a_id=-1; //need to figure out a way to make new id automatic rather than a parameter, currently using an int but not automatic enough
 		Position pos;
 		bool sex; //true==male, false==female
-		string current_image;
+		string current_image="init";
 		bool fleeing = false;
 		//need to implement flee mechanic to animal and make animal faster than human but slow to react (later it should be slow to accelerate not react?)
 		//string current_state = "idle"; //state/action

@@ -44,7 +44,7 @@ bool Animal::eating() {
         return false;
     }
     if (c.eating_progress.progress == 0) {
-        c.current_image = c.species+"_eating.png";
+        c.current_image = c.species+"_eating";
     }
     if (c.age < sp.MAX_INFANT_AGE) {
         c.current_image = c.species+"_infant";
@@ -169,20 +169,20 @@ bool People::persistence_and_pick_up(string species, Animal::animal& a) {
         //FIX THIS: need to add "if have ranged weapon, use at distance" as well as the need to get the ranged weapon if knowledge of its crafting is held, unless materials to make ranged weapon are not found in x amount of time or hunger is too great to wait
         //this serves as both persistance hunting and simple gathering as it is simply "move to animal and kill animal". 
         
-        if (!acquire("rock")) {
-            return false;//in progress
-        }
+        //if (!acquire("rock")) {
+        //    return false;//in progress
+        //}
         bool reached = move_to({ a.pos.x,a.pos.y }, "to prey");
         if (reached) {
             if (a.is_alive) {
                 a.is_alive = false;//kill prey
                 return false;//in progress
             }
-            if (!acquire("knife")) {
-                return false;//in progress
-            }
+            //if (!acquire("knife")) {
+            //    return false;//in progress
+            //}
             envi.tile(a.pos).animal_id = -1;//remove dead animal from map. Might make more sense to have animal contain body parts and components such as feathers and bones and when all have been removed from corpse, then the corpse is removed.
-            create_item(Animal::species[a.species].meat_type, { a.pos.x, a.pos.y });//add meat in its place   <- fix this, Might make more sense to have animals contain a list of items they turn into when butchered and go through the list
+            create_item("meat"/*for now just use generic "meat", later use Animal::species[a.species].meat_type*/, {a.pos.x, a.pos.y});//add meat in its place   <- fix this, Might make more sense to have animals contain a list of items they turn into when butchered and go through the list
             al.erase(al.begin() + a_by_id(a.a_id));//erase animal from global animal list
             return true;//done
         }
@@ -208,12 +208,12 @@ bool People::ambush(string species, Animal::animal& a) {
                             a.is_alive = false;//kill prey
                             return false;//in progress
                         }
-                        if (!acquire("knife")) {//should be separated in a process corpse function with the option to process in the field or carry home first, fix this
+                        //if (!acquire("knife")) {//should be separated in a process corpse function with the option to process in the field or carry home first, fix this
 
-                            return false;//in progress
-                        }
+                        //    return false;//in progress
+                        //}
                         envi.tile(a.pos).animal_id = -1;//remove dead animal from map
-                        create_item(Animal::species[a.species].meat_type, { a.pos.x, a.pos.y });//add meat in its place   <- fix this, Might make more sense to have animals contain a list of items they turn into when butchered and go through the list
+                        create_item("meat"/*for now just use generic "meat", later use Animal::species[a.species].meat_type*/, { a.pos.x, a.pos.y });//add meat in its place   <- fix this, Might make more sense to have animals contain a list of items they turn into when butchered and go through the list
                         al.erase(al.begin() + a_by_id(a.a_id));//erase animal from global animal list
                         return true;//done
                     }
@@ -312,7 +312,7 @@ bool People::trap(string set_or_check, string species, Animal::animal& a) {
             if (move_to({ a.pos.x,a.pos.y }, "to trapped small game")) {
                 envi.tile(a.pos).animal_id = -1;//remove dead animal from map
                 delete_item(envi.tile(a.pos).item_id, a.pos, -1);//delete active trap
-                create_item(Animal::species[a.species].meat_type, a.pos);//add meat in its place
+                create_item("meat"/*for now just use generic "meat", later use Animal::species[a.species].meat_type*/, a.pos);//add meat in its place
                 al.erase(al.begin() + a_by_id(a.a_id));//erase animal from global animal list
                 return true;//done
             }

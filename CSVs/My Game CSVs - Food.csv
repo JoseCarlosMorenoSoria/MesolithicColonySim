@@ -7,7 +7,7 @@ Anything that has nutrients and calories and is consumed by any animal or human.
 ,,,,,,,,,,
 Name,image,crafting process,source,ingredients,,calories,crafting quality,taste quality,tags,
 roasted meat,roasted meat,roast (ingredients+campfire),,,,50,50,50,,
-vegetable soup,vegetable soup,boil (ingredients+campfire+nonflammable liquid container),,plant component,water,50,50,50,,
+vegetable soup,vegetable soup,boil (ingredients+campfire+nonflammable liquid container),,,,50,50,50,plant component + water,
 porridge,porridge,mill grain- mix with water in a liquid container,,,,50,50,50,,
 bread,bread,,,seed,mortar_pestle,50,50,50,,
 eggs,eggs,,,,,50,50,50,source - nest - births birds- reptiles- fish and monotremes,

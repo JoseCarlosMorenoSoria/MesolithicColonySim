@@ -114,6 +114,7 @@ bool Animal::move_to(Position dest, string caller) {//need to include some check
                             c.current_image = c.species + "_walking_left2";
                         }
                     }
+                    if (c.species != "human") { c.current_image = c.species; }//Temporary, for now to avoid having to add more images for animals walking
                     c.walk_flip = !c.walk_flip;
                 }
             }
