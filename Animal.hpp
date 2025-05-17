@@ -144,7 +144,7 @@ public:
 		//However there is the case of pack animals and draft animals, so not sure yet.
 		Position food_to_eat;//for animals
 	};
-	static vector<int> animals_in_stealth;//used so that Animal knows if any person is in stealth
+	static vector<int> animals_in_stealth;//used so that Animal knows if any animal is in stealth
 	//need to implement a parasite, disease and injury system with types, triggers effects on NPC, and methods of healing. For an animal, the only treatment is rest.
 	//childbirth should involve risks of maternal mortality and infants/children/elderly should be at higher risks of disease deaths.
 	//diseases/injuries should have varying degrees of both severity and time to death and chance of dying. Need to add hereditary immunity chances and disease mutations to create cycles of epidemics and health.
@@ -175,7 +175,6 @@ public:
 	//new funcs
 	bool carry();//item or person, should merge with pick_up_item() though this is for carrying not placing in one's inventory
 	bool drop();//item or person, should merge with drop_item() though this is just for ending carry();
-	bool adjacency_acquire_handler();//for cutting down trees, mining rock, digging out dirt, collecting water, etc
 
 //=====================================================================================================================
 	//Animation.cpp Functions:

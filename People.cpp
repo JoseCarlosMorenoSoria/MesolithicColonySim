@@ -1353,26 +1353,6 @@ bool People::drop() {
     return false;
 }
 
-Plants plant_ac;
-//planned to remove this function, maybe replace with smaller specific case functions
-//also serves mining stone, obtaining water and milking cows, picking berries off bushes instead of consuming whole bush
-bool People::adjacency_acquire_handler(string target, string type, Position pos) {//for cutting down trees, mining rock, digging out dirt, collecting water, etc
-    //accept target from acquire()
-    //acquire should only call this func if person is next to target source
-
-    
-    //if stone, if have pickaxe, mining animation
-    if (type == "terrain") {
-        create_item(target, { -1,-1 });//create item of the same name as terrain and insert in inventory
-        return true;//done
-    }
-    //if it's a station passed as an ingredient/requisite to craft something, then "acquiring" the station counts as either being next to it or building it first
-    //ex: campfire for cooking
-
-    //Construction is a variation on crafting but done by emplacing something on a tile with the resources adjacent to that tile or self rather than in one's inventory.
-    return false;
-}
-
 
 
 bool People::coerce() {

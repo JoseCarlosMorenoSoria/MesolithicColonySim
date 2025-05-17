@@ -202,7 +202,6 @@ public:
 	bool carry();//item or person, should merge with pick_up_item() though this is for carrying not placing in one's inventory
 	bool drop();//item or person, should merge with drop_item() though this is just for ending carry();
 	//add to this: (converting tree into wood, producing mineral item from mineral vein without deleting the latter (but depleting), using stations, carving/decorating/vandalizing an item, etc) 
-	bool adjacency_acquire_handler(string target, string type, Position pos);//for cutting down trees, mining rock, digging out dirt, collecting water, etc
 	bool coerce();//variation on request()
 	bool weak_cooperation(string caller, string action);
 	//=====================================================================================================================
@@ -216,9 +215,9 @@ public:
 	static Person& person(int id);
 	//void add_func_record(string s);	too many things have changed, need to redo how I track function executions
 	vector<int> inventory_has(string target);
-	void create_item(string item_type, Position pos);
+	void create_item(string item_type, Position pos);//this should be in Animal only?
 	void pick_up_item(int item_id, Position pos);
-	void delete_item(int item_id, Position pos, int inventory_index);
+	void delete_item(int item_id, Position pos, int inventory_index);//this should be in Animal only?
 
 	//need generic carry function
 

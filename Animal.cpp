@@ -553,7 +553,7 @@ bool Animal::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
 
             if (target_type == "source") {
                 //likely is water, drink right off the map
-                //adjacency_acquire_handler(target);//extract/deconstruct
+                ////extract/deconstruct
                 return true;//target acquired
             }
         }
@@ -836,18 +836,6 @@ bool Animal::drop() {
     //if carrying something/someone, remove the pixel offset of the carried item/person and reset images of carrier and carried, remove id of carried from carrier and reset the state of carried to false
 }
 
-bool Animal::adjacency_acquire_handler() {//for cutting down trees, mining rock, digging out dirt, collecting water, etc
-    //accept target from acquire()
-    //acquire should only call this func if person is next to target source
-    return false;
-    //if tree, if have axe, chop tree animation
 
-    //if stone, if have pickaxe, mining animation
-
-    //if it's a station passed as an ingredient/requisite to craft something, then "acquiring" the station counts as either being next to it or building it first
-    //ex: campfire for cooking
-
-    //Construction is a variation on crafting but done by emplacing something on a tile with the resources adjacent to that tile or self rather than in one's inventory.
-}
 
 

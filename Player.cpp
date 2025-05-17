@@ -408,8 +408,7 @@ void Player::cut_down_tree_pc() {//temporary implementation, cuts down tree if n
 		return;
 	}
 	Plants::Plant& plant = plant_ac2.pln[plant_ac2.get_by_id(plant_id)];
-	adjacency_acquire_handler(plant.species, "plant", pl[p].pos);//if no item on player's tile, try to cut down nearest tree
-
+	//FIX THIS: need to handle context actions such as cutting down a tree when next to it? Or have that be a tooltip menu action?
 	pl[p].search_results.clear();
 }
 
