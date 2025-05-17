@@ -12,19 +12,42 @@ Plants::Plants(){}
 Plants::Plants(int a) {
 	fill_presets();
 
-
 	new_plant("wheat", { 10,5 });
-	for (int i = 0; i < 30; i++) {
-		new_plant("berry bushes", { 20,5+i });
-	}
 	new_plant("medicinal plant", { 30,5 });
 	new_plant("cannabis plant", { 40,5 });
 	new_plant("poisonous plant", { 50,5 });
-	for (int i = 0; i < 30; i++) {
-		new_plant("grass", { 60,5+i });
-	}
 	new_plant("gourd", { 70,5 });
-	new_plant("tree", { 80,5 });
+	for (int i = 0; i < 80; i++) {
+		int x, y;
+		do {
+			x = rand() % envi2.map_x_max;
+			y = rand() % envi2.map_y_max;
+		} while (!valid_plant_pos({x,y}));
+		new_plant("tree", { x,y });
+	}
+	for (int i = 0; i < 80; i++) {
+		int x, y;
+		do {
+			x = rand() % envi2.map_x_max;
+			y = rand() % envi2.map_y_max;
+		} while (!valid_plant_pos({ x,y }));
+		new_plant("berry bushes", { x,y });
+	}
+	for (int i = 0; i < 80; i++) {
+		int x, y;
+		do {
+			x = rand() % envi2.map_x_max;
+			y = rand() % envi2.map_y_max;
+		} while (!valid_plant_pos({ x,y }));
+		new_plant("grass", { x,y });
+	}
+}
+
+bool Plants::valid_plant_pos(Position pos) {
+	if (envi2.tile(pos).terrain_name == "freshwater" || envi2.tile(pos).plant_id != -1 || !Position::valid_position(pos)) {
+		return false;
+	}
+	return true;
 }
 
 void Plants::delete_plant(Position pos) {
@@ -44,17 +67,13 @@ void Plants::new_plant(string species, Position pos) {//need to make sure tile d
 	np.current_water = {t.surface_water_level+t.underground_water_level, sp.water_min, sp.water_max};
 	np.current_height = {0,0,sp.max_height};//height and radius shade out shorter plants to outcompete them (deprive them of sunlight and water)
 	np.current_radius = {0,0,sp.max_radius};//how far the tree shades out shorter plants or trees of the same height, or bushes doing the same to shorter plants
-	//need to set initial components
-	//vector<string> current_components;//Items: fruit, log, wood, branch, leaves, roots, sap, bark, fibers, etc
+	//need to set initial components, growth, production, etc (at age 0 = seed, at age 1 = root,stem,leaf, at age 3 = root,stem,leaves,fruit, at age 4 = same as 3 but higher quantities)
+	//Items: fruit, log, wood, branch, leaves, roots, sap, bark, fibers, etc
+	np.current_components = sp.potential_components;
 	np.age = {0,0,sp.lifespan};
 	np.growth_level=0;
 	t.plant_id = np.plant_id;//tie to Map
-
 	np.current_image = np.species;
-
-	//temporary implementation for testing purposes, need to add properly to CSV
-	np.current_components = { "leaf", "stem", "root", "fruit", "seed" };
-
 	pln.push_back(np);
 }
 
@@ -140,11 +159,11 @@ void Plants::reproduce() {//for now, have reproduce() also trigger the replenish
 			for (int sign = -1; sign <= 1; sign += 2) {//sign == -1, then sign == 1
 				Position pos1 = { x,o.y + (sign * radius) };//Might be better to turn the for loops into an iterator function that returns the next position to check
 				Position pos2 = { o.x + (sign * radius), y };
-				if (Position::valid_position(pos1) && envi2.tile(pos1).plant_id == -1) {
+				if (valid_plant_pos(pos1)) {
 					empty_tiles.push_back(pos1);
 				}
 				if (y <= ymax && pos1 != pos2) {//need to figure out why pos1 sometimes == pos2 and rewrite for loops to avoid this
-					if (Position::valid_position(pos2) && envi2.tile(pos2).plant_id == -1) {
+					if (valid_plant_pos(pos2)) {
 						empty_tiles.push_back(pos2);
 					}
 				}
@@ -222,11 +241,12 @@ void Plants::fill_presets() {
 		spp.max_radius = stoi(data[i][++r]);
 		//Items: fruit, log, wood, branch, leaves, roots, sap, bark, fibers, etc
 		for (int j = 0; j < 2; j++) {
-			if (data[i][r] == "") {
-				++r;
+			if (data[i][++r] == "") {
 				continue;
 			}
-			spp.potential_components.push_back(data[i][++r]);//current max is 2
+			else {
+				spp.potential_components.push_back(data[i][r]);//current max is 2
+			}
 		}
 		spp.reproduction_rate = stoi(data[i][++r]);//in days
 		spp.reproduction_distance = stoi(data[i][++r]);//in tiles, distance plant spreads
@@ -245,3 +265,5 @@ string Plants::render_plant(Position pos) {
 	Plant& pl = plant(plid);
 	return pl.current_image;
 }
+
+

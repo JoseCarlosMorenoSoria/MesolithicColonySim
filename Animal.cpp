@@ -152,6 +152,7 @@ void Animal::update_all(int day_count, int hour_count, int hours_in_day) {
                 Message_Map[y][x].clear();
             }
         }
+        message_list.clear();
     }
     message_clear_flag = !message_clear_flag;//this is handled in Animal only, not People
 }

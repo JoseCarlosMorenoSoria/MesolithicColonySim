@@ -65,6 +65,16 @@ public:
 		}
 	};
 
+	struct Relation {//stores information on the relationship between this person and another person
+		//person id
+		//current disposition
+		//disposition change log
+		//family?
+		//submission tracker
+		//know about: keep an empty person struct and fill out as information is shared or obtained about this person, for example, if searching for someone who is a good fighter, need access to their fighting skill and store it but have access organically rather than through omniscient access
+			//this allows gossip about other people and acting on it
+	};
+
 	struct Person : animal {
 		int p_id;//humans need there own id system apart from that of animals, humans should not get assigned an animal id
 		string name = "no name";//will need a csv with names and a name generator function

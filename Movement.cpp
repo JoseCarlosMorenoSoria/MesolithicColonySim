@@ -178,7 +178,7 @@ Position Animal::walk_search_random_dest() {
         dest = Position::make_position_valid(dest, max_x, min_x, max_y, min_y);
         if (!Position::valid_position(dest)) {
             valid_dest = false;
-            cout << "fail\n";
+            cout << "fail\n";//need to figure out method to avoid this
         }
         else {
             valid_dest = true;

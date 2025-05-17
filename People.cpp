@@ -13,7 +13,10 @@ vector<int> People::people_in_stealth;//unsure if need a separate people and ani
 //could also maybe just overload and use the operator! as a return true or false if null function
 
 
-//FIX THIS: fix find_all according to changes in item, plants, etc
+//TO DO TODAY:
+//write pseudo code for everything in Interpersonal Actions, then disposition triggers, then mood triggers
+//add components to deer and ensure all items are actually craftable and sought out.
+//improve combat and implement above pseudo code actions
 
 
 People::People(){}

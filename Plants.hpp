@@ -83,6 +83,7 @@ public:
 	Environment envi2;
 	string render_plant(Position pos);
 	void delete_plant(Position pos);
+	bool valid_plant_pos(Position pos);//checks if the position is valid for this type of plant, for example if it has enough soil fertiility, if it is a water tile, has too much or too little water, temperature, etc. Might be made obsolete later when environmental conditions have greater influence on the survivability of a newly planted seed on a tile?
 };
 
 #endif
