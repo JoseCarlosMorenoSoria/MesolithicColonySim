@@ -193,7 +193,7 @@ void Game::update() {
 		}
 
 		Environment::update(hours_in_day, hour_count, day_count);
-		//peep.update_all(day_count, hour_count, hours_in_day);
+		peep.update_all(day_count, hour_count, hours_in_day);
 		anim.update_all(day_count, hour_count, hours_in_day);
 		plant.update_all(hour_count, gtick);
 		//player.update();

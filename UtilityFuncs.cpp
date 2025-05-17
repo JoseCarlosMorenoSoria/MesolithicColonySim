@@ -197,10 +197,17 @@ vector<int> People::inventory_has(string target) {//return list of indexes of ma
     }
     for (int i = 0; i < pl[p].item_inventory.size(); i++) {
         ItemSys::Item it = *it2.item_list[pl[p].item_inventory[i]];
-        
         if (it.item_name == target) {
             indexes.push_back(i);
         }
+
+        //temp implementation
+        if (target == "food") {
+            if (it.item_name == "fruit") {
+                indexes.push_back(i);
+            }
+        }
+
         //FIX THIS: inventory no longer searches tags given changes in Item, need to allow searching both for Item types (apparel, weapon, etc) and other tags/properties
     }
     return indexes;

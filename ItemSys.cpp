@@ -10,29 +10,34 @@ map<int, ItemSys::Structure> ItemSys::structure_item_list;
 map<int, ItemSys::Tool> ItemSys::tool_item_list;
 map<int, ItemSys::Material> ItemSys::material_item_list;
 map<int, ItemSys::Container> ItemSys::container_item_list;
+map<int, ItemSys::Food> ItemSys::food_item_list;
 int ItemSys::item_id_iterator = 0; 
 
 
-void ItemSys::update_item_list() {
-    for (auto i : weapon_item_list) {
+void ItemSys::update_item_list() {//FIX THIS: need to create equivalent for presets master list to execute when all presets have been loaded to other lists
+    item_list.clear();
+    for (auto& i : weapon_item_list) {
         item_list[i.first] = &i.second;
     }
-    for (auto i : apparel_item_list) {
+    for (auto& i : apparel_item_list) {
         item_list[i.first] = &i.second;
     }
-    for (auto i : tool_item_list) {
+    for (auto& i : tool_item_list) {
         item_list[i.first] = &i.second;
     }
-    for (auto i : container_item_list) {
+    for (auto& i : container_item_list) {
         item_list[i.first] = &i.second;
     }
-    for (auto i : material_item_list) {
+    for (auto& i : material_item_list) {
         item_list[i.first] = &i.second;
     }
-    for (auto i : structure_item_list) {
+    for (auto& i : structure_item_list) {
         item_list[i.first] = &i.second;
     }
-    for (auto i : misc_item_list) {
+    for (auto& i : misc_item_list) {
+        item_list[i.first] = &i.second;
+    }
+    for (auto& i : food_item_list) {
         item_list[i.first] = &i.second;
     }
 }
@@ -44,7 +49,7 @@ int ItemSys::create_item(string item_name) {
         Weapon w = weapon_presets[item_name];
         w.item_id = new_item_id();
         weapon_item_list.insert({ w.item_id,w });
-        item_list.insert({w.item_id, &weapon_item_list[w.item_id]});
+        //item_list.insert({w.item_id, &weapon_item_list[w.item_id]});
         update_item_list();
         return w.item_id;
     }
@@ -52,7 +57,7 @@ int ItemSys::create_item(string item_name) {
         Apparel w = apparel_presets[item_name];
         w.item_id = new_item_id();
         apparel_item_list.insert({ w.item_id,w });
-        item_list.insert({ w.item_id, &apparel_item_list[w.item_id] });
+        //item_list.insert({ w.item_id, &apparel_item_list[w.item_id] });
         update_item_list();
         return w.item_id;
     }
@@ -60,7 +65,7 @@ int ItemSys::create_item(string item_name) {
         Tool w = tool_presets[item_name];
         w.item_id = new_item_id();
         tool_item_list.insert({ w.item_id,w });
-        item_list.insert({ w.item_id, &tool_item_list[w.item_id] });
+        //item_list.insert({ w.item_id, &tool_item_list[w.item_id] });
         update_item_list();
         return w.item_id;
     }
@@ -68,7 +73,7 @@ int ItemSys::create_item(string item_name) {
         Material w = material_presets[item_name];
         w.item_id = new_item_id();
         material_item_list.insert({ w.item_id,w });
-        item_list.insert({ w.item_id, &material_item_list[w.item_id] });
+        //item_list.insert({ w.item_id, &material_item_list[w.item_id] });
         update_item_list();
         return w.item_id;
     }
@@ -76,7 +81,7 @@ int ItemSys::create_item(string item_name) {
         Container w = container_presets[item_name];
         w.item_id = new_item_id();
         container_item_list.insert({ w.item_id,w });
-        item_list.insert({ w.item_id, &container_item_list[w.item_id] });
+        //item_list.insert({ w.item_id, &container_item_list[w.item_id] });
         update_item_list();
         return w.item_id;
     }
@@ -84,15 +89,23 @@ int ItemSys::create_item(string item_name) {
         Structure w = structure_presets[item_name];
         w.item_id = new_item_id();
         structure_item_list.insert({ w.item_id,w });
-        item_list.insert({ w.item_id, &structure_item_list[w.item_id] });
+        //item_list.insert({ w.item_id, &structure_item_list[w.item_id] });
         update_item_list();
         return w.item_id;
     }
     else if (new_item.item_type == "misc") {
         Item w = misc_presets[item_name];
         w.item_id = new_item_id();
-        misc_item_list.insert({ w.item_id,w });
-        item_list.insert({ w.item_id, &misc_item_list[w.item_id] });
+        misc_item_list.insert({w.item_id,w });
+        //item_list.insert({ w.item_id, &misc_item_list[w.item_id] });
+        update_item_list();
+        return w.item_id;
+    }
+    else if (new_item.item_type == "food") {
+        Food w = food_presets[item_name];
+        w.item_id = new_item_id();
+        food_item_list.insert({ w.item_id,w });
+        //item_list.insert({ w.item_id, &misc_item_list[w.item_id] });
         update_item_list();
         return w.item_id;
     }
@@ -184,6 +197,17 @@ void ItemSys::fill_ingredients_lookup() {
             }
         }
     }
+    for (auto const& i : food_presets) {
+        for (string t : i.second.ingredients) {
+            if (ingredients.find(t) != ingredients.end()) {//if ingredient is in list
+                ingredients[t].push_back(i.first);//add item name to ingredients list
+            }
+            else {
+                ingredients.insert({ t,{i.first} });//else add ingredient to list with item name as its first element
+            }
+        }
+    }
+
 }
 
 int ItemSys::new_item_id() {//unsure if this function is redundant with how int++ works or if there's a better method
@@ -215,6 +239,9 @@ void ItemSys::delete_item(int id) {//to reduce need for updating master list, ca
     else if (it.item_type == "misc") {
         misc_item_list.erase(id);
     }
+    else if (it.item_type == "food") {
+        food_item_list.erase(id);
+    }
     item_list.erase(id);
     update_item_list();
 }
@@ -245,7 +272,7 @@ void ItemSys::ItemPresetsCSVPull() {
             it.can_pick_up = (data[i][++r] == "TRUE") ? true : false;
             misc_presets.insert({ it.item_name,it });
             //misc_presets[it.item_name] = it;
-            presets.insert({ it.item_name,&misc_presets[it.item_name] });
+            //presets.insert({ it.item_name,&misc_presets[it.item_name] });
         }
     }
     data = get_data("My Game CSVs - Weapons.csv");
@@ -276,7 +303,7 @@ void ItemSys::ItemPresetsCSVPull() {
                 w.ingredients.push_back(data[i][++r]);//current max is 3
             }
             weapon_presets.insert({ w.item_name,w });//store object
-            presets.insert({ w.item_name, &weapon_presets[w.item_name]});//store reference in master list
+            //presets.insert({ w.item_name, &weapon_presets[w.item_name]});//store reference in master list
         }
     }
     data = get_data("My Game CSVs - ClothingAndArmor.csv");
@@ -306,7 +333,7 @@ void ItemSys::ItemPresetsCSVPull() {
                 a.ingredients.push_back(data[i][++r]);
             }
             apparel_presets.insert({ a.item_name,a });
-            presets.insert({ a.item_name, &apparel_presets[a.item_name] });
+            //presets.insert({ a.item_name, &apparel_presets[a.item_name] });
         }
     }
     data = get_data("My Game CSVs - StorageItems.csv");
@@ -337,7 +364,7 @@ void ItemSys::ItemPresetsCSVPull() {
                 c.ingredients.push_back(data[i][++r]);
             }
             container_presets.insert({ c.item_name,c });
-            presets.insert({ c.item_name, &container_presets[c.item_name] });
+            //presets.insert({ c.item_name, &container_presets[c.item_name] });
         }
     }
     data = get_data("My Game CSVs - Structures.csv");
@@ -355,7 +382,7 @@ void ItemSys::ItemPresetsCSVPull() {
             s.ingredients.push_back(data[i][++r]);
             s.insulation_cold = stoi(data[i][++r]);
             structure_presets.insert({ s.item_name,s });
-            presets.insert({ s.item_name, &structure_presets[s.item_name] });
+            //presets.insert({ s.item_name, &structure_presets[s.item_name] });
         }
     }
     data = get_data("My Game CSVs - Materials.csv");
@@ -375,7 +402,7 @@ void ItemSys::ItemPresetsCSVPull() {
             m.crafting_time = stoi(data[i][++r]);
             m.insulation = stoi(data[i][++r]);
             material_presets.insert({ m.item_name,m });
-            presets.insert({ m.item_name, &material_presets[m.item_name] });
+            //presets.insert({ m.item_name, &material_presets[m.item_name] });
         }
     }
     data = get_data("My Game CSVs - Tools.csv");
@@ -398,13 +425,70 @@ void ItemSys::ItemPresetsCSVPull() {
                 t.ingredients.push_back(data[i][++r]);//current max is 3
             }
             tool_presets.insert({ t.item_name,t });
-            presets.insert({ t.item_name, &tool_presets[t.item_name] });
+            //presets.insert({ t.item_name, &tool_presets[t.item_name] });
         }
     }
-    data = get_data("My Game CSVs - Food.csv");    //FIX THIS, STRUCT NOT YET IMPLEMENTED
+    data = get_data("My Game CSVs - Food.csv");
     {
-        for (int i = 0; i < data.size(); i++) {
-
+        for (int i = 8; i < data.size(); i++) {
+            Food f;
+            f.item_type = "food";
+            f.item_id = -1;
+            int r = -1;
+            f.item_name = data[i][++r];
+            f.image = data[i][++r];
+            f.crafting_process= data[i][++r];
+            f.source = data[i][++r];
+            for (int j = 0; j < 2; j++) {
+                if (data[i][r] == "") {
+                    ++r;
+                    continue;
+                }
+                f.ingredients.push_back(data[i][++r]);//current max is 2
+            }
+            f.calories = stoi(data[i][++r]);
+            f.crafting_quality = stoi(data[i][++r]);
+            f.taste_quality = stoi(data[i][++r]);
+            for (int j = 0; j < 2; j++) {
+                if (data[i][r] == "") {
+                    break;
+                }
+                f.tags.push_back(data[i][++r]);//current max is 2
+            }
+            food_presets.insert({ f.item_name,f });
+            //presets.insert({ f.item_name, &food_presets[f.item_name] });
         }
+    }
+    update_preset_list();
+}
+
+void ItemSys::update_preset_list() {
+    presets.clear();
+    for (auto& i : weapon_presets) {
+        presets[i.first] = &i.second;
+    }
+    for (auto& i : apparel_presets) {
+        presets[i.first] = &i.second;
+    }
+    for (auto& i : tool_presets) {
+        presets[i.first] = &i.second;
+    }
+    for (auto& i : container_presets) {
+        presets[i.first] = &i.second;
+    }
+    for (auto& i : material_presets) {
+        presets[i.first] = &i.second;
+    }
+    for (auto& i : structure_presets) {
+        presets[i.first] = &i.second;
+    }
+    for (auto& i : misc_presets) {
+        presets[i.first] = &i.second;
+    }
+    for (auto& i : food_presets) {
+        presets[i.first] = &i.second;
     }
 }
+
+
+

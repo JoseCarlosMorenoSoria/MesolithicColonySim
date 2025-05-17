@@ -42,10 +42,10 @@ Animal::Animal() {}
 Animal::Animal(int init) {
     fill_species_presets();
 
-    add_animal("deer",{25,25},true);
-    add_animal("deer", { 25,26 }, false);
-    add_animal("rabbit", { 35,25 }, true);
-    add_animal("rabbit", { 35,26 }, false);
+    //add_animal("deer",{25,25},true);
+    //add_animal("deer", { 25,26 }, false);
+    //add_animal("rabbit", { 35,25 }, true);
+    //add_animal("rabbit", { 35,26 }, false);
 
 }
 
@@ -117,7 +117,8 @@ void Animal::fill_species_presets() {
         calories when killed
         spec.components
         */
-        species.insert({ spec.species,spec });
+        //cout << spec.species;
+        species[spec.species]=spec;
     }
 }
 
@@ -166,12 +167,9 @@ bool Animal::check_death() {
     bool heat_death = c.my_temperature >= sp.HEAT_DEATH_TEMPERATURE;
     bool fatal_injury = c.injured_time == sp.INJURED_TIME_DEATH;
     bool fatal_sickness = c.sick_time == sp.SICK_TIME_DEATH;
-
-    bool death = !c.is_alive || starvation;// || dehydration || old_age || freeze_death || heat_death || fatal_injury || fatal_sickness;
+    bool death = !c.is_alive;// || starvation;// || dehydration || old_age || freeze_death || heat_death || fatal_injury || fatal_sickness;
     if (death) {
-        cout << "dead";
         c.is_alive = false;
-        c.current_image = c.species+"_dead.png";
         if (c.age < sp.MAX_INFANT_AGE) {
             c.current_image = c.species+"_infant_dead";
         }
@@ -812,6 +810,7 @@ bool Animal::sleeping() {
     c.awake = false;
     c.tired_level -= sp.SLEEP_REST_RATE; //every call to this function reduces tired by 11, this means need 5 hours/updates to stop sleeping and sleep every 50 hours/updates. Is -11 so as to do -10 per hour and also -1 to negate the +1 tired in the regular update function
     if (c.tired_level <= 0) {//fix this, need to cap at 0, also need cap for upper limit?
+        c.tired_level = 0;
         c.current_image = c.species;
         c.awake = true;
         return true;//done

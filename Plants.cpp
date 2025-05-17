@@ -14,7 +14,9 @@ Plants::Plants(int a) {
 
 
 	new_plant("wheat", { 10,5 });
-	new_plant("berry bushes", { 20,5 });
+	for (int i = 0; i < 30; i++) {
+		new_plant("berry bushes", { 20,5+i });
+	}
 	new_plant("medicinal plant", { 30,5 });
 	new_plant("cannabis plant", { 40,5 });
 	new_plant("poisonous plant", { 50,5 });
@@ -23,6 +25,11 @@ Plants::Plants(int a) {
 	}
 	new_plant("gourd", { 70,5 });
 	new_plant("tree", { 80,5 });
+}
+
+void Plants::delete_plant(Position pos) {
+	pln.erase(pln.begin() + get_by_id(envi2.tile(pos).plant_id));
+	envi2.tile(pos).plant_id = -1;//remove plant from map
 }
 
 void Plants::new_plant(string species, Position pos) {//need to make sure tile doesn't have plant before calling this function
@@ -44,6 +51,9 @@ void Plants::new_plant(string species, Position pos) {//need to make sure tile d
 	t.plant_id = np.plant_id;//tie to Map
 
 	np.current_image = np.species;
+
+	//temporary implementation for testing purposes, need to add properly to CSV
+	np.current_components = { "leaf", "stem", "root", "fruit", "seed" };
 
 	pln.push_back(np);
 }

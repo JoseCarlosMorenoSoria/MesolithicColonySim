@@ -99,7 +99,7 @@ public:
 		vector<int> combat_allies;//Person id's of people in current fight fighting on my side
 		bool friend_camp_check = false;//used for searching for new campsite, check near friend first but only once
 		//only humans have hygiene need for now
-		int dirtiness;//how dirty one is, increases over time or all at once under certain circumstances such as when walking in mud, etc.
+		int dirtiness=0;//how dirty one is, increases over time or all at once under certain circumstances such as when walking in mud, etc.
 		progress_state bathing = { 4 };
 		int time_waited = 0;//for angling
 		Position active_fish_hook_pos;
@@ -148,6 +148,7 @@ public:
 	//Some of these functions are human versions of Animal functions, others are unique to Humans
 	People();
 	People(int init);
+	void add_person(Position pos, bool sex);
 	void update_all(int day_count, int hour_count, int hours_in_day);
 	void update(int day_count, int hour_count, int hours_in_day);
 	void utility_function();
@@ -174,6 +175,10 @@ public:
 	bool rebel();//chance to remove submissive status towards someone
 
 	bool inventory_dump();//if inventory is full, go back to camp and dump items. Encourages use of storage items and inventory expansion items as well as creates a better, cluttered, lived in environment
+	bool campsite_eval();//determines if the current area is good enough for placing a campsite
+	string target_type_acquire(string target);//returns a string with the type of item that is to be acquired, helper function for acquire()
+	//bool category_acquire(string target);//acquire() helper to search categories or tags
+	bool request_item(string target);
 
 	//new funcs
 	bool extinguish_fire();

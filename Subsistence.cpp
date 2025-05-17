@@ -21,7 +21,7 @@ bool Animal::eating() {
             c.eating_food_index = food_indexes1[0];
         }
         if ((hungry && !has_food) /* || food_indexes1.size() < MIN_EXTRA_FOOD_IN_INVENTORY*/) {//ensures that person has 2 food items in inventory for self or to share
-            if (acquire("food")) {
+            if (peep1.acquire("food")) {
                 return true;//done
             }
             else {

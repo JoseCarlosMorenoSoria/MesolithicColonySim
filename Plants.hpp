@@ -15,6 +15,8 @@
 using namespace std;
 using namespace proj_util;
 //need to add decomposition of dead plants, same for animals and people
+//trees and certain plants should lose their leaves either seasonally or according to temperature. FLowering plants can even close their flowers at night.
+
 class Plants {//need to add plant functions and add them to find_all, acquire(), and add the plant components as Items
 public:
 	
@@ -80,6 +82,7 @@ public:
 	Plant& plant(int id);
 	Environment envi2;
 	string render_plant(Position pos);
+	void delete_plant(Position pos);
 };
 
 #endif

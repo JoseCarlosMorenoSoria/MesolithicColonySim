@@ -20,25 +20,21 @@ People::People(){}
 
 People::People(int init) {
     
+    add_person({ 50,25 }, true);
+    add_person({ 51,26 }, false);
+    
+}
+
+void People::add_person(Position pos, bool sex) {
     Person p1;
     p1.p_id = new_person_id();
-    p1.pos = { 50,25 };
-    p1.sex = true;
+    p1.pos = pos;
+    p1.sex = sex;
     p1.age = 11;
+    p1.species = "human";
+    p1.current_image = "human";
     pl.push_back(p1);
     envi.tile(p1.pos).person_id = p1.p_id;
-
-    
-    Person p2;
-    p2.p_id = new_person_id();
-    p2.pos = { 51,26 };
-    p2.sex = false;
-    p2.age = 11;
-    pl.push_back(p2);
-    envi.tile(p2.pos).person_id = p2.p_id;
-    
-   
-    
 }
 
 int ticks = 0;
@@ -177,7 +173,6 @@ void People::update(int day_count, int hour_count, int hours_in_day) {
 
 
     if (pl[p].clean_image) {
-        pl[p].current_image = "pics/human.png";
         pl[p].clean_image = false;
     }
 
@@ -250,33 +245,37 @@ void People::utility_function() {//is currently actually just a behavior tree no
         inventory_dump();
         return;
     }
-
-    if (pl[p].progress_states.find("utility preemption protector") == pl[p].progress_states.end()) {
-        pl[p].progress_states.insert({ "utility preemption protector",{15} });//protects a function for at most 5 ticks
-    }
-    
     chat();//chance to chat every update
     
-    if (pl[p].protected_func!=-1) {
-        if (pl[p].progress_states["utility preemption protector"].progress_func()) {//not sure if it actually helped
-            pl[p].protected_func = -1;//release
-        }
-    }
-    if (need_light() || pl[p].protected_func == 0) { pl[p].protected_func = 0; }
-    else if (child_birth() || pl[p].protected_func == 1) { pl[p].protected_func = 1; }//pregnancy advancement should be moved to update function, not child_birth()
-    else if (fight() || pl[p].protected_func == 2) { pl[p].protected_func = 2; }
-    else if (health() || pl[p].protected_func == 3) { pl[p].protected_func = 3; }
-    else if (exposure() || pl[p].protected_func == 4) { pl[p].protected_func == 4; }
-    else if (sleeping() || pl[p].protected_func == 5) { pl[p].protected_func = 5; }//need to move collapsing from sleep to update function instead of sleeping()
-    else if (drinking() || pl[p].protected_func == 6) { pl[p].protected_func = 6; }
-    else if (eating() || pl[p].protected_func == 7) { pl[p].protected_func = 7; }//if don't have food, searches for food. Therefore the structure of utility_function is focused on which needs to satsify first (sleep, hunger, campsite, reproduction, etc)
-    else if (search_for_new_campsite() || pl[p].protected_func == 8) { pl[p].protected_func = 8; }
+    /*
+    * To Do Now:
+    * Implement handling Food in eating(), crafting(), inventory_has(), and campsite_eval()
+    * test the relevant functions to ensure Food works
+    * Implement and test the seeking out and crafting of clothing if cold and equipping it, and removing it if hot
+    * Implement and test the seeking out and crafting of weapons for hunting
+    * Implement and test the seeking out and crafting of weapons for fighting and a better fighting system
+    * Implement the seeking out and crafting of medicine and bandages if needed and seeking bed rest
+    * Test the inventory dump and implement and test the seeking out, crafting and use of containers, will need to include a way to search containers as well
+    * implement and test darkness at night and acquisition and use of lighting tools such as candles
+    */
+
+
+
+    //if (need_light()) {  }//not done
+     //Done: else if (child_birth()) {  }//pregnancy advancement should be moved to update function, not child_birth()
+    //else if (fight()) {  }
+   // else if (health()) {  }
+    //else if (exposure()) {  }
+    //Done: else if (sleeping()) {}//need to move collapsing from sleep to update function instead of sleeping()
+    //Done: else if (drinking()) {  }
+    if (eating()) {  }//if don't have food, searches for food. Therefore the structure of utility_function is focused on which needs to satsify first (sleep, hunger, campsite, reproduction, etc)
+    //Done: else if (search_for_new_campsite()) { }//need to fix tent image
     //Commented out until carry infants is fixed due to changes in Renderer
-    else if (reproduce() || pl[p].protected_func == 9) { pl[p].protected_func =9; } //avoid execution of this function to focus on other features without worrying about population size
-    else if (answer_item_request() || pl[p].protected_func == 10) { pl[p].protected_func = 10; }
-    else if (hygiene() || pl[p].protected_func == 11) { pl[p].protected_func = 11; }
-    else if (recreation() || pl[p].protected_func == 12) { pl[p].protected_func = 12; }
-    else if (beauty() || pl[p].protected_func == 13) { pl[p].protected_func = 13; }
+     //Done: else if (reproduce()) {} //avoid execution of this function to focus on other features without worrying about population size
+    //else if (answer_item_request()) {  }
+    //Done - fix bathing image: else if (hygiene()) {}
+    //else if (recreation()) {  }
+    //else if (beauty()) {  }
     else {idle(); }
     //DO THIS: (this (authority pursuit AI) might be too complex for this version, maybe organic leaders is better and add behavior that makes it likelier for some npcs to get to victory condition?) need to add authority as a need/goal to be pursued. Which means starting and winning fights with new people to increase number of submissives, and gaining favor with more people and increasing favor with existing friends/allies
 }
@@ -538,175 +537,140 @@ bool People::answer_item_request() {
 
 
 //FIX THIS      //need to cache items being actively sought somehow
-bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny/craftable/person/information/permission
-//First, determine the type of target to be acquired
-    string target_type;
-    string source_type;
-    //if item can be picked up: target_type = "pickup"
-    //else if item can be carried = "carry"
-    //else if item is a source = "source" / "adjacency"     (terrain/plant/animal)
-    //else if item is a station = "station" / "adjacency"   (campfire)
-    //else if item is a building = "building"
-        
-    //check if target is an item name or item tag
-    set<string> item_categories = { "weapon","apparel","container","material" };//structure is handled differently, tool and misc not included, food needs to be included
-    ItemSys::Item it = *it2.presets[target];
-    if (it.item_name!="") {//target is an item name
-        if (it.item_type=="structure") {
-            target_type = "building";
-        }
-        else if (!it.can_pick_up) {
-            target_type = "carry";
-        }
-        else {
-            target_type = "pickup";
+bool People::acquire(string target) {//target_type: need to add person/information/permission
+    string target_type = target_type_acquire(target);
+
+    //is category/tag   tag not yet added
+    if (target_type == "category - plant") {
+        for (auto i : plant_ac.species_presets) {
+            if (acquire(i.first)) { return true; }
+            else { return false; }
         }
     }
-    else if (species.find(target) != species.end()) {//target is an animal name
-        if (hunting(target)) {//call hunting function
-            return true;//done
+    else if (target_type == "category - animal") {
+        for (auto i : species) {
+            if (acquire(i.first)) { return true; }
+            else { return false; }
         }
-        return false;//in progress
     }
-    else if (Plants::species_presets.find(target) != Plants::species_presets.end()) {//target is a plant name
-        target_type = "source";
-        source_type = "plant";
-    }
-    /*
-    else if (it2.tags.find(target) != it2.tags.end()) {//target is tag name
-        for (string item_name : it2.tags[target]) {//for every item with this tag, attempt to acquire item, if one is acquired then tag is acquired therefore return true
-            if (acquire(item_name)) {
-                return true;//done
-            }
+    else if (target_type == "category - item") {//inefficient but cleaner code, need to fix with an alternative
+        for (auto i : it2.presets) {
+            if (i.second->item_type==target && acquire(i.first)) { return true; }
+            else { return false; }
         }
-        return false;//in progress
-    }
-    */
-    else if (item_categories.find(target) != item_categories.end()) {//target general item category name
-        if (target == "weapon") {
-            for (auto w : it2.weapon_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
-                if (acquire(w.first)) {
-                    return true;//done
-                }
-            }
-            return false;//in progress
-        }
-        else if (target == "apparel") {
-            for (auto w : it2.apparel_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
-                if (acquire(w.first)) {
-                    return true;//done
-                }
-            }
-            return false;//in progress
-        }
-        else if (target == "container") {
-            for (auto w : it2.container_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
-                if (acquire(w.first)) {
-                    return true;//done
-                }
-            }
-            return false;//in progress
-        }
-        else if (target == "material") {
-            for (auto w : it2.material_presets) {//for every item in this category, attempt to acquire item, if one is acquired then category is acquired therefore return true
-                if (acquire(w.first)) {
-                    return true;//done
-                }
-            }
-            return false;//in progress
-        }
-        
-    }
-    else if (target == "animal") {
-        for (auto w : species) {//for every item with this tag, attempt to acquire item, if one is acquired then tag is acquired therefore return true
-            if (acquire(w.first)) {
-                return true;//done
-            }
-        }
-        return false;//in progress
-    }
-    else if (target == "plant") {
-        for (auto w : Plants::species_presets) {//for every item with this tag, attempt to acquire item, if one is acquired then tag is acquired therefore return true
-            if (acquire(w.first)) {
-                return true;//done
-            }
-        }
-        return false;//in progress
-    }
-    else if (Environment::terrains.find(target) != Environment::terrains.end()) {//target is a terrain type
-        target_type = "source";
-        source_type = "terrain";
-    }
-    else {
-        throw invalid_argument{"target is invalid"};
-        return false;
     }
 
-//Second, determine if already have the target or if it is nearby
-    
-    if (target_type == "pickup") {//an item that can be picked up and placed in one's inventory
-        if (!inventory_has(target).empty()) {//this only applies to items that can be picked up, not those that can only be carried or cannot be moved.
+
+    //is non item
+    else if(target_type=="is animal"){//Right now only hunts - Need option to hunt/capture/extract(wool/hair/mare's blood/horn/milk/feathers)
+        if (hunting(target)) { return true; }
+        else { return false; }
+    }
+    else if (target_type == "is plant") {//Right now only harvests all - Need option to harvest specific(ex: only fruit)/cut/replant
+        if (pl[p].search_results.count(target)) {//returns 1 (true) if key is found. FIX THIS: change all checks for if key exists to .count(key) instead of .find()
+            Position pos = pl[p].search_results[target][0];
+            if (Position::distance(pl[p].pos, pos) == 1 || move_to(pos, "to found item " + target)) {
+                //NEED TO ADD: if tree, if have axe, chop tree animation
+                Plants::Plant& plant = plant_ac.plant(envi.tile(pos).plant_id);
+                for (string c : plant.current_components) {//for now, just converts plant into its components and stores components in inventory
+                    create_item(c, { -1,-1 });//create component items from plant and insert into inventory
+                }
+                plant_ac.delete_plant(pos);
+                return true;//target acquired
+            }
+            return false;//if still moving towards plant, continue to next tick
+        }
+    }
+    else if (target_type == "is terrain") {//need option to extract from terrain/?/?
+        if (pl[p].search_results.count(target)) {
+            Position pos = pl[p].search_results[target][0];
+            if (Position::distance(pl[p].pos, pos) == 1 || move_to(pos, "to found item " + target)) {
+                //FIX THIS: need to implement. do something
+                return true;//target acquired
+            }
+            return false;//if still moving to target
+        }
+    }
+
+
+    //is item
+    else if(target_type=="is item - has source"){//for now, all these can be picked up
+        if (!inventory_has(target).empty()) {//have item already
             return true;
         }
-    }
-
-    //if item has prereqs for acquiring, such as if item is a source (tree) and requires an axe to obtain, then fulfill prereq first (acquire(axe)) before continuing. Same for animals/plants, acquire spear/sickle
-
-    //look around self for item
-    //if found, move to item (or adjacent according to target_type) (or hunting action if living animal)
-
-    if (pl[p].search_results.find(target) != pl[p].search_results.end()) {//key found, if key exists then at least 1 was found
-        Position pos = pl[p].search_results[target][0];
-        int item_id = envi.tile(pos).item_id;
-        if (Position::distance(pl[p].pos, pos)==1 || move_to(pos, "to found item " + target)) {//if item is found, move to it and pick it up
-            if (target_type == "pickup" && move_to(pos, "to found item " + target)) {
+        if (pl[p].search_results.count(target)) {
+            Position pos = pl[p].search_results[target][0];
+            if (Position::distance(pl[p].pos, pos) == 1 || move_to(pos, "to found item " + target)) {
+                int item_id = envi.tile(pos).item_id;
                 pick_up_item(item_id, pos);
                 return true;//target acquired
             }
-            else {
-                return false;//still moving to dest
-            }
-            
-            if (target_type == "carry") {
-                //carry function
+            return false;//if still moving to target
+        }
+        if (request_item(target)) {//if not found, request from anyone nearby
+            return false;//moving to answerer or waiting to recieve item
+        }
+        //if item not found, attempt to acquire from its source
+        if (acquire(it2.presets[target]->source)) { return true; }
+    }
+    else if (target_type == "is item - pickup") {//an item that can be picked up and placed in one's inventory
+        if (!inventory_has(target).empty()) {//this only applies to items that can be picked up, not those that can only be carried or cannot be moved.
+            return true;
+        }
+        if (pl[p].search_results.count(target)) {
+            Position pos = pl[p].search_results[target][0];
+            if (Position::distance(pl[p].pos, pos) == 1 || move_to(pos, "to found item " + target)) {
+                int item_id = envi.tile(pos).item_id;
+                pick_up_item(item_id, pos);
                 return true;//target acquired
             }
-            else if(target_type=="source") {
-                adjacency_acquire_handler(target, source_type, pos);//extract/deconstruct
-                return true;//target acquired
-            }
-            else if (target_type == "building") {
-                //enter building function (find entrance and walk inside)???
-                return true;//target acquired
+            return false;//if still moving to target
+        }
+        if (request_item(target)) {//if not found, request from anyone nearby
+            return false;//moving to answerer or waiting to recieve item
+        }
+        if (!it2.presets[target]->ingredients.empty()) {//if has ingredients, then is craftable, attempt to craft
+            if (craft(target)) {
+                return true;//crafting item was successful
             }
         }
-        return false;//if still moving towards item, continue to next tick
+    }
+    else if (target_type == "is item - no pickup") {//This needs to both be finished and broken into structures (which can be built), certain containers, and large/heavy/fixed items
+        if (pl[p].search_results.count(target)) {
+            Position pos = pl[p].search_results[target][0];
+            if (Position::distance(pl[p].pos, pos) == 1 || move_to(pos, "to found item " + target)) {
+                int item_id = envi.tile(pos).item_id;
+                //FIX THIS: need to implement, do something
+                return true;//target acquired
+            }
+            return false;//if still moving to target
+        }
+        if (!it2.presets[target]->ingredients.empty()) {//if has ingredients, then is craftable
+            if (craft(target)) {
+                return true;//crafting item was successful
+            }
+        }
+    }
+    else {
+        throw invalid_argument("target ("+target+") is invalid");
+        return false;
     }
 
-    //if not found in immediate vicinity, then according to target_type:
-
+    //FIX THESE:
+    //if item has prereqs for acquiring, such as if item is a source (tree) and requires an axe to obtain, then fulfill prereq first (acquire(axe)) before continuing. Same for animals/plants, acquire spear/sickle
+    //enter building function (find entrance and walk inside)???
     //hunting and well/tuber digging have special actions if the target isn't found (tracking,setting traps,digging) so need to execute those if target not found
-
-
-    //if item is craftable, craft it but if in the process of crafting, the item is found, abort crafting the item
-    if (it.ingredients.empty()) {//if has ingredients, then is craftable
-        if (craft(target)) {
-            return true;//crafting item was successful
-        }
-    }
-
     //if item is buildable, build it
+    //what about stations like campfires for cooking?
 
-    //else if item has a source (wood comes from trees, rock comes from stone terrain, water is from water terrain, bones from animals, etc
-    //then acquire source
-    if (it.item_type == "material") {
-        ItemSys::Material m = it2.material_presets[it.item_name];
-        acquire(m.source);
-    }
+    //if all fails, move in search pattern. Search pattern is shared, to reduce erratic movement from various instances of search patterns
+    pl[p].general_search_called = true;
+    return false;//searching
+}
 
+bool People::request_item(string target) {
     //if item not found, and people nearby, request item
     if (pl[p].search_results.find("people") != pl[p].search_results.end()) {
-
         bool request_answered = false;
         int answerer_id = -1;
         if (!pl[p].found_messages.empty()) {
@@ -723,20 +687,50 @@ bool People::acquire(string target) {//target_type: animal/plant/pickup/adjaceny
         if (request_answered) {//Due to sequence ordering issues of NPC updates, need to remember message for a bit to avoid missing messages from NPCs that update after self.
             Position pos = person(answerer_id).pos;
             if (Position::distance(pos, pl[p].pos) == 1 || move_to(pos, "recieving item")) {//move to adjacent to answerer
-                return false;//wait for answerer to place item in one's inventory (acquire() won't be called next update if was given requested item)
-            }
-            else {
-                return false;//moving toward answerer, in progress
-            }
+                return true;//wait for answerer to place item in one's inventory (acquire() won't be called next update if was given requested item)
+            }//or moving toward answerer, in progress, returns true in both cases
         }
         else {//broadcast request for item
             speak("requesting " + target, -1);
         }
     }
-    //if all fails, move in search pattern. Search pattern is shared, to reduce erratic movement from various instances of search patterns
     pl[p].general_search_called = true;
-    return false;//searching
+    return false;//no people found nearby or no one answering
 }
+
+string People::target_type_acquire(string target) {//acquire() helper
+    string target_type;//target is:
+    //a category/tag - therefore must attempt to acquire all items matching category/tag
+    //a source (plant/terrain/animal) - go adjacent to source and call adjaceny_handler to extract items from the source (for plants need option to extract whole to replant or weed, for animal need option to capture without killing or to carry home dead without processing)
+    //an item name - attempt to acquire item normally
+        //- if item has a source (leaf from plant) and item is not found nearby, attempt to acquire source
+        //- an item that cannot be picked up or a structure - go to it and call adjaceny_handler for now for special action
+
+//category/tag check    need to add tags/tag check
+    set<string> categories = { "material", "food", "misc", "tool", "weapon", "apparel", "structure", "container", "plant", "animal" };
+    if (categories.find(target) != categories.end()) {
+        if (target == "plant") { return "category - plant"; }
+        if (target == "animal") { return "category - animal"; }
+        return "category - item";
+    }
+
+    //source check
+    if (species.find(target) != species.end()) { return "is animal"; }//is an animal
+    if (plant_ac.species_presets.find(target) != plant_ac.species_presets.end()) { return "is plant"; }//is a plant
+    if (envi.terrains.find(target) != envi.terrains.end()) { return "is terrain"; }//is a terrain
+
+    //item check
+    if (it2.presets.find(target) != it2.presets.end()) {
+        ItemSys::Item it = *it2.presets[target];
+        if (it.source != "") { return "is item - has source"; }
+        if (it.can_pick_up) { return "is item - pickup"; }
+        return "is item - no pickup";
+    }
+}
+
+
+
+
 
 //continue improving this
 bool People::health() {
@@ -871,8 +865,8 @@ bool People::hygiene() {
     if (pl[p].dirtiness < HYGIENE_TRIGGER) {
         return false;
     }
-    if (pl[p].search_results.find("water") != pl[p].search_results.end()) {//go to water source
-        if (move_to(pl[p].search_results["water"][0], "to water")) {//run bathing animation
+    if (pl[p].search_results.find("freshwater") != pl[p].search_results.end()) {//go to water source
+        if (move_to(pl[p].search_results["freshwater"][0], "to water")) {//run bathing animation
             pl[p].current_image = "bathing";
             if (pl[p].bathing.progress_func()) {
                 pl[p].dirtiness = 0;
@@ -952,15 +946,7 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
     }
     //if have infants, carry them
     pickup_infants();
-
-    vector<Position> food_pos_list = filter_search_results("food"); //gets results, assigns 1 result to food_pos
-    Position food_pos = { -1,-1 };
-    bool found_food = false;
-    if (!food_pos_list.empty()) {
-        food_pos = food_pos_list[0];
-        found_food = true;
-    }
-
+    
     if (pl[p].friend_camp_check) {//encourages campsite congregation between people who like each other (forgot to check if other person likes self, fix this)
         for (auto const& i : pl[p].dispositions) {
             if (i.second > LOVED_THRESHOLD) {
@@ -976,7 +962,7 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
         }
     }
 
-    if (food_pos_list.size() >= 4) {//if there are 4 food items within sight, select area for campsite, else keep searching
+    if (campsite_eval()) {//if current area meets criteria for setting up camp, place camp
         pl[p].campsite_age = 0; //resets campsite age
         //place tent
         vector<Position> pos_list = pl[p].search_results["no item"];
@@ -997,12 +983,20 @@ bool People::search_for_new_campsite(){ //need to bias search direction in the d
         }
         return true;//done
     }
-    else if (!food_pos_list.empty()) {
-        //need to add a method of investigating if any food found might have more food just out of current sightline, but this probably will require more complex modifiable pathfinding, as in have it be a detour from the current destination rather than a change in destination.
-    }
 
     pl[p].general_search_called = true;
     return true;//in progress
+}
+
+bool People::campsite_eval() {//FIX THIS: need to check for all possible food sources including plants, items, animals, etc
+    vector<Position> food_pos_list = pl[p].search_results["berry bushes"]; //gets results   temporary implementation
+    if (food_pos_list.size() >= 4){
+        return true;
+    }
+    else if (!food_pos_list.empty()) {
+        //need to add a method of investigating if any food found might have more food just out of current sightline, but this probably will require more complex modifiable pathfinding, as in have it be a detour from the current destination rather than a change in destination.
+    }
+    return false;
 }
 
 //NOTE: for implementing cooperation, conduct through speak() requests and answers. Person 1 proposes joint action, Person 2 decides whether to agree or not. If a 3rd person or more are involved, then need to set a meeting location and time to conduct the proposition -> up/down vote and an option to continue action with those who said yes only. Later add option to be able to coerce those who said no into complying.
@@ -1220,21 +1214,13 @@ bool People::drop() {
 }
 
 Plants plant_ac;
+//planned to remove this function, maybe replace with smaller specific case functions
 //also serves mining stone, obtaining water and milking cows, picking berries off bushes instead of consuming whole bush
 bool People::adjacency_acquire_handler(string target, string type, Position pos) {//for cutting down trees, mining rock, digging out dirt, collecting water, etc
     //accept target from acquire()
     //acquire should only call this func if person is next to target source
 
-    //if tree, if have axe, chop tree animation
-    if (type == "plant") {//for now, just converts plant into its components and stores components in inventory
-        Plants::Plant& plant = plant_ac.pln[plant_ac.get_by_id(envi.tile(pos).plant_id)];//need to simplify all these methods of accessing an object, maybe by overloading or using a wrapper?
-        for (string c : plant.current_components) {
-            create_item(c, { -1,-1 });//create component items from plant and insert into inventory
-        }
-        plant_ac.pln.erase(plant_ac.pln.begin() + plant_ac.get_by_id(envi.tile(pos).plant_id));
-        envi.tile(pos).plant_id = -1;//remove plant from map
-        return true;//done
-    }
+    
     //if stone, if have pickaxe, mining animation
     if (type == "terrain") {
         create_item(target, { -1,-1 });//create item of the same name as terrain and insert in inventory

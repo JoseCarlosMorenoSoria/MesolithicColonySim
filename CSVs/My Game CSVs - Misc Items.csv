@@ -16,7 +16,7 @@ Weapon,,,,,,,FALSE,TRUE
 ClothingArmor,,,,,,,FALSE,TRUE
 Tool,,,,,,,FALSE,TRUE
 Storage Item,,,,,,,FALSE,TRUE
-Structure,,,,,,,FALSE,FALSE
+Structure,,"From ""leaf"" to ""seed"", these are temp implementation, need to implement actual Food struct",,,,,FALSE,FALSE
 ,,,,,,,,
 Item Name,Image,Tags,,Ingredients,,,Consumable Ingredient,Can Pick Up
 grass cordage,grass cordage,cordage,,grass,,,TRUE,TRUE
