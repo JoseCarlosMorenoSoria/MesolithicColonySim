@@ -183,13 +183,13 @@ void Animal::check_tile_messages(Position pos) {//might also serve as a generic 
                     break;
                 }
             }
-            if (!repeated_message && message_list[message_by_id(m_id)].sender_id != ((c.species=="human")?People::pl[People::p].p_id : c.a_id)) {
+            if (!repeated_message && message_list[message_by_id(m_id)].species == c.species && message_list[message_by_id(m_id)].sender_id != ((c.species=="human")?People::pl[People::p].p_id : c.a_id)) {
                 c.found_messages.push_back(m_id);
             }
         }
-        else if (message_list[message_by_id(m_id)].sender_id != ((c.species == "human") ? People::pl[People::p].p_id : c.a_id)) {
+        else if (message_list[message_by_id(m_id)].species==c.species && message_list[message_by_id(m_id)].sender_id != ((c.species == "human") ? People::pl[People::p].p_id : c.a_id)) {
             c.found_messages.push_back(m_id);
-        }
+        }//only handle messages from the same species for now
     }
 }
 

@@ -455,11 +455,11 @@ void Animal::speak(string message_text, int receiver_id) {//if receiver_id == -1
     //current valid messages include: need to list valid messages here
     //the outward ring method might make more sense in this function to allow certain objects such as walls to block sound, might implement later but not currently
     Message m = { new_message_id(), (c.species=="human")?People::pl[People::p].p_id:c.a_id, c.species, receiver_id, message_text, c.pos};//creates message
+    message_list.push_back(m);
     for (int y = c.pos.y - c.audioline_radius; y < c.pos.y + c.audioline_radius; y++) {//creates copies of message for each map position it reaches then adds to global message list
         for (int x = c.pos.x - c.audioline_radius; x < c.pos.x + c.audioline_radius; x++) {
             if (Position::valid_position({ x,y })) {
                 Message_Map[y][x].push_back(m.message_id);
-                message_list.push_back(m);
             }
         }
     }

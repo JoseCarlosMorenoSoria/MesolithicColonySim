@@ -606,6 +606,8 @@ void Game::render_menus(){
 			textManager("Menu 6: ", 24, x * sqdim, y * sqdim);
 		}
 	}
+	destR.h = sqdim;
+	destR.w = sqdim;
 }
 
 

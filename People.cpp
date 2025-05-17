@@ -18,13 +18,25 @@ vector<int> People::people_in_stealth;//unsure if need a separate people and ani
 //add components to deer and ensure all items are actually craftable and sought out.
 //improve combat and implement above pseudo code actions
 
+//each person should not be allowed to make more than one speak action per update, otherwise there are excessive item requests in global message list
+//one solution is to queue messages to send out and when creating a message, first check that a copy doesn't already exist in the queue.
+
+//currently, game is slow with 30 people plus plants and 2 animals. So current development must remain low population until game is good enough to move on to are be forced into optimization phase
 
 People::People(){}
 
 People::People(int init) {
     
-    add_person({ 50,25 }, true);
-    add_person({ 51,26 }, false);
+
+    for (int i = 0; i < 6; i++) {
+        int x, y;
+        do {
+            x = rand() % envi.map_x_max;
+            y = rand() % envi.map_y_max;
+        } while (envi.tile({x,y}).person_id!=-1);
+        if (i % 2 == 0) { add_person({ x,y }, true); }
+        else{ add_person({ x,y }, false); }
+    }
     
 }
 
@@ -250,6 +262,11 @@ void People::utility_function() {//is currently actually just a behavior tree no
     }
     chat();//chance to chat every update
     
+    if (pl[p].currently_following != -1) {
+        string state = person(pl[p].currently_following).current_state;
+        //need to add handling for following someone for weak cooperation, doing the action they are doing but only the one intended when first invited, and add a condition for when to stop following
+    }
+
     /*
     * To Do Now:
     * Implement and test the seeking out and crafting of clothing if cold and equipping it, and removing it if hot
@@ -264,7 +281,7 @@ void People::utility_function() {//is currently actually just a behavior tree no
 
     if (need_light()) {  }//not done
     else if (child_birth()) {  }//pregnancy advancement should be moved to update function, not child_birth()
-    //else if (fight()) {  }
+    else if (fight()) {  }
    // else if (health()) {  }
     //else if (exposure()) {  }
     else if (sleeping()) {}//need to move collapsing from sleep to update function instead of sleeping()
@@ -273,7 +290,7 @@ void People::utility_function() {//is currently actually just a behavior tree no
     else if (search_for_new_campsite()) { }
     //Commented out until carry infants is fixed due to changes in Renderer
     else if (reproduce()) {} //avoid execution of this function to focus on other features without worrying about population size
-    //else if (answer_item_request()) {  }
+    else if (answer_item_request()) {  }
     else if (hygiene()) {}
     //else if (recreation()) {  }
     //else if (beauty()) {  }
@@ -731,7 +748,111 @@ string People::target_type_acquire(string target) {//acquire() helper
 }
 
 
+bool People::weak_cooperation(string caller, string action) {//this is less cooperation and more just congregating behavior
+    //at the top of each action trigger (eating, drinking, etc):
+    int option=-1;
+    if (pl[p].progress_states["weak cooperation - " + caller].progress != 0) { option = rand() % 3; }//3 options currently
+    pl[p].progress_states["weak cooperation - "+caller].progress_done = 10;
+    if (pl[p].progress_states["weak cooperation - " + caller].progress_func()) { pl[p].weak_coop_opt = -1; return true; }//time's up      //need to add a method to handle this being interrupted or else it won't start from 0 after being interrupted
 
+    if (option == 0 || pl[p].weak_coop_opt==0) {
+        pl[p].weak_coop_opt == 0;
+        //check for nearby people and if they aren’t moving
+        bool stationary = false;
+        int index = -1;
+        for (int i = 0; i < pl[p].search_results["people"].size(); i++) {//inherently checks if people nearby
+            if (!person(envi.tile(pl[p].search_results["people"][i]).person_id).mov) {//temp implementation, need better check for the curren state of another person
+                stationary = true;
+                index = i;
+                break;
+            }
+        }
+        if (!stationary) {
+            pl[p].general_search_called = true;
+            return false;//in progress
+        }
+        //decide whether to perform action if they’re found or time limit is up, else search for people (not disliked people)
+        if (Position::distance(pl[p].pos, pl[p].search_results["people"][index])==3 || move_to(pl[p].search_results["people"][index], "wkcoop_opt0")) {
+            pl[p].weak_coop_opt = -1;
+            return true;//start action
+        }
+    }//move near other people before performing action, regardless of what action they are doing, prefer people who aren’t moving
+
+    if (option == 1 || pl[p].weak_coop_opt == 1) {
+        pl[p].weak_coop_opt == 1;
+        //check if any are doing this action
+        bool action_match = false;
+        int index = -1;
+        for (int i = 0; i < pl[p].search_results["people"].size(); i++) {//inherently checks if people nearby
+            if (person(envi.tile(pl[p].search_results["people"][i]).person_id).current_state==action) {//temp implementation, need better check for the curren state of another person
+                action_match = true;
+                index = i;
+                break;
+            }
+        }
+        if (!action_match) {
+            pl[p].general_search_called = true;
+            return false;//in progress
+        }
+        //check if disposition towards them is neutral/positive
+            //need to implement this check
+        //if found, move to within chatting distance of them to perform action      //need to set chatting distance, currently just uses 3 tiles away
+        if (Position::distance(pl[p].pos, pl[p].search_results["people"][index])==3 || move_to(pl[p].search_results["people"][index], "wkcoop_opt1")) {
+            pl[p].weak_coop_opt = -1;
+            return true;//start action
+        }//once reached execute action normally
+    }//if this action is triggered, search for others doing this action and go near them to do this action, if they’re not found in x amount of time do it alone //later should add chance of asking to join them and of being rejected or shooed away
+
+    if (option == 2 || pl[p].weak_coop_opt == 2) {
+        pl[p].weak_coop_opt == 2;
+        if (pl[p].invite_list.empty()) {
+            //get all people one likes
+            vector<int> liked;
+            for (auto i : pl[p].dispositions) {
+                if (i.second > 0) {
+                    liked.push_back(i.first);
+                }
+            }
+            if (liked.empty()) {
+                pl[p].weak_coop_opt = -1;
+                return true;//don't like anyone, do action alone
+            }
+            //select a random number of them to invite
+            int n = rand() % liked.size() + 1;//at least 1
+            //select random group of these people to invite, weighted in favor of highly liked people
+            vector<int> invited;
+            for (int i = 0; i < n; i++) {//need to add a method of weighing in favor of those with higher disp
+                int c = rand() % liked.size();
+                invited.push_back(liked[c]);
+                liked.erase(liked.begin() + c);
+            }
+            pl[p].invite_list = invited;
+        }
+        //find these people, invite them, random chance of yes or no according to disposition and relevant need level, do this all within a time limit such that if not all are found in time do action with whoever already accepted
+        for (Position pos : pl[p].search_results["people"]) {
+            for (int j = pl[p].invite_list.size(); j>-1; j--) {
+                if (envi.tile(pos).person_id== pl[p].invite_list[j]) {
+                    //currently just a random chance of joining, need to fix to be based on actual factors like disposition, current closeness to need trigger, etc
+                    int r = rand() % 2;
+                    if (r == 0) {//50/50 chance of joining for now
+                        person(envi.tile(pos).person_id).currently_following = pl[p].p_id;
+                        pl[p].current_followers.push_back(envi.tile(pos).person_id);
+                        pl[p].invite_list.erase(pl[p].invite_list.begin() + j);
+                    }
+                }
+            }
+        }
+        if (pl[p].invite_list.empty()) {
+            pl[p].weak_coop_opt = -1;
+            return true;//done inviting
+        }
+        pl[p].general_search_called = true;
+        return false;//in progress
+        //everyone in group does action and keeps within maximum distance from the host person (the one who took initiative)
+        //later need to figure out a way to tally up authority increase according to number of times one took initiative, the number of people who joined action, the total distinct number of people over time, and the success/failure of the action
+    }//invite other people to do action with self
+
+}
 
 
 //continue improving this

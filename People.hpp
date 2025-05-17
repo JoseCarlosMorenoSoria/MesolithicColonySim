@@ -117,6 +117,13 @@ public:
 		int amount_liked = 0;
 		int num_submissives = 0;
 		bool dumping_not_done = false;
+		int weak_coop_opt = -1;
+		string current_state;//current action being done
+		int currently_following = -1;//person id, for following someone after accepting invitation to perform some group action
+		vector<int> current_followers;//person id's, for those following to perform some group action
+		vector<int> invite_list;
+
+		vector<string> current_plan;//sequence of actions to execute
 	};
 
 
@@ -197,6 +204,7 @@ public:
 	//add to this: (converting tree into wood, producing mineral item from mineral vein without deleting the latter (but depleting), using stations, carving/decorating/vandalizing an item, etc) 
 	bool adjacency_acquire_handler(string target, string type, Position pos);//for cutting down trees, mining rock, digging out dirt, collecting water, etc
 	bool coerce();//variation on request()
+	bool weak_cooperation(string caller, string action);
 	//=====================================================================================================================
 		//Animation.cpp Functions:
 
